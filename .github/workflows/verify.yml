@@ -1,0 +1,15 @@
+name: verify
+on: [push, pull_request]
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the two-sided suite (stdlib only)
+        run: python3 verify.py
+      - name: Regeneration is byte-identical
+        run: |
+          before=$(cat vectors/*.json MANIFEST.json | sha256sum)
+          python3 tools/gen_vectors.py
+          after=$(cat vectors/*.json MANIFEST.json | sha256sum)
+          test "$before" = "$after"
