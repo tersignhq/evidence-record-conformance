@@ -1,6 +1,6 @@
 // Cross-implementation measurement: recompute the suite's pinned digests with the
 // TypeScript stack (viem) and compare byte-for-byte against the Python verifier.
-// Run from any directory with viem installed:  node tools/cross_check_ts.mjs
+// Run:  npm i viem  (in the repo root), then  node tools/cross_check_ts.mjs
 import { keccak256, concatHex, numberToHex, stringToHex } from "viem";
 
 const pins = [

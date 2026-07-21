@@ -2,9 +2,10 @@
   "suite": "evidence-record-conformance",
   "version": "0.1.0",
   "layer": "evidence-record",
-  "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics",
+  "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); duplicate object names rejected",
   "content_address": "keccak256(utf8(canonical(payload)))",
-  "chain_link": "keccak256(artifact_digest || prev_digest_or_32_zero_bytes || seq_uint64_be)",
+  "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) \u2014 wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null",
+  "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present",
   "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
   "vectors": [
     {
@@ -35,6 +36,16 @@
     {
       "file": "p6-chain-set-complete.json",
       "kind": "chain_set",
+      "expect": "valid"
+    },
+    {
+      "file": "p7-phase-consistent.json",
+      "kind": "phase_claim",
+      "expect": "valid"
+    },
+    {
+      "file": "p8-non-party-attestation.json",
+      "kind": "independence_claim",
       "expect": "valid"
     },
     {

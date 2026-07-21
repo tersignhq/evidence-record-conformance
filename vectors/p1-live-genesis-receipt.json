@@ -2,7 +2,7 @@
   "id": "p1-live-genesis-receipt",
   "kind": "digest_recompute",
   "expect": "valid",
-  "description": "Live production record: the tersign ledger genesis receipt. The keccak256 content address recomputes from the committed canonical bytes.",
+  "description": "Live ledger record: the tersign ledger's genesis (demo) receipt. The keccak256 content address recomputes from the committed canonical bytes, and the same bytes are served by the ledger's public genesis endpoint. The payload's embedded resourceUrl is the historical demo resource the genesis record was issued against (on the ledger's legacy workers.dev alias, which still serves as an origin) \u2014 the record's validity derives from digest, counter-signature and anchor, never from URL liveness.",
   "input": {
     "payload": {
       "format": "eip712",
@@ -20,6 +20,7 @@
   },
   "provenance": {
     "ledger": "https://tersign.ai",
+    "record": "curl https://tersign.ai/v1/genesis",
     "verify": "curl https://tersign.ai/v1/receipts/0xe5874f1ffe87f0a6dd9eb157730f67b86ee4538b125fe30fcc4e165213dd3fc4/verify",
     "countersignature": "0xfccc1add7301c688e03311ff04b9aecac4f0d81a468fc95128b24aa0c8aff2bf3b148181befffc6dbe739b1991d936cd434a2fa2bcb8ea1f49a06b8f7a3fff1d1c",
     "ledger_signer": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
