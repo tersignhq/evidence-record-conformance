@@ -1,5 +1,7 @@
 # evidence-record-conformance
 
+[![verify](https://github.com/tersignhq/evidence-record-conformance/actions/workflows/verify.yml/badge.svg)](https://github.com/tersignhq/evidence-record-conformance/actions/workflows/verify.yml)
+
 Conformance vectors for the **evidence-record layer** of agent commerce — the layer whose
 properties must survive the record being held by an interested party.
 
