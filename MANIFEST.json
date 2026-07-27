@@ -49,6 +49,11 @@
       "expect": "valid"
     },
     {
+      "file": "p9-no-independence-claim.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
       "file": "n1-value-drift.json",
       "kind": "digest_recompute",
       "expect": "reject",
@@ -86,6 +91,12 @@
     },
     {
       "file": "n7-issuer-only-independence.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
+      "file": "n8-unrecognized-independence-claim.json",
       "kind": "independence_claim",
       "expect": "reject",
       "reason": "independence_reject"

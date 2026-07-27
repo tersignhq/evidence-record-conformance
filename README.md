@@ -45,7 +45,7 @@ the verifier discriminates, not merely accepts.
 | per-seller set continuity + completeness | p6 | n4 **silently omitted record** | `completeness_reject` |
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery | `phase_reject` |
-| independence criterion | p8 | n7 issuer-only attestation | `independence_reject` |
+| independence criterion | p8, p9 (no claim) | n7 issuer-only attestation, n8 **unrecognized claim** | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -57,6 +57,12 @@ Two design rules, both enforced by the run itself:
 2. **Every criterion is two-sided** — each class has an accepting twin, so an implementation
    that unconditionally rejects a class fails the suite just as one that unconditionally
    accepts it does (p7/p8 exist for exactly this).
+
+A third rule, added after this suite failed it: **a criterion's trigger must fail closed.**
+An exact-equality trigger (`if claimed != "independent": valid`) reads any unfamiliar claim
+string — including a *stronger* one — as no claim at all, switching the check off precisely
+where more was asserted. Silence is a valid state (p9); an assertion the verifier cannot
+interpret is not (n8). Reported against this suite by [@Rul1an](https://github.com/tersignhq/evidence-record-conformance/issues/1).
 
 ## Live provenance — two vectors are records from the live ledger
 

@@ -105,6 +105,11 @@ def check_chain_link(inp):
 
 GENESIS_PREV_FORMS = {None, GENESIS_PREV}
 
+# Claim strings that assert nothing about independence. A record is free to stay
+# silent; what it may not do is assert something this verifier cannot evaluate and
+# have that pass (see check_independence_claim).
+NO_CLAIM = frozenset({"", "none", "issuer_attested"})
+
 
 def _norm_prev(p):
     """Wire form for a genesis predecessor is null; the 32-zero-byte digest is the
@@ -151,8 +156,16 @@ def check_phase_claim(inp):
 
 
 def check_independence_claim(inp):
-    if inp.get("claimed") != "independent":
+    claimed = inp.get("claimed")
+    if claimed is None or claimed in NO_CLAIM:
         return "valid", None, "no independence claimed"
+    if claimed != "independent":
+        # Fail closed on a claim this verifier cannot interpret. An exact-equality
+        # trigger silently returns "valid" for any other claim string — including a
+        # STRONGER one — which turns the check off precisely where more is asserted.
+        # Reported by @Rul1an (issue #1); silence is a valid state, an unintelligible
+        # assertion is not.
+        return "reject", "independence_reject", f"unrecognized claim {claimed!r}: not interpretable by this verifier"
     parties = {p.lower() for p in inp["parties"]}
     outside = [a for a in inp["attestations"] if a["by"].lower() not in parties]
     if not outside:

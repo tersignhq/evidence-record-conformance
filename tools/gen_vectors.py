@@ -137,6 +137,20 @@ vectors = [
             ],
         },
     },
+    {
+        "id": "p9-no-independence-claim",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "A record that claims nothing about independence, attested only by parties. Silence is a valid state: the criterion disqualifies unsupported CLAIMS, so a verifier that rejects every party-attested record regardless of what it claims fails this vector.",
+        "input": {
+            "claimed": "none",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": "0x3333333333333333333333333333333333333333", "role": "payee"},
+            ],
+        },
+    },
     # ---------------------------------------------------------------- negatives
     {
         "id": "n1-value-drift",
@@ -214,6 +228,21 @@ vectors = [
         "description": "A record attested only by parties to the transaction, claiming independent status. Evidences structure, not independence — an evaluator MUST NOT treat issuer-attested composition as a neutral finding.",
         "input": {
             "claimed": "independent",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": "0x3333333333333333333333333333333333333333", "role": "payee"},
+            ],
+        },
+    },
+    {
+        "id": "n8-unrecognized-independence-claim",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "A record asserting a STRONGER property than independence ('effect_corroborated') while attested only by parties. An exact-equality trigger reads the unfamiliar string, concludes no independence was claimed, and returns valid — the check switches off exactly where more was asserted. A conformant verifier fails closed on a claim it cannot interpret. Reported against this suite by @Rul1an (issue #1).",
+        "input": {
+            "claimed": "effect_corroborated",
             "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
