@@ -103,6 +103,11 @@
       "expect": "valid"
     },
     {
+      "file": "p11-claim-set-silence-only.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
       "file": "n8-unrecognized-independence-claim.json",
       "kind": "independence_claim",
       "expect": "reject",
@@ -176,6 +181,12 @@
       "kind": "phase_claim",
       "expect": "reject",
       "reason": "phase_reject"
+    },
+    {
+      "file": "n9-unrecognized-member-in-claim-set.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
     }
   ]
 }
