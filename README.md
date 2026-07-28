@@ -45,7 +45,7 @@ the verifier discriminates, not merely accepts.
 | per-seller set continuity + completeness | p6 | n4 **silently omitted record** | `completeness_reject` |
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery | `phase_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**) | n7 issuer-only attestation, n8 **unrecognized claim** | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set** | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 

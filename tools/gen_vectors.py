@@ -250,6 +250,20 @@ vectors = [
         },
     },
     {
+        "id": "p11-claim-set-silence-only",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "Accepting twin of n9: a claim SET whose only member asserts nothing about independence, attested only by parties. Silence in set form is a valid state, exactly as p9 pins it for the scalar form. A list branch that drops the silence filter rejects this record and still passes every other vector.",
+        "input": {
+            "claimed": ["issuer_attested"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": "0x3333333333333333333333333333333333333333", "role": "payee"},
+            ],
+        },
+    },
+    {
         "id": "n8-unrecognized-independence-claim",
         "kind": "independence_claim",
         "expect": "reject",
@@ -261,6 +275,21 @@ vectors = [
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
                 {"by": "0x3333333333333333333333333333333333333333", "role": "payee"},
+            ],
+        },
+    },
+    {
+        "id": "n9-unrecognized-member-in-claim-set",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Rejecting twin of p11: a claim SET carrying one silence token and one member the verifier cannot read, with an attestation from outside the parties. The outside attestor is what makes this discriminating rather than over-determined: p8 and p10 already pin that this attestation shape is valid, so the only thing that can produce a reject here is the unread member. Ignoring an unknown member is only safe where ignoring it can never turn a reject into a valid, which is not established for this field.",
+        "input": {
+            "claimed": ["issuer_attested", "unknown-claim"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
             ],
         },
     },
