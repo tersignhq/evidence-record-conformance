@@ -96,6 +96,11 @@
       "reason": "independence_reject"
     },
     {
+      "file": "p10-claim-set-independent.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
       "file": "n8-unrecognized-independence-claim.json",
       "kind": "independence_claim",
       "expect": "reject",

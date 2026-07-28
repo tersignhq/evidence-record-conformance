@@ -157,14 +157,32 @@ def check_phase_claim(inp):
 
 def check_independence_claim(inp):
     claimed = inp.get("claimed")
-    if claimed is None or claimed in NO_CLAIM:
+    if claimed is None:
         return "valid", None, "no independence claimed"
-    if claimed != "independent":
-        # Fail closed on a claim this verifier cannot interpret. An exact-equality
-        # trigger silently returns "valid" for any other claim string — including a
-        # STRONGER one — which turns the check off precisely where more is asserted.
-        # Reported by @Rul1an (issue #1); silence is a valid state, an unintelligible
-        # assertion is not.
+    # Membership must not depend on the value being hashable: a list or dict claim
+    # raised TypeError here, which produces no verdict at all — the criterion did not
+    # fail closed, it threw. An array is also the shape a CLAIM SET lands on, i.e. the
+    # one shape we said this field should move toward. Reported by @Rul1an (issue #1).
+    if isinstance(claimed, str):
+        if claimed in NO_CLAIM:
+            return "valid", None, "no independence claimed"
+        if claimed == "independent":
+            claimed_set = {claimed}
+        else:
+            claimed_set = None
+    elif isinstance(claimed, list) and all(isinstance(c, str) for c in claimed):
+        claimed_set = {c for c in claimed if c not in NO_CLAIM}
+        if not claimed_set:
+            return "valid", None, "no independence claimed"
+        if claimed_set - {"independent"}:
+            claimed_set = None
+    else:
+        claimed_set = None
+    if claimed_set is None:
+        # Fail closed on a claim this verifier cannot interpret — including a STRONGER
+        # one. An exact-equality trigger silently returned "valid" for any other value,
+        # turning the check off precisely where more was asserted. Silence is a valid
+        # state; an unintelligible assertion is not.
         return "reject", "independence_reject", f"unrecognized claim {claimed!r}: not interpretable by this verifier"
     parties = {p.lower() for p in inp["parties"]}
     outside = [a for a in inp["attestations"] if a["by"].lower() not in parties]
