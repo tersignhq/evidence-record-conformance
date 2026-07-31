@@ -13,3 +13,14 @@ jobs:
           python3 tools/gen_vectors.py
           after=$(cat vectors/*.json MANIFEST.json | sha256sum)
           test "$before" = "$after"
+  cross-implementation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Independent TypeScript-stack implementation over the full corpus
+        run: |
+          npm i viem
+          node tools/cross_check_ts.mjs

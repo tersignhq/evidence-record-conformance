@@ -40,6 +40,26 @@ assert digest_of(GENESIS_ARTIFACT) == GENESIS_DIGEST, "live genesis digest drift
 demo = [{"demo": i, "note": "synthetic chain-set record"} for i in (1, 2, 3)]
 d = [digest_of(x) for x in demo]
 
+# Per-record chain links for the set vectors — prev is the previous record's ARTIFACT
+# digest, exactly as the production ledger computes (and counter-signs) them.
+links = []
+_prev = None
+for _i, _art in enumerate(d, 1):
+    links.append(chain_link_digest(_art, _prev, _i))
+    _prev = _art
+
+# Pinned in lockstep with the compliance-fields spec (x402-foundation/x402#2853): the
+# number-boundary vector. Recomputed here so a drift in canonical() breaks generation.
+DECIMAL_STRING_VECTOR = {"tax": {"amount": "1.10"}, "issuedAt": 1735689600}
+DECIMAL_STRING_DIGEST = "0x81086b5801b1bfd992e4d1e929f54907e0d3be0e8ede94f1da1a954b4e78b250"
+assert digest_of(DECIMAL_STRING_VECTOR) == DECIMAL_STRING_DIGEST, "spec-lockstep vector drifted"
+
+# Supplementary-plane key-ordering pair: U+FF61 (halfwidth ideographic full stop) is a
+# BMP code point ABOVE the surrogate range; U+10000 encodes as a surrogate pair whose
+# first unit (0xD800) sorts BELOW 0xFF61. UTF-16 code-unit order therefore puts the
+# supplementary character FIRST, while code-point order puts it LAST.
+SUPP_PAYLOAD = {"｡": 1, "\U00010000": 2}
+
 vectors = [
     # ---------------------------------------------------------------- positives
     {
@@ -103,13 +123,13 @@ vectors = [
         "id": "p6-chain-set-complete",
         "kind": "chain_set",
         "expect": "valid",
-        "description": "A complete per-seller set: every sequence number 1..head present, prev pointers continuous, head digest matches the final record.",
+        "description": "A complete per-seller set: every sequence number 1..head present, prev pointers continuous, per-record links recompute (link = keccak256(artifact || prev || seq_be8), prev = previous artifact digest — the production form each counter-signature covers), head digest matches the final record.",
         "input": {
             "head": {"seq": 3, "digest": d[2]},
             "records": [
-                {"seq": 1, "artifact_digest": d[0], "prev_digest": None},
-                {"seq": 2, "artifact_digest": d[1], "prev_digest": d[0]},
-                {"seq": 3, "artifact_digest": d[2], "prev_digest": d[1]},
+                {"seq": 1, "artifact_digest": d[0], "prev_digest": None, "link": links[0]},
+                {"seq": 2, "artifact_digest": d[1], "prev_digest": d[0], "link": links[1]},
+                {"seq": 3, "artifact_digest": d[2], "prev_digest": d[1], "link": links[2]},
             ],
         },
     },
@@ -264,17 +284,147 @@ vectors = [
             ],
         },
     },
+    # ------------------------------------------------- number-domain boundary (2-sided)
+    {
+        "id": "p12-ijson-integer-boundary",
+        "kind": "digest_recompute",
+        "expect": "valid",
+        "description": "The largest I-JSON-interoperable integer, 2^53-1: inside the domain, digested identically by every RFC 8785 implementation. The accepting twin of n11 — a verifier that refuses the boundary value itself fails this vector.",
+        "input": {"payload": {"n": 9007199254740991}, "expected_digest": digest_of({"n": 9007199254740991})},
+    },
+    {
+        "id": "p13-decimal-string-beside-integer",
+        "kind": "digest_recompute",
+        "expect": "valid",
+        "description": "Pinned in lockstep with the compliance-fields extension (x402-foundation/x402#2853, Numbers): a fractional amount as a decimal STRING with a trailing zero, beside an exact integer — the only two value forms the record domain admits. A pipeline that coerces the numeric-looking string through a number type re-emits 1.1 (dropping the trailing zero) and fails the digest; the exact integer serializes identically everywhere. Digest cross-checked on two unrelated stacks before pinning.",
+        "input": {"payload": DECIMAL_STRING_VECTOR, "expected_digest": DECIMAL_STRING_DIGEST},
+    },
+    {
+        "id": "n10-float-in-digest-domain",
+        "kind": "canonical_bytes",
+        "expect": "reject",
+        "reason": "number_domain_reject",
+        "description": "A non-integer JSON number in the digest domain. RFC 8785 §3.2.2.3 serializes numbers via ECMAScript Number::toString over IEEE 754 doubles, so a fractional value's bytes depend on the producer's number pipeline — and the digest binds the nearest double, not the decimal the source system held. The domain refuses the class rather than reproducing its damage deterministically.",
+        "input": {"payload": {"amount": 1.1}, "claimed_canonical": '{"amount":1.1}'},
+    },
+    {
+        "id": "n11-integer-beyond-ijson-range",
+        "kind": "digest_recompute",
+        "expect": "reject",
+        "reason": "number_domain_reject",
+        "description": "2^53 — one past the I-JSON interoperable bound. Beyond 2^53-1, distinct integers share a double representation, so implementations disagree on the serialized form. The rejecting twin of p12.",
+        "input": {"payload": {"n": 9007199254740992}, "expected_digest": "0x" + "00" * 32},
+    },
+    # -------------------------------------- supplementary-plane key ordering (2-sided)
+    {
+        "id": "p14-supplementary-plane-key-order",
+        "kind": "digest_recompute",
+        "expect": "valid",
+        "description": "Keys where UTF-16 code-unit order diverges from code-point order: U+10000 encodes as a surrogate pair whose first unit (0xD800) sorts BELOW U+FF61, so RFC 8785 puts the supplementary-plane key FIRST while a code-point sort puts it LAST. The suite's README asserted this property; until this vector, no vector exercised it.",
+        "input": {"payload": SUPP_PAYLOAD, "expected_digest": digest_of(SUPP_PAYLOAD)},
+    },
+    {
+        "id": "n12-codepoint-key-order",
+        "kind": "canonical_bytes",
+        "expect": "reject",
+        "reason": "canonicalization_reject",
+        "description": "The adversarial twin of p14: canonical bytes claimed in CODE-POINT key order — the exact output of an implementation sorting by code point (e.g. Python sorted() over str). Must reject: RFC 8785 orders by UTF-16 code units.",
+        "input": {"payload": SUPP_PAYLOAD, "claimed_canonical": '{"｡":1,"\U00010000":2}'},
+    },
+    # ------------------------------------------- independence: alias + shape fail-closed
+    {
+        "id": "n13-party-alias-whitespace",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "A party re-attesting as its own 'outside' witness by appending trailing whitespace to its address. Identity comparison runs after normalization (strip + lowercase), so the alias resolves back to the party and the record is attested only by parties. Without normalization this fails OPEN — the alias counts as a non-party attestor and an issuer-only record verifies as independent.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": "0x3333333333333333333333333333333333333333 ", "role": "auditor"},
+            ],
+        },
+    },
+    {
+        "id": "n14-unparseable-attestor",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "An attestor identifier carrying an invisible format character (U+200B zero-width space) inside the hex. Not parseable as an address, therefore not evaluable as an identity — and an independence claim whose attestor cannot be evaluated fails closed rather than counting the mangled string as 'outside the parties'.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": "0x9d38BA84730271eb27Ac9bD4\u200bBd2620c08dB4FDa6", "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n15-claim-without-attestations",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Independence claimed, no attestations present at all. A claim that cannot be evaluated must not pass by absence of evidence — failing closed also means returning a verdict where the previous implementation raised KeyError and produced none.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+        },
+    },
+    {
+        "id": "n16-attestation-not-an-object",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "An attestation presented as a bare string rather than an object naming its attestor. Not an evaluable attestation shape — the previous implementation raised TypeError on it, producing no verdict; a conformant verifier returns a reject.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": ["0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6"],
+        },
+    },
+    # --------------------------------------------------- chain-set: renumbered omission
+    {
+        "id": "n17-renumbered-omission",
+        "kind": "chain_set",
+        "expect": "reject",
+        "reason": "continuity_reject",
+        "description": "Omission hidden by renumbering: record 2 dropped, record 3 relabeled seq 2 with its prev pointer rewritten — the sequence closure LOOKS complete. The relabeled record still carries the link computed for its ORIGINAL position (artifact || old-prev || old-seq), and the per-record link recomputation diverges. In production each link is counter-signed at transaction time, so a forger cannot recompute them to match; the stale link is exactly the artifact of that constraint.",
+        "input": {
+            "head": {"seq": 2, "digest": d[2]},
+            "records": [
+                {"seq": 1, "artifact_digest": d[0], "prev_digest": None, "link": links[0]},
+                {"seq": 2, "artifact_digest": d[2], "prev_digest": d[0], "link": links[2]},
+            ],
+        },
+    },
+    # ------------------------------------------------------- phase: closed vocabulary
+    {
+        "id": "n18-unrecognized-phase",
+        "kind": "phase_claim",
+        "expect": "reject",
+        "reason": "phase_reject",
+        "description": "A phase token outside the declared vocabulary ('settled_and_delivered'), presented as delivery evidence. An uninterpretable phase must not verify as ANY phase — the same fail-closed rule the independence criterion applies to claims it cannot read.",
+        "input": {
+            "record": {"economic_phase": "settled_and_delivered", "amount": "10", "asset": "USDC"},
+            "presented_as": "delivery",
+        },
+    },
 ]
 
 manifest = {
     "suite": "evidence-record-conformance",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "layer": "evidence-record",
-    "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); duplicate object names rejected",
+    "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core — a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
+    "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON numbers rejected (number_domain_reject); duplicate object names rejected",
     "content_address": "keccak256(utf8(canonical(payload)))",
     "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) — wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null",
-    "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present",
+    "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present; where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
+    "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],
          **({"reason": v["reason"]} if v["expect"] == "reject" else {})}
