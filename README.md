@@ -30,8 +30,8 @@ python3 verify.py
 ```
 
 stdlib-only, no dependencies, no network. Exit 0 only if every vector produces its expected
-verdict **and** the run observed both verdicts **and** the pinned closure of 8 reject reasons
-and 7 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
+verdict **and** the run observed both verdicts **and** the pinned closure of 9 reject reasons
+and 8 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
 from the manifest, so a fork that quietly drops a class goes red. A green run demonstrates
 the verifier discriminates, not merely accepts.
 
@@ -47,6 +47,7 @@ the verifier discriminates, not merely accepts.
 | per-seller set continuity + completeness | p6 (with per-record links) | n4 **silently omitted record**, n17 **renumbered omission** (stale link) | `completeness_reject`, `continuity_reject` |
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery, n18 **unrecognized phase** | `phase_reject` |
+| offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
 | independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation | `independence_reject` |
 
 Two design rules, both enforced by the run itself:

@@ -132,6 +132,19 @@ const CHECKS = {
     if (!PHASES.has(record.economic_phase) || !PHASES.has(inp.presented_as)) return ["reject", "phase_reject"];
     return record.economic_phase === inp.presented_as ? ["valid", null] : ["reject", "phase_reject"];
   },
+  offer_binding(inp) {
+    const receipt = inp.receipt;
+    if (typeof receipt !== "object" || receipt === null || Array.isArray(receipt)) return ["reject", "binding_reject"];
+    const committed = normDigest(receipt.offerDigest);
+    if (committed === null) return ["reject", "binding_reject"];
+    let got;
+    try {
+      got = digestOf(inp.offer);
+    } catch {
+      return ["reject", "binding_reject"];
+    }
+    return got === committed ? ["valid", null] : ["reject", "binding_reject"];
+  },
   independence_claim(inp) {
     const claimed = inp.claimed;
     if (claimed === null || claimed === undefined) return ["valid", null];

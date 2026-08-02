@@ -1,6 +1,6 @@
 {
   "suite": "evidence-record-conformance",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "layer": "evidence-record",
   "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core \u2014 a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
   "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON numbers rejected (number_domain_reject); duplicate object names rejected",
@@ -8,6 +8,7 @@
   "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) \u2014 wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null",
   "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present; where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
   "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
+  "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
   "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
   "vectors": [
     {
@@ -181,6 +182,17 @@
       "kind": "phase_claim",
       "expect": "reject",
       "reason": "phase_reject"
+    },
+    {
+      "file": "p15-offer-binding.json",
+      "kind": "offer_binding",
+      "expect": "valid"
+    },
+    {
+      "file": "n19-offer-substitution.json",
+      "kind": "offer_binding",
+      "expect": "reject",
+      "reason": "binding_reject"
     },
     {
       "file": "n9-unrecognized-member-in-claim-set.json",

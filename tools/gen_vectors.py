@@ -60,6 +60,17 @@ assert digest_of(DECIMAL_STRING_VECTOR) == DECIMAL_STRING_DIGEST, "spec-lockstep
 # supplementary character FIRST, while code-point order puts it LAST.
 SUPP_PAYLOAD = {"｡": 1, "\U00010000": 2}
 
+# Offer-binding pair — the substitution class from x402-foundation/x402#3006: two offers
+# sharing resourceUrl/network/payer, different payment terms. A receipt committing to
+# offer A's canonical digest must reject offer B; changing ANY term changes the bytes.
+OFFER_A = {
+    "resourceUrl": "https://api.example/premium", "network": "eip155:8453",
+    "scheme": "exact", "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "payTo": "0x2222222222222222222222222222222222222222", "amount": "1",
+}
+OFFER_B = {**OFFER_A, "amount": "100", "payTo": "0x3333333333333333333333333333333333333333"}
+OFFER_A_DIGEST = digest_of(OFFER_A)
+
 vectors = [
     # ---------------------------------------------------------------- positives
     {
@@ -426,6 +437,22 @@ vectors = [
             "presented_as": "delivery",
         },
     },
+    # ------------------------------------------------------ offer binding (2-sided)
+    {
+        "id": "p15-offer-binding",
+        "kind": "offer_binding",
+        "expect": "valid",
+        "description": "A receipt committing to the accepted offer's canonical digest, presented with that exact offer: the binding recomputes. This is the accepting twin of n19 — the mechanism that makes a receipt proof of TERMS, not merely proof of signature.",
+        "input": {"offer": OFFER_A, "receipt": {"offerDigest": OFFER_A_DIGEST}},
+    },
+    {
+        "id": "n19-offer-substitution",
+        "kind": "offer_binding",
+        "expect": "reject",
+        "reason": "binding_reject",
+        "description": "The offer-substitution class (reported upstream as x402-foundation/x402#3006): a second offer sharing resourceUrl/network with the accepted one but carrying different amount and payTo, presented against a receipt bound to the first offer's digest. Changing any term changes the canonical bytes, so the digest diverges and the substitution rejects — the regression criterion 'changing any one of amount, asset, payTo, scheme breaks verification', executable.",
+        "input": {"offer": OFFER_B, "receipt": {"offerDigest": OFFER_A_DIGEST}},
+    },
     # ------------------------------------ independence: unread member in a claim SET
     # Contributed by @Rul1an (PR #2): the rejecting twin of p11. n13-n16 above pin the
     # scalar/shape fail-closed cases; this pins the SET case — an unread member inside a
@@ -450,7 +477,7 @@ vectors = [
 
 manifest = {
     "suite": "evidence-record-conformance",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "layer": "evidence-record",
     "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core — a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
     "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON numbers rejected (number_domain_reject); duplicate object names rejected",
@@ -458,6 +485,7 @@ manifest = {
     "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) — wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null",
     "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present; where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
+    "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
     "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],

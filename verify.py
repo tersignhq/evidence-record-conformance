@@ -22,6 +22,9 @@ adversarial vector for its known failure class:
   phase_claim           a record of one economic phase must not verify as a later phase
   independence_claim    a record attested only by parties to the transaction MUST NOT
                         count as an independent/neutral finding
+  offer_binding         a receipt that does not commit to the accepted offer's canonical
+                        digest MUST NOT be evaluated as proof that a specific offer's
+                        terms were paid (the offer-substitution class)
 
 SCOPE BOUNDARY (stated, not implied): this stdlib core decides the STRUCTURAL predicate —
 digests, canonical bytes, sequence closure, link arithmetic, declared-claim evaluation.
@@ -294,6 +297,28 @@ def check_phase_claim(inp):
     return "valid", None, f"phase {phase} consistent"
 
 
+def check_offer_binding(inp):
+    """A receipt proves the terms it COMMITS to. A receipt that carries no digest of the
+    accepted offer cannot bind amount/asset/payTo/scheme, so two offers sharing
+    resourceUrl/network/payer become interchangeable behind a valid signature — the
+    substitution class reported upstream (x402-foundation/x402#3006). The check is the
+    binding arithmetic: the presented offer's canonical digest must equal the digest the
+    receipt commits to; changing ANY term changes the canonical bytes, hence the digest."""
+    receipt = inp.get("receipt")
+    if not isinstance(receipt, dict):
+        return "reject", "binding_reject", "receipt is not an object"
+    committed = _norm_digest(receipt.get("offerDigest"))
+    if committed is None:
+        return "reject", "binding_reject", "receipt commits to no parseable offer digest — terms are unbound"
+    try:
+        got = digest_of(inp["offer"])
+    except (ValueError, TypeError, KeyError) as exc:
+        return "reject", "binding_reject", f"offer not canonicalizable: {exc}"
+    if got != committed:
+        return "reject", "binding_reject", f"presented offer digests to {got}, receipt commits to {committed}"
+    return "valid", None, "receipt binds the presented offer's exact terms"
+
+
 def check_independence_claim(inp):
     claimed = inp.get("claimed")
     if claimed is None:
@@ -362,6 +387,7 @@ CHECKS = {
     "anchor_relation": check_anchor_relation,
     "phase_claim": check_phase_claim,
     "independence_claim": check_independence_claim,
+    "offer_binding": check_offer_binding,
 }
 
 
@@ -371,7 +397,7 @@ CHECKS = {
 REQUIRED_REASONS = frozenset({
     "recompute_mismatch", "canonicalization_reject", "continuity_reject",
     "completeness_reject", "existence_reject", "phase_reject", "independence_reject",
-    "number_domain_reject",
+    "number_domain_reject", "binding_reject",
 })
 
 
