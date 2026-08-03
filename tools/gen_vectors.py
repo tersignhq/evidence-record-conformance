@@ -437,6 +437,40 @@ vectors = [
             "presented_as": "delivery",
         },
     },
+    # ------------------------------ independence: commitment scope (2-sided, 4th MUST NOT)
+    {
+        "id": "p16-independence-scope-committed",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "Accepting twin of n20: independence claimed over 'settlement', and settlement is among the record's committed facts, with a non-party attestation. The commitment-scope rule (proposed in x402-foundation/x402#2887, 2026-07-27; normative in the compliance-fields extension): an independence claim reaches exactly as far as the record's commitments.",
+        "input": {
+            "claimed": "independent",
+            "covers": ["settlement"],
+            "record_commits": ["settlement", "phase"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n20-independence-scope-uncommitted",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Rejecting twin of p16: independence claimed as covering 'delivery' while the record commits only a settlement digest. However independent the attestor, the attestation covered the committed bytes and nothing else — an evaluator MUST NOT read the claim past the commitment. The genuinely non-party attestation is what makes this vector discriminating: only the scope overreach can produce the reject. This is the criterion its proposer fails-safe on deliberately: a record with no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.",
+        "input": {
+            "claimed": "independent",
+            "covers": ["delivery"],
+            "record_commits": ["settlement"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
     # ------------------------------------------------------ offer binding (2-sided)
     {
         "id": "p15-offer-binding",

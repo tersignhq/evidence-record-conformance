@@ -1,0 +1,30 @@
+{
+  "id": "p16-independence-scope-committed",
+  "kind": "independence_claim",
+  "expect": "valid",
+  "description": "Accepting twin of n20: independence claimed over 'settlement', and settlement is among the record's committed facts, with a non-party attestation. The commitment-scope rule (proposed in x402-foundation/x402#2887, 2026-07-27; normative in the compliance-fields extension): an independence claim reaches exactly as far as the record's commitments.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "settlement"
+    ],
+    "record_commits": [
+      "settlement",
+      "phase"
+    ],
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger"
+      }
+    ]
+  }
+}

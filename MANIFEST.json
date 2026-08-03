@@ -184,6 +184,17 @@
       "reason": "phase_reject"
     },
     {
+      "file": "p16-independence-scope-committed.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
+      "file": "n20-independence-scope-uncommitted.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
       "file": "p15-offer-binding.json",
       "kind": "offer_binding",
       "expect": "valid"

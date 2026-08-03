@@ -173,7 +173,21 @@ const CHECKS = {
       if (by === null) return ["reject", "independence_reject"];
       if (!parties.has(by)) outside++;
     }
-    return outside > 0 ? ["valid", null] : ["reject", "independence_reject"];
+    if (outside === 0) return ["reject", "independence_reject"];
+    let covers = inp.covers;
+    if (covers !== null && covers !== undefined) {
+      if (typeof covers === "string") covers = [covers];
+      if (!Array.isArray(covers) || covers.length === 0 || !covers.every((c) => typeof c === "string")) {
+        return ["reject", "independence_reject"];
+      }
+      const committed = inp.record_commits;
+      if (!Array.isArray(committed) || !committed.every((c) => typeof c === "string")) {
+        return ["reject", "independence_reject"];
+      }
+      const committedSet = new Set(committed);
+      if (covers.some((c) => !committedSet.has(c))) return ["reject", "independence_reject"];
+    }
+    return ["valid", null];
   },
 };
 

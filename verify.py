@@ -376,6 +376,24 @@ def check_independence_claim(inp):
             outside += 1
     if not outside:
         return "reject", "independence_reject", "attested only by parties to the transaction"
+
+    # Commitment scope: an independence claim MUST NOT be read as covering any fact the
+    # record does not itself commit to. A record whose committed content is a settlement
+    # digest carries, at most, independent evidence OF THAT SETTLEMENT — nothing its
+    # attestation did not cover, however independent the attestor. Absent a scope
+    # assertion, the claim reads as scoped to the committed facts and nothing more.
+    covers = inp.get("covers")
+    if covers is not None:
+        if isinstance(covers, str):
+            covers = [covers]
+        if not isinstance(covers, list) or not covers or not all(isinstance(c, str) for c in covers):
+            return "reject", "independence_reject", "scope assertion is not evaluable"
+        committed = inp.get("record_commits")
+        if not isinstance(committed, list) or not all(isinstance(c, str) for c in committed):
+            return "reject", "independence_reject", "independence claimed over a scope, but the record's commitments are not evaluable"
+        uncovered = sorted(set(covers) - set(committed))
+        if uncovered:
+            return "reject", "independence_reject", f"claim covers {uncovered} — fact(s) the record does not commit to"
     return "valid", None, f"{outside} non-party attestation(s)"
 
 

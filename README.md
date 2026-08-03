@@ -48,7 +48,7 @@ the verifier discriminates, not merely accepts.
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery, n18 **unrecognized phase** | `phase_reject` |
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ commitments) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment** | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -75,7 +75,15 @@ implementations raised and produced no verdict at all — including the set form
 is where a field carrying two orthogonal criteria has to land. Reported against this suite
 by [@Rul1an](https://github.com/tersignhq/evidence-record-conformance/issues/1).
 
-A fourth, added by the same review discipline: **identity comparison runs after
+A fourth criterion property, from the extension's commitment-scope rule (first proposed in
+[x402-foundation/x402#2887](https://github.com/x402-foundation/x402/issues/2887), 2026-07-27):
+**an independence claim reaches exactly as far as the record's commitments.** However
+independent the attestor, the attestation covered the committed bytes and nothing else — a
+claim covering an uncommitted fact class rejects (n20), and a scoped claim within the
+commitments accepts (p16). This is a rule its authors fail-safe on deliberately: a record with
+no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.
+
+A fifth, added by the same review discipline: **identity comparison runs after
 normalization.** EIP-55 mixed case and stray whitespace are the same address; without
 normalization, a party relabels itself as its own "outside" witness by appending a space to
 its own address (n13) — an alias bypass of the independence criterion, failing open exactly

@@ -1,0 +1,30 @@
+{
+  "id": "n20-independence-scope-uncommitted",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "Rejecting twin of p16: independence claimed as covering 'delivery' while the record commits only a settlement digest. However independent the attestor, the attestation covered the committed bytes and nothing else \u2014 an evaluator MUST NOT read the claim past the commitment. The genuinely non-party attestation is what makes this vector discriminating: only the scope overreach can produce the reject. This is the criterion its proposer fails-safe on deliberately: a record with no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "delivery"
+    ],
+    "record_commits": [
+      "settlement"
+    ],
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger"
+      }
+    ]
+  }
+}
