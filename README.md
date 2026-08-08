@@ -170,6 +170,13 @@ every push.
 Regeneration is deterministic and diffable: `python3 tools/gen_vectors.py` rewrites
 `vectors/` + `MANIFEST.json` byte-identically (CI asserts this on every push).
 
+## Contributors
+
+Who sharpened which criterion, and how each contribution landed, is recorded in
+[CONTRIBUTORS.md](CONTRIBUTORS.md) — credited by commit authorship rather than by a merge
+badge, since some contributions were cherry-picked onto a hardened `main` and their PRs
+therefore read as closed.
+
 ## License
 
 Apache-2.0. Maintained by [Tersign](https://tersign.ai). Cross-runs, counter-vectors, and
