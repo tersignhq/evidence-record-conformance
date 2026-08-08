@@ -180,7 +180,17 @@ const CHECKS = {
       if (!Array.isArray(covers) || covers.length === 0 || !covers.every((c) => typeof c === "string")) {
         return ["reject", "independence_reject"];
       }
-      const committed = inp.record_commits;
+      let committed = inp.record_commits;
+      if (committed === undefined && inp.settlement_result && typeof inp.settlement_result === "object") {
+        // DERIVED, not declared — see verify.py's derive_settlement_commits. A declared list
+        // lets a record assert the scope the rule exists to bound; x402 v2 §5.3.2 makes
+        // `transaction: ""` the encoding of a failed settlement, so success+empty commits to
+        // no resolvable settlement at all.
+        const r = inp.settlement_result;
+        committed = [];
+        if (r.success === true && typeof r.transaction === "string" && r.transaction.trim() !== "") committed.push("settlement");
+        if (typeof r.network === "string" && r.network.trim() !== "") committed.push("network");
+      }
       if (!Array.isArray(committed) || !committed.every((c) => typeof c === "string")) {
         return ["reject", "independence_reject"];
       }

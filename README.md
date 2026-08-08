@@ -48,7 +48,7 @@ the verifier discriminates, not merely accepts.
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery, n18 **unrecognized phase** | `phase_reject` |
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ commitments) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment** | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ commitments), p17 (**derived** commitments, resolvable settlement) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -83,7 +83,18 @@ claim covering an uncommitted fact class rejects (n20), and a scoped claim withi
 commitments accepts (p16). This is a rule its authors fail-safe on deliberately: a record with
 no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.
 
-A fifth, added by the same review discipline: **identity comparison runs after
+A fifth property, and the reason the fourth cannot be satisfied by assertion: **a record's
+commitments are DERIVED from the record, never declared alongside it.** A declared commitment
+list lets a record assert the very scope the commitment-scope rule exists to bound, which makes
+the rule vacuous exactly where it matters. The concrete case: x402 v2 §5.3.2 defines the empty
+string as what `transaction` carries when settlement failed, while the type only requires a
+string — so `success: true` with `transaction: ""` is well formed and commits to no settlement
+anyone can resolve. Deriving commitments off the settlement result rejects an independence claim
+over that record (n21) without resolving anything on-chain, and accepts the same claim when the
+result carries a transaction reference that resolves (p17). Reported against this suite by
+[@Rul1an](https://github.com/tersignhq/evidence-record-conformance/issues/4).
+
+A sixth, added by the same review discipline: **identity comparison runs after
 normalization.** EIP-55 mixed case and stray whitespace are the same address; without
 normalization, a party relabels itself as its own "outside" witness by appending a space to
 its own address (n13) — an alias bypass of the independence criterion, failing open exactly

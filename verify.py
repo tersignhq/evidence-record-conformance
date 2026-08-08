@@ -319,6 +319,25 @@ def check_offer_binding(inp):
     return "valid", None, "receipt binds the presented offer's exact terms"
 
 
+def derive_settlement_commits(result):
+    """What a settlement result actually commits to, read off the result rather than declared.
+
+    Returns the fact classes an evaluator may let an independence claim reach. `settlement` is
+    committed only when the result both claims success AND carries a transaction reference that
+    resolves to something: an empty `transaction` is the spec's own encoding of a failed
+    settlement, so a record carrying it commits to no settlement at all.
+    """
+    commits = []
+    if not isinstance(result, dict):
+        return commits
+    tx = result.get("transaction")
+    if result.get("success") is True and isinstance(tx, str) and tx.strip() != "":
+        commits.append("settlement")
+    if isinstance(result.get("network"), str) and result["network"].strip() != "":
+        commits.append("network")
+    return commits
+
+
 def check_independence_claim(inp):
     claimed = inp.get("claimed")
     if claimed is None:
@@ -389,6 +408,16 @@ def check_independence_claim(inp):
         if not isinstance(covers, list) or not covers or not all(isinstance(c, str) for c in covers):
             return "reject", "independence_reject", "scope assertion is not evaluable"
         committed = inp.get("record_commits")
+        if committed is None and isinstance(inp.get("settlement_result"), dict):
+            # DERIVED, not declared. A declared commitment list lets a record assert the very
+            # scope the rule is meant to bound, which makes the rule vacuous exactly where it
+            # matters. x402 v2 §5.3.2 defines the empty string as what `transaction` carries
+            # when settlement failed, and the type only requires a string — so `success: true`
+            # with `transaction: ""` is well formed and commits to no settlement anyone can
+            # resolve. Deriving the commitments off the result is what makes the
+            # commitment-scope rule bite on that record without resolving anything on-chain.
+            # Reported against this suite by @Rul1an (issue #4).
+            committed = derive_settlement_commits(inp["settlement_result"])
         if not isinstance(committed, list) or not all(isinstance(c, str) for c in committed):
             return "reject", "independence_reject", "independence claimed over a scope, but the record's commitments are not evaluable"
         uncovered = sorted(set(covers) - set(committed))

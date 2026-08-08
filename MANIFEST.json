@@ -195,6 +195,17 @@
       "reason": "independence_reject"
     },
     {
+      "file": "p17-independence-scope-derived-settlement.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
+      "file": "n21-independence-scope-empty-settlement.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
       "file": "p15-offer-binding.json",
       "kind": "offer_binding",
       "expect": "valid"

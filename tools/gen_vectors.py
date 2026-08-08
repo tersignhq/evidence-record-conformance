@@ -471,6 +471,43 @@ vectors = [
             ],
         },
     },
+    {
+        "id": "p17-independence-scope-derived-settlement",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "Accepting twin of n21: independence claimed over 'settlement', where the commitments are DERIVED from the settlement result rather than declared by it. The result claims success and carries a resolvable transaction reference, so settlement is genuinely among the record's commitments and a non-party attestation may reach it.",
+        "input": {
+            "claimed": "independent",
+            "covers": ["settlement"],
+            "settlement_result": {
+                "success": True,
+                "transaction": "0x9e1f4c2a8b7d6e5f0a3c1b8d7e6f5a4c3b2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f",
+                "network": "eip155:8453",
+            },
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n21-independence-scope-empty-settlement",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Rejecting twin of p17, and the reason commitments must be DERIVED rather than declared. x402 v2 \u00a75.3.2 defines the empty string as what `transaction` carries when settlement failed, while the type only requires a string \u2014 so `success: true` with `transaction: \"\"` is well formed and commits to no settlement anyone can resolve. A declared commitment list would let such a record assert the very scope the commitment-scope rule exists to bound, making the rule vacuous exactly where it matters. Deriving the commitments off the result rejects it without resolving anything on-chain. Reported by @Rul1an (issue #4).",
+        "input": {
+            "claimed": "independent",
+            "covers": ["settlement"],
+            "settlement_result": {"success": True, "transaction": "", "network": "eip155:8453"},
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
     # ------------------------------------------------------ offer binding (2-sided)
     {
         "id": "p15-offer-binding",
