@@ -148,9 +148,21 @@ no-node path is stronger anyway — it shows the trust chain explicitly:
 `ots info proof.ots` prints the Bitcoin attestation (height 958163, merkle root
 `d23b2da439b5…f85df18c`); compare that root against block 958163 in any block explorer.
 
-Counter-signatures in the live vectors are secp256k1 `personal_sign` material (signer
-published at `https://tersign.ai/v1/ledger`); recovering them requires an EVM crypto library
-and sits outside the stdlib core by design — every check above needs hashing only.
+Counter-signatures in the live vectors are secp256k1 `personal_sign` material; recovering them
+requires an EVM crypto library and sits outside the stdlib core by design — every check above
+needs hashing only.
+
+**Pin the signer, do not fetch it.** The ledger signer at genesis is
+`0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6`, committed in this repository since
+`p1-live-genesis-receipt.json` (field `ledger_signer`) and reproduced byte-identically by
+`tools/gen_vectors.py` on every CI run. `https://tersign.ai/v1/ledger` serves the same value,
+but a key fetched at verification time only proves what the server says *now* — "verify
+offline" has to mean against a key committed at a fixed point in time, which is what the
+vector gives you. The genesis receipt digest is likewise fixed
+(`0xe5874f1ffe87f0a6dd9eb157730f67b86ee4538b125fe30fcc4e165213dd3fc4`) and its chain head is
+Bitcoin-anchored, so the pinned pair is recoverable from an anchored record rather than from
+an endpoint. Any future signer rotation must be published as a new pinned vector, never as a
+silent change at that URL.
 
 ## Canonicalization contract
 
