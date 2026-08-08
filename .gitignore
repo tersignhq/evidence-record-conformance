@@ -1,4 +1,6 @@
 .state/
+CLAUDE.md
+.claude/
 *.pyc
 __pycache__/
 node_modules/
