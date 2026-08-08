@@ -5,14 +5,25 @@ criterion is part of the record rather than a courtesy. Everything below is veri
 this repository: `git log` for authorship, the linked issue or PR for the argument, and
 `python3 verify.py` for the vector that resulted.
 
-A note on how contributions land here, because the git history is easy to misread. A
-contribution is credited by its **commit authorship**, not by a pull request's merge badge.
-Where a PR could not be fast-forwarded — usually because a hardening pass touched the same
-files first — the commit was applied with `git cherry-pick -x` and the author preserved, and
-the PR closed with an explanation. Those contributions are in `main` under their author's name
-even though GitHub shows the PR as closed rather than merged. Going forward the preference is
-to rebase a contributor's branch onto `main` and merge it, so the badge and the authorship stay
-together.
+A note on how contributions land here, because the git history is easy to misread.
+Contributions are credited by **commit authorship**, not by a pull request's merge badge — and
+not every contribution arrives as a pull request at all; several of the criteria below came
+from issues.
+
+One case needs saying explicitly. [PR #2](https://github.com/tersignhq/evidence-record-conformance/pull/2)
+shows as **closed rather than merged**, and it was neither rejected nor abandoned: a hardening
+pass landed on `main` between the PR opening and closing, touching three of the same files, so
+the branch could not be fast-forwarded. The commit was applied with `git cherry-pick -x` — its
+author preserved, and the provenance line
+`(cherry picked from commit 0dee263…)` still visible in
+[`d672d5c`](https://github.com/tersignhq/evidence-record-conformance/commit/d672d5c) — and the
+PR closed with that explanation. That work is in `main` under its author's name.
+
+It is the only pull request this repository has received to date, and handling it that way was
+a mistake worth recording: it optimised for landing the code over the signal the repository
+emits, and a closed PR reads as a rejection to anyone who does not dig. The preference going
+forward is to rebase a contributor's branch onto `main` and merge it, so the badge, the link
+and the authorship stay together.
 
 ---
 
@@ -30,8 +41,8 @@ for *every* shape rather than raising and producing none.
 [`d672d5c`](https://github.com/tersignhq/evidence-record-conformance/commit/d672d5c), authored
 by him, from PR [#2](https://github.com/tersignhq/evidence-record-conformance/pull/2). Made the
 claim-*set* branch two-sided: a set carrying only silence accepts, a set carrying a member the
-verifier cannot interpret rejects. (This is one of the cherry-picked cases described above —
-the PR reads "closed", the work is in `main`.)
+verifier cannot interpret rejects. (This is the cherry-picked case described above — the PR
+reads "closed", the work is in `main`.)
 
 **Commitments must be derived, not declared** — vectors `p17` / `n21`, from his review on
 [#4](https://github.com/tersignhq/evidence-record-conformance/issues/4). He observed that the
