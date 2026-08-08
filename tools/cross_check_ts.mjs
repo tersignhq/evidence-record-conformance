@@ -174,18 +174,24 @@ const CHECKS = {
       if (!parties.has(by)) outside++;
     }
     if (outside === 0) return ["reject", "independence_reject"];
+    // DERIVED, never declared — the declared field's PRESENCE is the reject, whatever it
+    // holds (a list, an explicit null, anything) and whether or not a scope is asserted.
+    // Key-presence (`in`) has identical semantics to Python's `in`; the previous
+    // `=== undefined` guard read an explicit JSON null differently from verify.py's
+    // `is None` and the two engines forked on it. See verify.py's commitment-scope branch —
+    // both engines must share this exact shape.
+    if ("record_commits" in inp) return ["reject", "independence_reject"];
     let covers = inp.covers;
     if (covers !== null && covers !== undefined) {
       if (typeof covers === "string") covers = [covers];
       if (!Array.isArray(covers) || covers.length === 0 || !covers.every((c) => typeof c === "string")) {
         return ["reject", "independence_reject"];
       }
-      let committed = inp.record_commits;
-      if (committed === undefined && inp.settlement_result && typeof inp.settlement_result === "object") {
-        // DERIVED, not declared — see verify.py's derive_settlement_commits. A declared list
-        // lets a record assert the scope the rule exists to bound; x402 v2 §5.3.2 makes
-        // `transaction: ""` the encoding of a failed settlement, so success+empty commits to
-        // no resolvable settlement at all.
+      let committed;
+      if (inp.settlement_result && typeof inp.settlement_result === "object" && !Array.isArray(inp.settlement_result)) {
+        // Mirrors verify.py's derive_settlement_commits: §5.3.2 makes `transaction: ""` the
+        // encoding of a failed settlement, so success+empty commits to no resolvable
+        // settlement at all. (Array excluded to match Python's isinstance(dict) exactly.)
         const r = inp.settlement_result;
         committed = [];
         if (r.success === true && typeof r.transaction === "string" && r.transaction.trim() !== "") committed.push("settlement");
@@ -201,39 +207,47 @@ const CHECKS = {
   },
 };
 
+export { CHECKS, digestOf, canon };
+
 // ------------------------------------------------------------------------------ runner
-const kats = [
-  ["keccak256(empty)", keccak256("0x"), "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
-  ["keccak256('abc')", keccak256(stringToHex("abc")), "0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45"],
-];
-let bad = 0;
-for (const [name, got, want] of kats) {
-  if (got !== want) {
+// Guarded so tools/differential.py can import CHECKS without running the corpus pass —
+// the differential harness compares the two engines DIRECTLY (not through the manifest),
+// which is the parity this runner cannot supply: its oracle is MANIFEST.json, so engine
+// agreement here is transitive through the expectations and blind off-corpus.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const kats = [
+    ["keccak256(empty)", keccak256("0x"), "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
+    ["keccak256('abc')", keccak256(stringToHex("abc")), "0x4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45"],
+  ];
+  let bad = 0;
+  for (const [name, got, want] of kats) {
+    if (got !== want) {
+      bad++;
+      console.log(`DIVERGE ${name}: ${got}`);
+    }
+  }
+
+  const manifest = JSON.parse(readFileSync(join(ROOT, "MANIFEST.json"), "utf-8"));
+  for (const entry of manifest.vectors) {
+    const vector = JSON.parse(readFileSync(join(ROOT, "vectors", entry.file), "utf-8"));
+    let verdict, reason;
+    try {
+      [verdict, reason] = CHECKS[vector.kind](vector.input);
+    } catch (e) {
+      verdict = "malformed";
+      reason = null;
+    }
+    const ok = verdict === entry.expect && (verdict === "valid" || reason === entry.reason);
+    if (!ok) bad++;
+    console.log(`${ok ? "MATCH " : "DIVERGE"} ${entry.file} -> ${verdict}${reason ? "/" + reason : ""}`);
+  }
+
+  const files = readdirSync(join(ROOT, "vectors")).filter((f) => f.endsWith(".json"));
+  if (files.length !== manifest.vectors.length) {
     bad++;
-    console.log(`DIVERGE ${name}: ${got}`);
+    console.log(`DIVERGE vector count: ${files.length} files vs ${manifest.vectors.length} manifest entries`);
   }
-}
 
-const manifest = JSON.parse(readFileSync(join(ROOT, "MANIFEST.json"), "utf-8"));
-for (const entry of manifest.vectors) {
-  const vector = JSON.parse(readFileSync(join(ROOT, "vectors", entry.file), "utf-8"));
-  let verdict, reason;
-  try {
-    [verdict, reason] = CHECKS[vector.kind](vector.input);
-  } catch (e) {
-    verdict = "malformed";
-    reason = null;
-  }
-  const ok = verdict === entry.expect && (verdict === "valid" || reason === entry.reason);
-  if (!ok) bad++;
-  console.log(`${ok ? "MATCH " : "DIVERGE"} ${entry.file} -> ${verdict}${reason ? "/" + reason : ""}`);
+  console.log(bad === 0 ? `\nCROSS-CHECK OK: ${manifest.vectors.length} vectors agree across both implementations` : `\n${bad} DIVERGENCE(S)`);
+  process.exit(bad === 0 ? 0 : 1);
 }
-
-const files = readdirSync(join(ROOT, "vectors")).filter((f) => f.endsWith(".json"));
-if (files.length !== manifest.vectors.length) {
-  bad++;
-  console.log(`DIVERGE vector count: ${files.length} files vs ${manifest.vectors.length} manifest entries`);
-}
-
-console.log(bad === 0 ? `\nCROSS-CHECK OK: ${manifest.vectors.length} vectors agree across both implementations` : `\n${bad} DIVERGENCE(S)`);
-process.exit(bad === 0 ? 0 : 1);

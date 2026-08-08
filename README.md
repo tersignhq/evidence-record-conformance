@@ -48,7 +48,7 @@ the verifier discriminates, not merely accepts.
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery, n18 **unrecognized phase** | `phase_reject` |
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ commitments), p17 (**derived** commitments, resolvable settlement) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments) | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -84,14 +84,21 @@ commitments accepts (p16). This is a rule its authors fail-safe on deliberately:
 no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.
 
 A fifth property, and the reason the fourth cannot be satisfied by assertion: **a record's
-commitments are DERIVED from the record, never declared alongside it.** A declared commitment
+commitments are DERIVED from the record, never declared alongside it — and a declared
+commitment scope is itself a rejectable input, whatever it holds.** A declared commitment
 list lets a record assert the very scope the commitment-scope rule exists to bound, which makes
 the rule vacuous exactly where it matters. The concrete case: x402 v2 §5.3.2 defines the empty
 string as what `transaction` carries when settlement failed, while the type only requires a
 string — so `success: true` with `transaction: ""` is well formed and commits to no settlement
 anyone can resolve. Deriving commitments off the settlement result rejects an independence claim
 over that record (n21) without resolving anything on-chain, and accepts the same claim when the
-result carries a transaction reference that resolves (p17). Reported against this suite by
+result carries a transaction reference that resolves (p17). The property is enforced on the
+field's *presence*: a record carrying `record_commits` beside a derivable result rejects even
+when the list matches the claim (n22 — the override that made the first, fallback-shaped fix
+decorative), and an explicit `null` rejects identically in both implementations (n23 — the
+input on which a value-sentinel guard forked the two engines; both now guard on key presence,
+whose semantics are identical in Python and JS). Reported against this suite — twice, the
+second time against the first fix — by
 [@Rul1an](https://github.com/tersignhq/evidence-record-conformance/issues/4).
 
 A sixth, added by the same review discipline: **identity comparison runs after
@@ -166,6 +173,18 @@ TypeScript-stack implementation of **every check**, run over the **full committe
 (`npm i viem` in the repo root, then `node tools/cross_check_ts.mjs`) — two implementations,
 one vector set, byte-level agreement required on every verdict and reason. CI runs both on
 every push.
+
+That corpus runner scores each engine against `MANIFEST.json`, so engine-to-engine agreement
+there is *transitive through the shared expectations* — both implementations can hold the same
+wrong assumption and stay green, and an input the corpus does not carry is never compared at
+all. `tools/differential.py` is the non-transitive control: every vector **plus** an
+off-corpus mutation battery at fork-prone keys (explicit nulls, declared/derivable conflicts,
+containers of the wrong shape), run through **both engines directly**, verdict and reason
+compared with no manifest in between. Replayed against the pre-fix engines it reports exactly
+the null-guard fork it was built after; on current code it must report zero divergences. CI
+runs it beside the corpus pass. The limit it closes was identified by
+[@Rul1an](https://github.com/tersignhq/evidence-record-conformance/issues/4): parity through a
+shared oracle confirms a shared assumption instead of catching it.
 
 Regeneration is deterministic and diffable: `python3 tools/gen_vectors.py` rewrites
 `vectors/` + `MANIFEST.json` byte-identically (CI asserts this on every push).

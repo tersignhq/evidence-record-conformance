@@ -24,3 +24,5 @@ jobs:
         run: |
           npm i viem
           node tools/cross_check_ts.mjs
+      - name: Direct engine parity — corpus + off-corpus mutation battery, no manifest oracle
+        run: python3 tools/differential.py

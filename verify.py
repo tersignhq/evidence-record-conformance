@@ -396,6 +396,20 @@ def check_independence_claim(inp):
     if not outside:
         return "reject", "independence_reject", "attested only by parties to the transaction"
 
+    # DERIVED, never declared — and the declared field's PRESENCE is itself the reject,
+    # scope assertion or no. A declared commitment list lets a record assert the very scope
+    # the commitment-scope rule exists to bound; leaving the declared path in as a fallback
+    # made the derivation decorative (a record carrying both fields was scored on the
+    # declaration — the override attack). An explicit null is a declaration too: one that
+    # evaluates to nothing, which is the same shape as an unrecognized claim string, and it
+    # fails closed for the same reason. The guard is KEY PRESENCE, not a value sentinel —
+    # `is None` here and `=== undefined` in the TS cross-check read an explicit JSON null
+    # differently, and the two engines forked on exactly that input. `in` has identical
+    # semantics in both languages, which makes the fork unrepresentable rather than merely
+    # untested. Both reported against this suite by @Rul1an (issue #4, second report).
+    if "record_commits" in inp:
+        return "reject", "independence_reject", "commitment scope must be derived from the record, not declared alongside it"
+
     # Commitment scope: an independence claim MUST NOT be read as covering any fact the
     # record does not itself commit to. A record whose committed content is a settlement
     # digest carries, at most, independent evidence OF THAT SETTLEMENT — nothing its
@@ -407,16 +421,13 @@ def check_independence_claim(inp):
             covers = [covers]
         if not isinstance(covers, list) or not covers or not all(isinstance(c, str) for c in covers):
             return "reject", "independence_reject", "scope assertion is not evaluable"
-        committed = inp.get("record_commits")
-        if committed is None and isinstance(inp.get("settlement_result"), dict):
-            # DERIVED, not declared. A declared commitment list lets a record assert the very
-            # scope the rule is meant to bound, which makes the rule vacuous exactly where it
-            # matters. x402 v2 §5.3.2 defines the empty string as what `transaction` carries
-            # when settlement failed, and the type only requires a string — so `success: true`
+        committed = None
+        if isinstance(inp.get("settlement_result"), dict):
+            # x402 v2 §5.3.2 defines the empty string as what `transaction` carries when
+            # settlement failed, and the type only requires a string — so `success: true`
             # with `transaction: ""` is well formed and commits to no settlement anyone can
             # resolve. Deriving the commitments off the result is what makes the
             # commitment-scope rule bite on that record without resolving anything on-chain.
-            # Reported against this suite by @Rul1an (issue #4).
             committed = derive_settlement_commits(inp["settlement_result"])
         if not isinstance(committed, list) or not all(isinstance(c, str) for c in committed):
             return "reject", "independence_reject", "independence claimed over a scope, but the record's commitments are not evaluable"

@@ -88,6 +88,7 @@ and a rejecting twin, so an implementation that unconditionally rejects a class 
 one that unconditionally accepts it does; and the reject-reason closure is pinned in the
 verifier rather than derived from the manifest, so a fork that quietly drops a class goes red.
 
-Run `python3 tools/gen_vectors.py && python3 verify.py && node tools/cross_check_ts.mjs` before
-opening a PR — CI runs all three, and the generator must reproduce `vectors/` and
-`MANIFEST.json` byte-identically.
+Run `python3 tools/gen_vectors.py && python3 verify.py && node tools/cross_check_ts.mjs &&
+python3 tools/differential.py` before opening a PR — CI runs all four, the generator must
+reproduce `vectors/` and `MANIFEST.json` byte-identically, and the differential harness must
+report zero engine divergences over the corpus and its off-corpus mutation battery.

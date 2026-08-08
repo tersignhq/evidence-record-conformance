@@ -442,11 +442,15 @@ vectors = [
         "id": "p16-independence-scope-committed",
         "kind": "independence_claim",
         "expect": "valid",
-        "description": "Accepting twin of n20: independence claimed over 'settlement', and settlement is among the record's committed facts, with a non-party attestation. The commitment-scope rule (proposed in x402-foundation/x402#2887, 2026-07-27; normative in the compliance-fields extension): an independence claim reaches exactly as far as the record's commitments.",
+        "description": "Accepting twin of n20: independence claimed over both facts the record commits to — the commitments DERIVED from a settlement result whose success carries a resolvable transaction reference ('settlement') and a non-empty network ('network'). The commitment-scope rule (proposed in x402-foundation/x402#2887, 2026-07-27; normative in the compliance-fields extension): an independence claim reaches exactly as far as the record's commitments. Rebuilt on a settlement result rather than a declared list when the declared path was removed — a declared list was the very assertion the rule exists to bound (@Rul1an, issue #4, second report).",
         "input": {
             "claimed": "independent",
-            "covers": ["settlement"],
-            "record_commits": ["settlement", "phase"],
+            "covers": ["settlement", "network"],
+            "settlement_result": {
+                "success": True,
+                "transaction": "0x4b8a1d6e2f9c0a7b5d3e8f1a6c4b2d0e9f7a5c3b1d8e6f4a2c0b9d7e5f3a1c8b",
+                "network": "eip155:8453",
+            },
             "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
@@ -459,11 +463,15 @@ vectors = [
         "kind": "independence_claim",
         "expect": "reject",
         "reason": "independence_reject",
-        "description": "Rejecting twin of p16: independence claimed as covering 'delivery' while the record commits only a settlement digest. However independent the attestor, the attestation covered the committed bytes and nothing else — an evaluator MUST NOT read the claim past the commitment. The genuinely non-party attestation is what makes this vector discriminating: only the scope overreach can produce the reject. This is the criterion its proposer fails-safe on deliberately: a record with no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.",
+        "description": "Rejecting twin of p16: independence claimed as covering 'delivery' while the record's derived commitments are 'settlement' and 'network' — a resolvable settlement, and nothing about delivered bytes. However independent the attestor, the attestation covered the committed facts and nothing else — an evaluator MUST NOT read the claim past the commitment. The genuinely non-party attestation is what makes this vector discriminating: only the scope overreach can produce the reject. Rebuilt on a settlement result rather than a declared list (@Rul1an, issue #4, second report) so the reject stays an overreach reject, not an unevaluable-input one.",
         "input": {
             "claimed": "independent",
             "covers": ["delivery"],
-            "record_commits": ["settlement"],
+            "settlement_result": {
+                "success": True,
+                "transaction": "0x4b8a1d6e2f9c0a7b5d3e8f1a6c4b2d0e9f7a5c3b1d8e6f4a2c0b9d7e5f3a1c8b",
+                "network": "eip155:8453",
+            },
             "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
@@ -501,6 +509,46 @@ vectors = [
             "claimed": "independent",
             "covers": ["settlement"],
             "settlement_result": {"success": True, "transaction": "", "network": "eip155:8453"},
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n22-independence-scope-declared-override",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "The override attack, pinned: n21's unresolvable settlement PLUS a declared `record_commits` list asserting the very scope the derivation denies. When the derivation was first shipped as a fallback behind the declared read, this input scored valid — the declared list overrode the derived commitments, making the derived-not-declared property decorative. The declared field's PRESENCE is now the reject, whatever it holds: a commitment scope a record asserts about itself is not evidence of that scope. Reported with this exact reproduction by @Rul1an (issue #4, second report).",
+        "input": {
+            "claimed": "independent",
+            "covers": ["settlement"],
+            "settlement_result": {"success": True, "transaction": "", "network": "eip155:8453"},
+            "record_commits": ["settlement"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n23-independence-scope-null-declared",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "The engine-fork input, pinned: a resolvable settlement result with `record_commits` present as an explicit JSON null. Python's `is None` read the null as absence and derived (valid); the TS cross-check's `=== undefined` read it as a declaration and rejected — two implementations of one criterion, two verdicts, invisible to a manifest-oracle cross-check because no vector carried a null. An explicit null is a declaration that evaluates to nothing, which fails closed for the same reason an unrecognized claim string does (design rule 3, issue #1). Both engines now guard on key PRESENCE — `in`, identical semantics in both languages — so this fork is unrepresentable rather than merely untested. Reported by @Rul1an (issue #4, second report).",
+        "input": {
+            "claimed": "independent",
+            "covers": ["settlement"],
+            "settlement_result": {
+                "success": True,
+                "transaction": "0x9e1f4c2a8b7d6e5f0a3c1b8d7e6f5a4c3b2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f",
+                "network": "eip155:8453",
+            },
+            "record_commits": None,
             "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
