@@ -218,6 +218,29 @@
       "reason": "independence_reject"
     },
     {
+      "file": "n24-independence-scope-declared-no-scope.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
+      "file": "p18-boundary-binds-prefix-and-position.json",
+      "kind": "boundary_binding",
+      "expect": "valid"
+    },
+    {
+      "file": "n25-boundary-prefix-only-no-position.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject"
+    },
+    {
+      "file": "n26-coverage-claimed-over-empty-attestation.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject"
+    },
+    {
       "file": "p15-offer-binding.json",
       "kind": "offer_binding",
       "expect": "valid"

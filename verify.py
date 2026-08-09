@@ -25,6 +25,11 @@ adversarial vector for its known failure class:
   offer_binding         a receipt that does not commit to the accepted offer's canonical
                         digest MUST NOT be evaluated as proof that a specific offer's
                         terms were paid (the offer-substitution class)
+  boundary_binding      a boundary event that changes a stream's verification parameters
+                        must bind the prefix it extends AND its own position in that
+                        prefix's continuation — naming the prefix alone is satisfiable by
+                        two conflicting continuations at once; and coverage claimed over
+                        an empty attested prefix is a downgrade, not a pass
 
 SCOPE BOUNDARY (stated, not implied): this stdlib core decides the STRUCTURAL predicate —
 digests, canonical bytes, sequence closure, link arithmetic, declared-claim evaluation.
@@ -319,6 +324,74 @@ def check_offer_binding(inp):
     return "valid", None, "receipt binds the presented offer's exact terms"
 
 
+def check_boundary_binding(inp):
+    """A record stream may change its own verification parameters — which witness, which
+    signature suite, which canonical form — and it does so with a BOUNDARY EVENT inside the
+    stream rather than by rewriting the records that predate the change. The question this
+    criterion settles is what such an event must bind for a verifier holding only the stream
+    to be able to check it.
+
+    Naming the prefix it extends is NOT sufficient. Two conflicting continuations of the same
+    prefix can both name that prefix truthfully, so a verifier accepts either and cannot tell
+    which the deployment committed to — demonstrated against a live implementation and
+    reproduced four independent ways in modelcontextprotocol/modelcontextprotocol#3004
+    (2026-08-08/09). A boundary event must therefore bind BOTH the digest of the prefix it
+    extends AND its own position in that prefix's continuation.
+
+    The second failure this pins is the downgrade: a verifier that cannot find the attestation
+    falls back to a weaker path — digest and link arithmetic alone — and reports success while
+    its own report says the attested prefix was empty. An offline snapshot is then
+    indistinguishable from a verified stream. Coverage that is claimed must be coverage that
+    was checked, so a claim of coverage over an empty attested prefix rejects.
+
+    Stated at the record layer, deliberately: the shape is a stream of records, a boundary
+    event, and a claimed covered prefix. Nothing here depends on a particular file format,
+    witness kind, or signature suite."""
+    event = inp.get("boundary_event")
+    if not isinstance(event, dict):
+        return "reject", "boundary_reject", "boundary event is not an object"
+
+    prefix = inp.get("prefix")
+    if not isinstance(prefix, list) or not prefix:
+        return "reject", "boundary_reject", "the prefix a boundary event extends is not an evaluable sequence"
+
+    # (a) Does it bind the prefix it extends, and truthfully?
+    claimed_prefix = _norm_digest(event.get("prefixDigest"))
+    if claimed_prefix is None:
+        return "reject", "boundary_reject", "boundary event binds no parseable digest of the prefix it extends"
+    try:
+        actual_prefix = digest_of(prefix)
+    except (ValueError, TypeError) as exc:
+        return "reject", "boundary_reject", f"prefix not canonicalizable: {exc}"
+    if claimed_prefix != actual_prefix:
+        return "reject", "boundary_reject", f"boundary event names prefix {claimed_prefix}, presented prefix digests to {actual_prefix}"
+
+    # (b) Does it bind its OWN position in that prefix's continuation? A truthful (a) with no
+    # (b) is the fabricated-boundary case: an event appended later, claiming an earlier
+    # effective point, is indistinguishable from one that was always there.
+    position = event.get("position")
+    if not isinstance(position, int) or isinstance(position, bool):
+        return "reject", "boundary_reject", "boundary event binds the prefix it extends but not its own position in the continuation — a later append claiming an earlier point is indistinguishable from an original"
+    if position != len(prefix):
+        return "reject", "boundary_reject", f"boundary event claims position {position}, the presented prefix ends at {len(prefix)}"
+
+    # The downgrade: coverage claimed over an empty attested prefix. A verifier that reports
+    # success here has checked nothing and said so in the same breath.
+    covered = inp.get("covered_through")
+    if covered is not None:
+        if not isinstance(covered, int) or isinstance(covered, bool) or covered < 0:
+            return "reject", "boundary_reject", "claimed coverage is not an evaluable position"
+        attested = event.get("attestedPrefixLength")
+        if not isinstance(attested, int) or isinstance(attested, bool):
+            return "reject", "boundary_reject", "coverage is claimed but the attested prefix length is not stated — unattested is not a pass"
+        if attested <= 0 < covered:
+            return "reject", "boundary_reject", f"coverage claimed through {covered} while the attested prefix is empty — an offline snapshot is indistinguishable from a verified stream"
+        if covered > attested:
+            return "reject", "boundary_reject", f"coverage claimed through {covered}, attestation reaches only {attested}"
+
+    return "valid", None, f"boundary event binds prefix {actual_prefix[:12]}… at position {position}"
+
+
 def derive_settlement_commits(result):
     """What a settlement result actually commits to, read off the result rather than declared.
 
@@ -446,6 +519,7 @@ CHECKS = {
     "phase_claim": check_phase_claim,
     "independence_claim": check_independence_claim,
     "offer_binding": check_offer_binding,
+    "boundary_binding": check_boundary_binding,
 }
 
 
@@ -455,7 +529,7 @@ CHECKS = {
 REQUIRED_REASONS = frozenset({
     "recompute_mismatch", "canonicalization_reject", "continuity_reject",
     "completeness_reject", "existence_reject", "phase_reject", "independence_reject",
-    "number_domain_reject", "binding_reject",
+    "number_domain_reject", "binding_reject", "boundary_reject",
 })
 
 

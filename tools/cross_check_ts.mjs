@@ -132,6 +132,41 @@ const CHECKS = {
     if (!PHASES.has(record.economic_phase) || !PHASES.has(inp.presented_as)) return ["reject", "phase_reject"];
     return record.economic_phase === inp.presented_as ? ["valid", null] : ["reject", "phase_reject"];
   },
+  // Mirrors verify.py's check_boundary_binding. A boundary event that changes a stream's
+  // verification parameters must bind the prefix it extends AND its own position in that
+  // prefix's continuation — naming the prefix alone is satisfiable by two conflicting
+  // continuations at once. Coverage claimed over an empty attested prefix is a downgrade.
+  boundary_binding(inp) {
+    const event = inp.boundary_event;
+    if (typeof event !== "object" || event === null || Array.isArray(event)) return ["reject", "boundary_reject"];
+    const prefix = inp.prefix;
+    if (!Array.isArray(prefix) || prefix.length === 0) return ["reject", "boundary_reject"];
+
+    const claimed = normDigest(event.prefixDigest);
+    if (claimed === null) return ["reject", "boundary_reject"];
+    let actual;
+    try {
+      actual = digestOf(prefix);
+    } catch {
+      return ["reject", "boundary_reject"];
+    }
+    if (claimed !== actual) return ["reject", "boundary_reject"];
+
+    const position = event.position;
+    if (!Number.isInteger(position)) return ["reject", "boundary_reject"];
+    if (position !== prefix.length) return ["reject", "boundary_reject"];
+
+    const covered = inp.covered_through;
+    if (covered !== null && covered !== undefined) {
+      if (!Number.isInteger(covered) || covered < 0) return ["reject", "boundary_reject"];
+      const attested = event.attestedPrefixLength;
+      if (!Number.isInteger(attested)) return ["reject", "boundary_reject"];
+      if (attested <= 0 && covered > 0) return ["reject", "boundary_reject"];
+      if (covered > attested) return ["reject", "boundary_reject"];
+    }
+    return ["valid", null];
+  },
+
   offer_binding(inp) {
     const receipt = inp.receipt;
     if (typeof receipt !== "object" || receipt === null || Array.isArray(receipt)) return ["reject", "binding_reject"];

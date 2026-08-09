@@ -71,6 +71,15 @@ OFFER_A = {
 OFFER_B = {**OFFER_A, "amount": "100", "payTo": "0x3333333333333333333333333333333333333333"}
 OFFER_A_DIGEST = digest_of(OFFER_A)
 
+# Boundary-binding prefix: the three records a boundary event extends. Its digest is computed
+# here, so a drift in canonical() breaks generation rather than silently re-pinning the vector.
+BOUNDARY_PREFIX = [
+    {"event": "record", "seq": 1},
+    {"event": "record", "seq": 2},
+    {"event": "record", "seq": 3},
+]
+BOUNDARY_PREFIX_DIGEST = digest_of(BOUNDARY_PREFIX)
+
 vectors = [
     # ---------------------------------------------------------------- positives
     {
@@ -554,6 +563,85 @@ vectors = [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
                 {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
             ],
+        },
+    },
+    {
+        "id": "n24-independence-scope-declared-no-scope",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "The second half of the presence rule, which n22 and n23 do not reach: `record_commits` present with NO scope asserted at all. Both of those carry `covers`, so a verifier that puts the presence check INSIDE its commitment-scope branch passes the whole corpus while accepting this — a misreading available from this suite's own README, where the rule is introduced under the commitment-scope property and both illustrating vectors assert a scope. The differential harness generates this shape but cannot pin it: its oracle is divergence between engines, and two engines making the same misreading move together. Reported, with a patched stand-in engine and the result table, by @Rul1an (issue #4).",
+        "input": {
+            "claimed": "independent",
+            "record_commits": ["settlement"],
+            "parties": ["0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+            "attestations": [
+                {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    # -------------------------------------- boundary binding (2-sided, 3 known failure classes)
+    {
+        "id": "p18-boundary-binds-prefix-and-position",
+        "kind": "boundary_binding",
+        "expect": "valid",
+        "description": "Accepting twin: a boundary event that changes a stream's verification parameters binds BOTH the canonical digest of the prefix it extends and its own position in that prefix's continuation, and the coverage it claims is within the prefix its attestation actually reaches. A verifier holding only the stream can check every one of those.",
+        "input": {
+            "prefix": [
+                {"event": "record", "seq": 1},
+                {"event": "record", "seq": 2},
+                {"event": "record", "seq": 3},
+            ],
+            "boundary_event": {
+                "event": "witness_ref_introduced",
+                "ruleVersion": "witness-ref-v1",
+                "prefixDigest": BOUNDARY_PREFIX_DIGEST,
+                "position": 3,
+                "attestedPrefixLength": 3,
+            },
+            "covered_through": 3,
+        },
+    },
+    {
+        "id": "n25-boundary-prefix-only-no-position",
+        "kind": "boundary_binding",
+        "expect": "reject",
+        "reason": "boundary_reject",
+        "description": "The fabricated-boundary class. The event names the prefix it extends TRUTHFULLY — the digest recomputes — but binds nothing about its own position in that prefix's continuation. Two conflicting continuations of the same prefix can therefore both name it truthfully, and a verifier accepts either without being able to say which the deployment committed to; an event appended later claiming an earlier effective point is indistinguishable from one that was always there. Demonstrated against a live implementation and reproduced four independent ways in modelcontextprotocol/modelcontextprotocol#3004 (2026-08-08/09), where @Tetsurohhori then made the binding retrospective and @navigatorbuilds restated the rule normatively.",
+        "input": {
+            "prefix": [
+                {"event": "record", "seq": 1},
+                {"event": "record", "seq": 2},
+                {"event": "record", "seq": 3},
+            ],
+            "boundary_event": {
+                "event": "witness_ref_introduced",
+                "ruleVersion": "witness-ref-v1",
+                "prefixDigest": BOUNDARY_PREFIX_DIGEST,
+            },
+        },
+    },
+    {
+        "id": "n26-coverage-claimed-over-empty-attestation",
+        "kind": "boundary_binding",
+        "expect": "reject",
+        "reason": "boundary_reject",
+        "description": "The downgrade class. Everything binds correctly, and the stream claims coverage through position 3 while the attestation reaches an empty prefix. A verifier that falls back to digest and link arithmetic when it cannot find the attestation reports success having checked nothing — and says so in the same breath, which is how @Tetsurohhori found it in his own tool (2026-08-09): VERIFY OK printed beside attested_prefix_lines=0. An offline snapshot is then indistinguishable from a verified stream, so unattested must be its own outcome rather than a pass.",
+        "input": {
+            "prefix": [
+                {"event": "record", "seq": 1},
+                {"event": "record", "seq": 2},
+                {"event": "record", "seq": 3},
+            ],
+            "boundary_event": {
+                "event": "witness_ref_introduced",
+                "ruleVersion": "witness-ref-v1",
+                "prefixDigest": BOUNDARY_PREFIX_DIGEST,
+                "position": 3,
+                "attestedPrefixLength": 0,
+            },
+            "covered_through": 3,
         },
     },
     # ------------------------------------------------------ offer binding (2-sided)
