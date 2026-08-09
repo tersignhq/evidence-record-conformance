@@ -1,0 +1,85 @@
+{
+  "id": "n27-authority-reduction-unbound",
+  "kind": "decision_evidence_binding",
+  "expect": "reject",
+  "reason": "binding_reject",
+  "description": "CG-DELTA-LOSS-01, unbound case: two different authority reductions can sit behind the same protected record because it commits to no decision-evidence digest. The counterfactual object makes the lost distinction executable without claiming either producer is truthful.",
+  "input": {
+    "record": {
+      "outcome": "allowed"
+    },
+    "decision_evidence": {
+      "requested": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "hostAllowed": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "5"
+        }
+      },
+      "effective": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "5"
+        }
+      },
+      "delta": {
+        "removed": {},
+        "reducedBudgets": {
+          "nodes": {
+            "requested": "10",
+            "effective": "5"
+          }
+        }
+      },
+      "policy": {
+        "id": "host-default",
+        "version": "2"
+      }
+    },
+    "counterfactual_decision_evidence": {
+      "requested": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "hostAllowed": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "effective": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "delta": {
+        "removed": {},
+        "reducedBudgets": {}
+      },
+      "policy": {
+        "id": "host-default",
+        "version": "1"
+      }
+    }
+  }
+}

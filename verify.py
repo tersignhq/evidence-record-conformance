@@ -25,6 +25,10 @@ adversarial vector for its known failure class:
   offer_binding         a receipt that does not commit to the accepted offer's canonical
                         digest MUST NOT be evaluated as proof that a specific offer's
                         terms were paid (the offer-substitution class)
+  decision_evidence_binding
+                        a protected record presented as evidence of an authority decision
+                        must commit to the exact canonical decision-evidence object; an
+                        unbound or substituted requested-to-effective reduction rejects
   boundary_binding      a boundary event that changes a stream's verification parameters
                         must bind the prefix it extends AND its own position in that
                         prefix's continuation — naming the prefix alone is satisfiable by
@@ -302,6 +306,41 @@ def check_phase_claim(inp):
     return "valid", None, f"phase {phase} consistent"
 
 
+_MISSING = object()
+
+
+def _check_object_binding(
+    carrier,
+    digest_field,
+    presented,
+    label,
+    *,
+    carrier_label="carrier",
+    object_required=False,
+    missing_detail=None,
+    missing_presented_detail=None,
+    valid_detail=None,
+):
+    """Shared binding arithmetic without conflating the bound objects' semantics."""
+    if not isinstance(carrier, dict):
+        return "reject", "binding_reject", f"{carrier_label} is not an object"
+    if object_required and not isinstance(presented, dict):
+        return "reject", "binding_reject", f"presented {label} is not an object"
+    committed = _norm_digest(carrier.get(digest_field))
+    if committed is None:
+        detail = missing_detail or f"{carrier_label} commits to no parseable {label} digest"
+        return "reject", "binding_reject", detail
+    if presented is _MISSING:
+        return "reject", "binding_reject", missing_presented_detail or f"{label} is missing"
+    try:
+        got = digest_of(presented)
+    except (ValueError, TypeError, KeyError) as exc:
+        return "reject", "binding_reject", f"{label} not canonicalizable: {exc}"
+    if got != committed:
+        return "reject", "binding_reject", f"presented {label} digests to {got}, {carrier_label} commits to {committed}"
+    return "valid", None, valid_detail or f"{carrier_label} binds the presented {label}"
+
+
 def check_offer_binding(inp):
     """A receipt proves the terms it COMMITS to. A receipt that carries no digest of the
     accepted offer cannot bind amount/asset/payTo/scheme, so two offers sharing
@@ -309,19 +348,33 @@ def check_offer_binding(inp):
     substitution class reported upstream (x402-foundation/x402#3006). The check is the
     binding arithmetic: the presented offer's canonical digest must equal the digest the
     receipt commits to; changing ANY term changes the canonical bytes, hence the digest."""
-    receipt = inp.get("receipt")
-    if not isinstance(receipt, dict):
-        return "reject", "binding_reject", "receipt is not an object"
-    committed = _norm_digest(receipt.get("offerDigest"))
-    if committed is None:
-        return "reject", "binding_reject", "receipt commits to no parseable offer digest — terms are unbound"
-    try:
-        got = digest_of(inp["offer"])
-    except (ValueError, TypeError, KeyError) as exc:
-        return "reject", "binding_reject", f"offer not canonicalizable: {exc}"
-    if got != committed:
-        return "reject", "binding_reject", f"presented offer digests to {got}, receipt commits to {committed}"
-    return "valid", None, "receipt binds the presented offer's exact terms"
+    return _check_object_binding(
+        inp.get("receipt"),
+        "offerDigest",
+        inp["offer"] if "offer" in inp else _MISSING,
+        "offer",
+        carrier_label="receipt",
+        missing_detail="receipt commits to no parseable offer digest — terms are unbound",
+        missing_presented_detail="offer not canonicalizable: 'offer'",
+        valid_detail="receipt binds the presented offer's exact terms",
+    )
+
+
+def check_decision_evidence_binding(inp):
+    """Bind the exact authority-decision evidence object to the protected record.
+
+    This criterion deliberately decides only structural distinguishability. It does not
+    validate the authority intersection, authenticate the producer, establish historical
+    position, or prescribe where a future protocol stores the commitment.
+    """
+    return _check_object_binding(
+        inp.get("record"),
+        "decisionEvidenceDigest",
+        inp.get("decision_evidence"),
+        "decision-evidence object",
+        carrier_label="record",
+        object_required=True,
+    )
 
 
 def check_boundary_binding(inp):
@@ -519,6 +572,7 @@ CHECKS = {
     "phase_claim": check_phase_claim,
     "independence_claim": check_independence_claim,
     "offer_binding": check_offer_binding,
+    "decision_evidence_binding": check_decision_evidence_binding,
     "boundary_binding": check_boundary_binding,
 }
 

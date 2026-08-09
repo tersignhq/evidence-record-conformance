@@ -31,7 +31,7 @@ python3 verify.py
 
 stdlib-only, no dependencies, no network. Exit 0 only if every vector produces its expected
 verdict **and** the run observed both verdicts **and** the pinned closure of 10 reject reasons
-and 9 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
+and 10 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
 from the manifest, so a fork that quietly drops a class goes red. A green run demonstrates
 the verifier discriminates, not merely accepts.
 
@@ -48,6 +48,7 @@ the verifier discriminates, not merely accepts.
 | anchored existence bound | p5 (live) | n5 truncated/substituted head | `existence_reject` |
 | economic-phase separation | p7 | n6 funding-as-delivery, n18 **unrecognized phase** | `phase_reject` |
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
+| decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation) | `boundary_reject` |
 | independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half) | `independence_reject` |
 
@@ -108,6 +109,16 @@ normalization, a party relabels itself as its own "outside" witness by appending
 its own address (n13) — an alias bypass of the independence criterion, failing open exactly
 where the criterion exists to fail closed. An identifier that does not parse *after*
 normalization is not evaluable and rejects (n14).
+
+A seventh property applies the same binding arithmetic to a different semantic object:
+**a protected record presented as evidence of an authority decision must commit to the exact
+decision-evidence object it names.** Without that commitment, two allowed decisions with the
+same record-visible outcome but different host limits, policy versions and
+requested-to-effective reductions are indistinguishable (n27). A commitment to reduction A
+must reject reduction B (n28), while the matching pair accepts (p19). This structural
+criterion does not validate the authority intersection, authenticate the producer, establish
+historical position, or prescribe a field for another protocol; it only makes substitution
+and loss of the reduction detectable.
 
 ## Scope boundary — structural profile vs crypto profile
 

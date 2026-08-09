@@ -59,6 +59,21 @@ address, a declared label — is not thereby independent, and a declared field g
 That distinction is why the `settledBy` producer field he raised was **not** adopted: a
 criterion satisfiable by declaration reproduces the defect it was meant to catch.
 
+## [@mohammedmessaoudene-cmd](https://github.com/mohammedmessaoudene-cmd) — Mohammed Messaoudene
+
+**Authority-decision evidence binding** — vectors `p19` / `n27` / `n28`. Reported
+`CG-DELTA-LOSS-01` from an AUEC-controlled experiment in the
+[SEP-3004 discussion](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3004#issuecomment-5228991875):
+two allowed decisions can have different host limits, policy versions and
+requested-to-effective reductions while producing the same protected record. The accepting
+vector commits to the exact canonical decision-evidence object; the rejecting twins pin the
+unbound and substitution cases. The criterion is structural only and does not assert producer
+truth, independent validation, MCP adoption, or a normative field location.
+
+OpenAI ChatGPT and Codex assisted with implementation, testing, analysis and drafting;
+Mohammed Messaoudene reviewed the executed evidence and remains responsible for the
+contribution.
+
 ## [@0rkz](https://github.com/0rkz) — PayPerByte
 
 **Bilateral anchor cross-check** —

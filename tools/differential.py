@@ -25,7 +25,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from verify import CHECKS  # noqa: E402
+from verify import CHECKS, digest_of  # noqa: E402
 
 
 def py_verdict(kind, inp):
@@ -69,6 +69,46 @@ def mutations(kind, inp):
         with_key("covers", None, "covers=null")
         with_key("covers", [], "covers=empty-list")
         without_key("covers", "covers-absent")
+    if kind == "decision_evidence_binding":
+        # Binding-specific fail-closed battery. These cases are intentionally outside the
+        # shared manifest oracle so Python/TS shape readings are compared directly.
+        without_key("decision_evidence", "decision_evidence=absent")
+        with_key("decision_evidence", None, "decision_evidence=null")
+        with_key("decision_evidence", [], "decision_evidence=array")
+        with_key("decision_evidence", "not-an-object", "decision_evidence=string")
+        for tag, record in (
+            ("record=absent", None),
+            ("record=null", None),
+            ("record=array", []),
+            ("record=empty-object", {}),
+        ):
+            m = json.loads(json.dumps(inp))
+            if tag == "record=absent":
+                m.pop("record", None)
+            else:
+                m["record"] = record
+            out.append((tag, m))
+        if isinstance(inp.get("record"), dict):
+            for tag, digest in (
+                ("commitment=null", None),
+                ("commitment=malformed", "0x1234"),
+                ("commitment=mismatch", "0x" + "00" * 32),
+            ):
+                m = json.loads(json.dumps(inp))
+                m["record"]["decisionEvidenceDigest"] = digest
+                out.append((tag, m))
+        if isinstance(inp.get("decision_evidence"), dict):
+            m = json.loads(json.dumps(inp))
+            m["decision_evidence"].setdefault("policy", {})["version"] = "substituted"
+            out.append(("decision_evidence=policy-substitution", m))
+    if kind == "offer_binding":
+        # Regression for key absence versus an explicit JSON null. Python previously used
+        # indexing while JS canonicalization received undefined; a refactor to `.get()` can
+        # accidentally turn absence into null and accept a digest of canonical `null`.
+        m = json.loads(json.dumps(inp))
+        m.pop("offer", None)
+        m.setdefault("receipt", {})["offerDigest"] = digest_of(None)
+        out.append(("offer=absent-with-null-commitment", m))
     return out
 
 
