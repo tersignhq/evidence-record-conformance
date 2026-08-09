@@ -30,8 +30,8 @@ python3 verify.py
 ```
 
 stdlib-only, no dependencies, no network. Exit 0 only if every vector produces its expected
-verdict **and** the run observed both verdicts **and** the pinned closure of 9 reject reasons
-and 8 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
+verdict **and** the run observed both verdicts **and** the pinned closure of 10 reject reasons
+and 9 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
 from the manifest, so a fork that quietly drops a class goes red. A green run demonstrates
 the verifier discriminates, not merely accepts.
 
