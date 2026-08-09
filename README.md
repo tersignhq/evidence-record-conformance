@@ -112,13 +112,17 @@ normalization is not evaluable and rejects (n14).
 
 A seventh property applies the same binding arithmetic to a different semantic object:
 **a protected record presented as evidence of an authority decision must commit to the exact
-decision-evidence object it names.** Without that commitment, two allowed decisions with the
-same record-visible outcome but different host limits, policy versions and
-requested-to-effective reductions are indistinguishable (n27). A commitment to reduction A
-must reject reduction B (n28), while the matching pair accepts (p19). This structural
-criterion does not validate the authority intersection, authenticate the producer, establish
-historical position, or prescribe a field for another protocol; it only makes substitution
-and loss of the reduction detectable.
+decision-evidence object it names.** Without that commitment, the presented reduction is
+unbound and rejects (n27). n27 deliberately exercises only this missing-commitment branch;
+the distinct-object contrast is load-bearing across p19/n28: a commitment to reduction A
+accepts A (p19) and rejects B (n28). This structural criterion does not validate the authority
+intersection, authenticate the producer or establish historical position; it only makes a
+missing commitment and substitution detectable.
+
+This suite instantiates the relation with its local RFC-8785-compatible canonicalizer and
+Keccak-256. The conformance property is the algorithm-parametric relation “matching canonical
+object accepts; missing or mismatching commitment rejects”, not a prescription of a digest,
+canonicalization, or field location for AUEC, MCP, or another protocol.
 
 ## Scope boundary — structural profile vs crypto profile
 

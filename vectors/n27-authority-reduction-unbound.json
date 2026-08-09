@@ -3,7 +3,7 @@
   "kind": "decision_evidence_binding",
   "expect": "reject",
   "reason": "binding_reject",
-  "description": "CG-DELTA-LOSS-01, unbound case: two different authority reductions can sit behind the same protected record because it commits to no decision-evidence digest. The counterfactual object makes the lost distinction executable without claiming either producer is truthful.",
+  "description": "CG-DELTA-LOSS-01, unbound case: the protected record carries no decision-evidence digest, so the presented authority reduction is not structurally bound to it and must reject. This vector tests only the missing-commitment branch; p19/n28 execute the distinct A/B substitution contrast.",
   "input": {
     "record": {
       "outcome": "allowed"
@@ -45,40 +45,6 @@
       "policy": {
         "id": "host-default",
         "version": "2"
-      }
-    },
-    "counterfactual_decision_evidence": {
-      "requested": {
-        "capabilities": [
-          "read"
-        ],
-        "budgets": {
-          "nodes": "10"
-        }
-      },
-      "hostAllowed": {
-        "capabilities": [
-          "read"
-        ],
-        "budgets": {
-          "nodes": "10"
-        }
-      },
-      "effective": {
-        "capabilities": [
-          "read"
-        ],
-        "budgets": {
-          "nodes": "10"
-        }
-      },
-      "delta": {
-        "removed": {},
-        "reducedBudgets": {}
-      },
-      "policy": {
-        "id": "host-default",
-        "version": "1"
       }
     }
   }

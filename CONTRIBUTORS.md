@@ -65,10 +65,11 @@ criterion satisfiable by declaration reproduces the defect it was meant to catch
 `CG-DELTA-LOSS-01` from an AUEC-controlled experiment in the
 [SEP-3004 discussion](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3004#issuecomment-5228991875):
 two allowed decisions can have different host limits, policy versions and
-requested-to-effective reductions while producing the same protected record. The accepting
-vector commits to the exact canonical decision-evidence object; the rejecting twins pin the
-unbound and substitution cases. The criterion is structural only and does not assert producer
-truth, independent validation, MCP adoption, or a normative field location.
+requested-to-effective reductions while producing the same protected record. In the corpus,
+n27 exercises the missing-commitment branch with one presented reduction; p19/n28 execute the
+distinct-object A/B contrast. The criterion is structural only and does not assert producer
+truth, independent validation, MCP adoption, or a normative digest, canonicalization, or field
+location.
 
 OpenAI ChatGPT and Codex assisted with implementation, testing, analysis and drafting;
 Mohammed Messaoudene reviewed the executed evidence and remains responsible for the

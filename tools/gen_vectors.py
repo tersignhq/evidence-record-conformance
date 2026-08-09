@@ -689,11 +689,10 @@ vectors = [
         "kind": "decision_evidence_binding",
         "expect": "reject",
         "reason": "binding_reject",
-        "description": "CG-DELTA-LOSS-01, unbound case: two different authority reductions can sit behind the same protected record because it commits to no decision-evidence digest. The counterfactual object makes the lost distinction executable without claiming either producer is truthful.",
+        "description": "CG-DELTA-LOSS-01, unbound case: the protected record carries no decision-evidence digest, so the presented authority reduction is not structurally bound to it and must reject. This vector tests only the missing-commitment branch; p19/n28 execute the distinct A/B substitution contrast.",
         "input": {
             "record": {"outcome": "allowed"},
             "decision_evidence": DECISION_EVIDENCE_B,
-            "counterfactual_decision_evidence": DECISION_EVIDENCE_A,
         },
     },
     {
@@ -759,7 +758,7 @@ manifest = {
     "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present; where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
-    "decision_evidence_binding": "record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object, while producer truth and decision semantics remain out of scope",
+    "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
     "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],
