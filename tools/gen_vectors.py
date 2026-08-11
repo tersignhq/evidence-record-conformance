@@ -71,6 +71,32 @@ OFFER_A = {
 OFFER_B = {**OFFER_A, "amount": "100", "payTo": "0x3333333333333333333333333333333333333333"}
 OFFER_A_DIGEST = digest_of(OFFER_A)
 
+# Authority-decision pair: the same request is reduced under two different host-policy
+# limits. The protected record can distinguish the reductions only when it commits to the
+# exact canonical decision-evidence object. This is structural binding only: it does not
+# authenticate the producer or validate that the reduction itself is truthful.
+DECISION_EVIDENCE_A = {
+    "requested": {"capabilities": ["read"], "budgets": {"nodes": "10"}},
+    "hostAllowed": {"capabilities": ["read"], "budgets": {"nodes": "10"}},
+    "effective": {"capabilities": ["read"], "budgets": {"nodes": "10"}},
+    "delta": {"removed": {}, "reducedBudgets": {}},
+    "policy": {"id": "host-default", "version": "1"},
+}
+DECISION_EVIDENCE_B = {
+    "requested": {"capabilities": ["read"], "budgets": {"nodes": "10"}},
+    "hostAllowed": {"capabilities": ["read"], "budgets": {"nodes": "5"}},
+    "effective": {"capabilities": ["read"], "budgets": {"nodes": "5"}},
+    "delta": {
+        "removed": {},
+        "reducedBudgets": {"nodes": {"requested": "10", "effective": "5"}},
+    },
+    "policy": {"id": "host-default", "version": "2"},
+}
+DECISION_EVIDENCE_A_DIGEST = digest_of(DECISION_EVIDENCE_A)
+DECISION_EVIDENCE_B_DIGEST = digest_of(DECISION_EVIDENCE_B)
+assert DECISION_EVIDENCE_A_DIGEST == "0x68b2b24ff10af252ca43df157efcf23d05098d8deafa0bb22126bee8c6c2f097"
+assert DECISION_EVIDENCE_B_DIGEST == "0x6f1e5578989368eebfa56b16bea09352aecc4f2f17ec7831301121c72100a909"
+
 # Boundary-binding prefix: the three records a boundary event extends. Its digest is computed
 # here, so a drift in canonical() breaks generation rather than silently re-pinning the vector.
 BOUNDARY_PREFIX = [
@@ -644,6 +670,45 @@ vectors = [
             "covered_through": 3,
         },
     },
+    # ------------------------------- decision-evidence binding (2-sided, 2 failures)
+    {
+        "id": "p19-authority-reduction-bound",
+        "kind": "decision_evidence_binding",
+        "expect": "valid",
+        "description": "Accepting twin: the protected record commits to the exact canonical decision-evidence object, so the presented requested-to-effective authority reduction is structurally distinguishable from another reduction.",
+        "input": {
+            "record": {
+                "outcome": "allowed",
+                "decisionEvidenceDigest": DECISION_EVIDENCE_A_DIGEST,
+            },
+            "decision_evidence": DECISION_EVIDENCE_A,
+        },
+    },
+    {
+        "id": "n27-authority-reduction-unbound",
+        "kind": "decision_evidence_binding",
+        "expect": "reject",
+        "reason": "binding_reject",
+        "description": "CG-DELTA-LOSS-01, unbound case: the protected record carries no decision-evidence digest, so the presented authority reduction is not structurally bound to it and must reject. This vector tests only the missing-commitment branch; p19/n28 execute the distinct A/B substitution contrast.",
+        "input": {
+            "record": {"outcome": "allowed"},
+            "decision_evidence": DECISION_EVIDENCE_B,
+        },
+    },
+    {
+        "id": "n28-authority-reduction-substitution",
+        "kind": "decision_evidence_binding",
+        "expect": "reject",
+        "reason": "binding_reject",
+        "description": "Substitution case: the record commits to authority reduction A while reduction B, carrying a different host limit, delta and policy version, is presented.",
+        "input": {
+            "record": {
+                "outcome": "allowed",
+                "decisionEvidenceDigest": DECISION_EVIDENCE_A_DIGEST,
+            },
+            "decision_evidence": DECISION_EVIDENCE_B,
+        },
+    },
     # ------------------------------------------------------ offer binding (2-sided)
     {
         "id": "p15-offer-binding",
@@ -693,6 +758,7 @@ manifest = {
     "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present; where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
+    "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
     "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],

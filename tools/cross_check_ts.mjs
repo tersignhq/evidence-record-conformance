@@ -46,6 +46,26 @@ const NO_CLAIM = new Set(["", "none", "issuer_attested"]);
 const PHASES = new Set(["funding", "delivery", "settlement", "refund", "reversal"]);
 const MAX_HEAD_SEQ = 100_000;
 
+// Shared arithmetic only: the offer and decision-evidence kinds retain distinct
+// semantic contracts and input shapes even though both bind canonical object bytes.
+function checkObjectBinding(carrier, digestField, presented, { objectRequired = false } = {}) {
+  if (typeof carrier !== "object" || carrier === null || Array.isArray(carrier)) {
+    return ["reject", "binding_reject"];
+  }
+  if (objectRequired && (typeof presented !== "object" || presented === null || Array.isArray(presented))) {
+    return ["reject", "binding_reject"];
+  }
+  const committed = normDigest(carrier[digestField]);
+  if (committed === null) return ["reject", "binding_reject"];
+  let got;
+  try {
+    got = digestOf(presented);
+  } catch {
+    return ["reject", "binding_reject"];
+  }
+  return got === committed ? ["valid", null] : ["reject", "binding_reject"];
+}
+
 // ------------------------------------------------------------------------ vector kinds
 const CHECKS = {
   digest_recompute(inp) {
@@ -168,17 +188,16 @@ const CHECKS = {
   },
 
   offer_binding(inp) {
-    const receipt = inp.receipt;
-    if (typeof receipt !== "object" || receipt === null || Array.isArray(receipt)) return ["reject", "binding_reject"];
-    const committed = normDigest(receipt.offerDigest);
-    if (committed === null) return ["reject", "binding_reject"];
-    let got;
-    try {
-      got = digestOf(inp.offer);
-    } catch {
-      return ["reject", "binding_reject"];
-    }
-    return got === committed ? ["valid", null] : ["reject", "binding_reject"];
+    return checkObjectBinding(inp.receipt, "offerDigest", inp.offer);
+  },
+
+  decision_evidence_binding(inp) {
+    return checkObjectBinding(
+      inp.record,
+      "decisionEvidenceDigest",
+      inp.decision_evidence,
+      { objectRequired: true },
+    );
   },
   independence_claim(inp) {
     const claimed = inp.claimed;
