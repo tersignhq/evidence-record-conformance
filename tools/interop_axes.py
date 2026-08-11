@@ -275,6 +275,60 @@ def report(bundle):
             "chain": verdict, "anchor_rejects": rejects}
 
 
+def custody_twins(vectors_dir):
+    """The independence criterion against AXES's own two-sided custody pair.
+
+    These are the objects the `out/` bundles lack: a declared independence relationship
+    (`capture_relationship`) plus NAMED parties (`deployer_id`, `executor_id`, `capturer_id`),
+    so the criterion can actually decide rather than merely have nothing to fire on.
+
+    Run twice — once on the identities as written, once with the same identities rewritten
+    as 0x-addresses. The difference between the two runs isolates what the identifier
+    syntax costs, rather than asserting it.
+    """
+    from verify import check_independence_claim
+
+    pairs = [
+        ("custody_deployer_captured_reject", "reject"),
+        ("custody_accept_independent_external", "accept"),
+    ]
+    rows = []
+    for name, axes_verdict in pairs:
+        path = os.path.join(vectors_dir, name + ".json")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            custody = json.load(fh)["custody"]
+        as_written = check_independence_claim({
+            "claimed": "independent",
+            "parties": [custody["deployer_id"], custody["executor_id"]],
+            "attestations": [{"by": custody["capturer_id"]}],
+        })
+        ids = {}
+        for i, identity in enumerate((custody["deployer_id"], custody["executor_id"],
+                                      custody["capturer_id"])):
+            ids.setdefault(identity, "0x" + f"{i + 1:02d}" * 20)
+        rewritten = check_independence_claim({
+            "claimed": "independent",
+            "parties": [ids[custody["deployer_id"]], ids[custody["executor_id"]]],
+            "attestations": [{"by": ids[custody["capturer_id"]]}],
+        })
+        rows.append((name, axes_verdict, custody, as_written, rewritten))
+
+    print("\n=== independence vs the AXES custody twins ===")
+    for name, axes_verdict, custody, as_written, rewritten in rows:
+        same_party = custody["capturer_id"] == custody["deployer_id"]
+        print(f"  {name}")
+        print(f"    AXES verdict: {axes_verdict}   (capturer {'==' if same_party else '!='} deployer)")
+        print(f"    ours, identities as written:  {as_written[0]}/{as_written[1]} — {as_written[2]}")
+        print(f"    ours, identities as 0x-addrs: {rewritten[0]}/{rewritten[1] or '—'} — {rewritten[2]}")
+    agree = sum(1 for _n, a, _c, _w, r in rows if (r[0] == "valid") == (a == "accept"))
+    print(f"  with identities rewritten, the criterion matches the AXES verdict on {agree}/{len(rows)}")
+    print("  as written it rejects both, including the accepting twin — a false negative")
+    print("  produced by identifier syntax, not by the independence predicate")
+    return rows
+
+
 def float_nonvacuity(v1_bundle, v2_bundle):
     """The number-domain refusal fired 0 times on v2. A control that never fires proves
     nothing, so run the same canonicalizer over the archived v1 corpus it was built for."""
@@ -306,6 +360,12 @@ def main():
             print("usage: --compare-v1 V1_BUNDLE V2_BUNDLE")
             return 2
         float_nonvacuity(args[1], args[2])
+        return 0
+    if args[0] == "--custody-twins":
+        if len(args) != 2:
+            print("usage: --custody-twins VECTORS_DIR")
+            return 2
+        custody_twins(args[1])
         return 0
     print("evidence-record-conformance criteria vs AXES Golden Trace")
     for bundle in args:
