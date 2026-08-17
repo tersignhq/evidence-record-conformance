@@ -259,6 +259,17 @@
       "reason": "binding_reject"
     },
     {
+      "file": "p20-suite-transition-preserves-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "valid"
+    },
+    {
+      "file": "n29-suite-transition-redigests-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject"
+    },
+    {
       "file": "p15-offer-binding.json",
       "kind": "offer_binding",
       "expect": "valid"
