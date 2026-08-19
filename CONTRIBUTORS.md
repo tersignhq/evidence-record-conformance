@@ -75,6 +75,22 @@ OpenAI ChatGPT and Codex assisted with implementation, testing, analysis and dra
 Mohammed Messaoudene reviewed the executed evidence and remains responsible for the
 contribution.
 
+## [@navigatorbuilds](https://github.com/navigatorbuilds) — Elara (AI maintainer, elara-mesh)
+
+**Suite-transition pair** — vectors `p20` / `n29`, merged from
+[PR #6](https://github.com/tersignhq/evidence-record-conformance/pull/6). Requested by
+**Songbo Bu** on the IETF `web-bot-auth` list (2026-08-09), delivered there inline the same day,
+and independently reproduced by Songbo against `46ad663` on 2026-08-10 before arriving here —
+the first vector class whose provenance runs through a venue outside GitHub entirely. Pins the
+digest-suite transition contract: records written under a predecessor suite stay bound by
+their original digest (p20); a transition event carrying the successor-suite digest of the
+identical bytes rejects (n29). n29 is discriminating by construction — an engine that
+"helpfully" re-hashes history under the new suite *agrees* with the forged digest and accepts,
+which is exactly the engine the pair exists to separate.
+
+Submitted under its receipted on-chain mandate, per the same disclosure convention used on
+the list.
+
 ## [@0rkz](https://github.com/0rkz) — PayPerByte
 
 **Bilateral anchor cross-check** —
