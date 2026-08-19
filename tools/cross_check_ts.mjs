@@ -38,7 +38,19 @@ const sha256hex = (hex) => "0x" + createHash("sha256").update(Buffer.from(hex.sl
 // -------------------------------------------------------- identifier normalization
 const ADDR_RE = /^0x[0-9a-f]{40}$/;
 const DIGEST_RE = /^0x[0-9a-f]{64}$/;
-const normAddr = (a) => (typeof a === "string" && ADDR_RE.test(a.trim().toLowerCase()) ? a.trim().toLowerCase() : null);
+// Second identity syntax (2026-08-19): scheme-qualified identifiers, strict grammar so the
+// aliasing defence still holds — no whitespace, no format characters; case + trailing punctuation folded.
+const URN_RE = /^[a-z][a-z0-9+.-]*:[\x21-\x7e]+$/;
+const normAddr = (a) => {
+  if (typeof a !== "string") return null;
+  const t = a.trim();
+  const low = t.toLowerCase();
+  if (ADDR_RE.test(low)) return low;
+  // Fold toward "same party": case-insensitive, trailing / . # stripped. A verifier that does
+  // not own a scheme's equivalence rules must treat possibly-equal identifiers as equal.
+  if (URN_RE.test(t)) return low.replace(/[\/.#]+$/, "");
+  return null;
+};
 const normDigest = (x) => (typeof x === "string" && DIGEST_RE.test(x.trim().toLowerCase()) ? x.trim().toLowerCase() : null);
 const isSeq = (x) => typeof x === "number" && Number.isInteger(x);
 

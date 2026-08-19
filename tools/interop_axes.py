@@ -166,11 +166,10 @@ def independence(envelopes):
     third_party_confirmed / externally_anchored); none of those is an assertion of
     neutrality in this criterion's vocabulary, so there is no claim to decide.
 
-    A separate limit is real but NOT demonstrable on this corpus: the criterion compares
-    attestor identity through `_norm_addr`, which parses 0x-addresses only. Against a URN
-    identity it rejects on the identifier before reaching the independence question. That
-    matters only where an outside attestor exists to be suppressed; no record here names a
-    confirming party at all, so the corpus cannot exhibit it.
+    The identity-syntax limit this docstring used to describe (0x-only normaliser, URN
+    identities rejected on the identifier) was closed 2026-08-19 — see `--custody-twins`,
+    which now matches the AXES pinned verdicts 2/2 with identities as written, and
+    vectors p21/n30, which pin it under the per-kind two-sided gate.
     """
     states = {}
     for env in envelopes:
@@ -322,10 +321,19 @@ def custody_twins(vectors_dir):
         print(f"    AXES verdict: {axes_verdict}   (capturer {'==' if same_party else '!='} deployer)")
         print(f"    ours, identities as written:  {as_written[0]}/{as_written[1]} — {as_written[2]}")
         print(f"    ours, identities as 0x-addrs: {rewritten[0]}/{rewritten[1] or '—'} — {rewritten[2]}")
-    agree = sum(1 for _n, a, _c, _w, r in rows if (r[0] == "valid") == (a == "accept"))
-    print(f"  with identities rewritten, the criterion matches the AXES verdict on {agree}/{len(rows)}")
-    print("  as written it rejects both, including the accepting twin — a false negative")
-    print("  produced by identifier syntax, not by the independence predicate")
+    if not rows:
+        print("  (no custody twin vectors found at that path)")
+        return rows
+    agree_w = sum(1 for _n, a, _c, w, _r in rows if (w[0] == "valid") == (a == "accept"))
+    agree_r = sum(1 for _n, a, _c, _w, r in rows if (r[0] == "valid") == (a == "accept"))
+    print(f"  as written:     matches the AXES verdict on {agree_w}/{len(rows)}")
+    print(f"  as 0x-addrs:    matches the AXES verdict on {agree_r}/{len(rows)}")
+    if agree_w == len(rows):
+        print("  the criterion now decides URN identities directly (p21/n30 pin this; before")
+        print("  2026-08-19 it rejected both twins on the identifier — a false negative)")
+    else:
+        print("  as written it rejects on the identifier — a false negative produced by")
+        print("  identifier syntax, not by the independence predicate")
     return rows
 
 

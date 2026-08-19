@@ -763,6 +763,51 @@ vectors = [
             "covered_through": 3,
         },
     },
+    # ------------------------------- identity-syntax portability (2-sided, URN identities)
+    # The independence criterion compares attestor identity. Until 2026-08-19 its normaliser
+    # parsed 0x-addresses only, so under any other identity syntax it rejected on the
+    # identifier before reaching the question — it could not return valid for that syntax at
+    # all. Found against a foreign corpus (AXES Golden Trace v2 custody twins, axes#6): we
+    # rejected the twin the corpus accepts. @Rul1an (issue #1) traced the regression to
+    # d50545a — the aliasing fail-closed fix, 4 days after a published control — and proposed
+    # the gate: for every syntax identifier_normalization says it evaluates, one accepting
+    # vector of each kind. These two are that gate for URN identities; the per-kind
+    # two-sidedness check in verify.py now makes their disappearance go red.
+    {
+        "id": "p21-independence-urn-identities",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "Identity-syntax portability, accepting twin. The same independence predicate as p8, under scheme-qualified identities (org:/agent:) instead of 0x-addresses: the attestor is a party outside the transaction, so the claim holds. Shaped on the accepting custody twin of a foreign corpus, which this criterion rejected on the identifier alone until 2026-08-19. An engine bound to one identity syntax must fail this vector.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["org:caldera-robotics", "agent:caldera/ap-pilot"],
+            "attestations": [{"by": "org:trustline-custody/eu-west"}],
+        },
+    },
+    {
+        "id": "n30-independence-urn-self-attested",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Identity-syntax portability, rejecting twin. Same identities, but the sole attestor IS the deployer — attested only by parties to the transaction. Must reject for the independence reason, not for an unparseable identifier: a normaliser that rejected p21 and this vector on the same identifier branch would agree with the expected verdict here for the wrong reason, which is exactly what the accepting twin exists to separate.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["org:caldera-robotics", "agent:caldera/ap-pilot"],
+            "attestations": [{"by": "org:caldera-robotics"}],
+        },
+    },
+    {
+        "id": "n31-independence-urn-alias-trailing-slash",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Alias bypass under URN identities — n13's attack one syntax over. The deployer signs as `org:caldera-robotics/` (trailing slash) while the parties list carries `org:caldera-robotics`; a byte-exact comparison reads it as an outside attestor. The verifier does not own any scheme's equivalence rules, so it folds toward SAME PARTY (case, trailing `/` `.` `#`) and rejects. Found by the adversarial self-review that shipped p21 — the first URN normaliser was case-significant and accepted this. Known open sibling, deliberately NOT pinned as passing: percent-encoding (`org:caldera%2Drobotics`) still reads as distinct; decoding is scheme-specific and an open-ended normaliser is its own attack surface, so that boundary is stated here rather than hidden.",
+        "input": {
+            "claimed": "independent",
+            "parties": ["org:caldera-robotics", "agent:caldera/ap-pilot"],
+            "attestations": [{"by": "org:caldera-robotics/"}],
+        },
+    },
     # ------------------------------------------------------ offer binding (2-sided)
     {
         "id": "p15-offer-binding",
@@ -813,7 +858,7 @@ manifest = {
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
     "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
-    "identifier_normalization": "addresses and digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
+    "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate): 0x-addresses compare after strip + lowercase; scheme-qualified identifiers (lowercase alnum scheme, one colon, printable non-space ASCII path) compare after strip, case-significant; digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],
          **({"reason": v["reason"]} if v["expect"] == "reject" else {})}

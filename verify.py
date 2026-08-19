@@ -113,14 +113,39 @@ def chain_link_digest(artifact_digest, prev_digest, seq):
 # criterion, the exact fail-open class this suite exists to reject.
 ADDR_RE = re.compile(r"^0x[0-9a-f]{40}$")
 DIGEST_RE = re.compile(r"^0x[0-9a-f]{64}$")
+# A second identity syntax, added 2026-08-19 — the independence criterion compares attestor
+# identity, and a criterion bound to ONE identity syntax cannot decide records from schemes
+# that name parties differently. Found against a foreign corpus (AXES Golden Trace v2 custody
+# twins, axes#6): under `org:…` / `agent:…` identities the criterion rejected the accepting
+# twin on the identifier alone. The grammar is deliberately strict so the aliasing defence
+# (n13 whitespace, n14 unparseable, the zero-width-space vector) still holds: a lowercase
+# alnum scheme, one colon, then printable non-space ASCII — no whitespace, no format chars,
+# no format chars. Case and trailing punctuation are then FOLDED AWAY (see _norm_addr) so a
+# party cannot alias itself outside the transaction with a case variant or a trailing slash.
+URN_RE = re.compile(r"^[a-z][a-z0-9+.-]*:[\x21-\x7e]+$")
 
 
 def _norm_addr(a):
-    """Lowercased 0x-address, or None if not parseable as one."""
+    """A canonical party identifier, or None if not parseable as one.
+
+    Two syntaxes: a 0x-address (lowercased — EIP-55 mixed case is the same address) or a
+    scheme-qualified identifier. The URN branch normalises AGGRESSIVELY toward "same party":
+    case-folded, and trailing `/` `.` `#` stripped. The verifier does not own any scheme's
+    equivalence rules, so where two identifiers MIGHT denote one party it must treat them as
+    one — a deployer writing `org:caldera-robotics/` is otherwise "outside the transaction"
+    for free, which is n13's alias bypass one syntax over (found in the self-review that
+    shipped p21/n30). The cost is that a genuinely distinct party whose identifier differs
+    only by case or trailing punctuation is read as the same party and the claim rejects;
+    for a disqualification that is the correct direction to be wrong in."""
     if not isinstance(a, str):
         return None
-    a = a.strip().lower()
-    return a if ADDR_RE.fullmatch(a) else None
+    a = a.strip()
+    low = a.lower()
+    if ADDR_RE.fullmatch(low):
+        return low
+    if URN_RE.fullmatch(a):
+        return low.rstrip("/.#")
+    return None
 
 
 def _norm_digest(x):
@@ -603,6 +628,16 @@ def main():
     manifest = _load_strict(os.path.join(HERE, "MANIFEST.json"))
 
     failures, verdicts_seen, reasons_seen, kinds_seen = [], set(), set(), set()
+    # Per-kind verdict sets. The README's second design rule — every criterion is two-sided,
+    # so an unconditional rejector fails as hard as an unconditional accepter — was stated as
+    # run-enforced and was not: the gate below checked {valid, reject} over the WHOLE run, so a
+    # criterion whose accepting vectors all disappeared stayed green as long as some other
+    # criterion contributed a valid somewhere. Reported by @Rul1an (issue #1, 2026-08-12).
+    # The case that made it concrete: d50545a (identity aliasing fail-closed) silently moved
+    # the independence criterion from deciding to not-deciding under URN identities — every
+    # URN input rejected on the identifier, so the criterion could no longer return valid for
+    # that syntax — and nothing in the run said so. A per-kind gate catches that at the commit.
+    verdicts_by_kind = {}
     expected_reasons = {v["reason"] for v in manifest["vectors"]
                         if v.get("expect") == "reject" and "reason" in v}
 
@@ -616,6 +651,7 @@ def main():
             verdict, reason, detail = "malformed", None, f"{type(exc).__name__}: {exc}"
         verdicts_seen.add(verdict)
         kinds_seen.add(entry["kind"])
+        verdicts_by_kind.setdefault(entry["kind"], set()).add(verdict)
         if reason:
             reasons_seen.add(reason)
         ok = verdict == entry["expect"] and (verdict == "valid" or reason == entry.get("reason"))
@@ -638,7 +674,13 @@ def main():
     if kinds_seen != set(CHECKS):
         print(f"NON-CONFORMANT: every vector kind must be exercised; missing {sorted(set(CHECKS) - kinds_seen)}")
         return 1
-    print(f"CONFORMANT: {len(manifest['vectors'])} vectors, both verdicts observed, "
+    one_sided = sorted(k for k, vs in verdicts_by_kind.items() if vs != {"valid", "reject"})
+    if one_sided:
+        detail = ", ".join(f"{k} saw only {sorted(verdicts_by_kind[k])}" for k in one_sided)
+        print(f"NON-CONFORMANT: every criterion must be two-sided IN THIS RUN — an unconditional "
+              f"rejector fails as hard as an unconditional accepter; {detail}")
+        return 1
+    print(f"CONFORMANT: {len(manifest['vectors'])} vectors, both verdicts observed per kind, "
           f"all {len(REQUIRED_REASONS)} reject reasons and all {len(CHECKS)} kinds exercised.")
     return 0
 

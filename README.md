@@ -31,7 +31,7 @@ python3 verify.py
 
 stdlib-only, no dependencies, no network. Exit 0 only if every vector produces its expected
 verdict **and** the run observed both verdicts **and** the pinned closure of 10 reject reasons
-and 10 vector kinds was fully exercised — the closure is pinned in the verifier, not derived
+and 10 vector kinds was fully exercised, **and every kind produced both verdicts** — the closure is pinned in the verifier, not derived
 from the manifest, so a fork that quietly drops a class goes red. A green run demonstrates
 the verifier discriminates, not merely accepts.
 
@@ -50,7 +50,7 @@ the verifier discriminates, not merely accepts.
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates) | `boundary_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half) | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over; percent-encoding stays a stated open sibling) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -64,7 +64,15 @@ Two design rules, both enforced by the run itself:
    the relabeled record carries the link computed for its original position.
 2. **Every criterion is two-sided** — each class has an accepting twin, so an implementation
    that unconditionally rejects a class fails the suite just as one that unconditionally
-   accepts it does (p7/p8 exist for exactly this).
+   accepts it does (p7/p8 exist for exactly this). **Enforced per kind since 2026-08-19**,
+   not per run: until then the gate checked `{valid, reject}` over the whole run, so a
+   criterion whose accepting vectors all disappeared stayed green as long as some other
+   criterion contributed a `valid` somewhere — the rule was real in this paragraph and absent
+   from the gate. Reported by @Rul1an (#1), who also traced what it had already let through:
+   `d50545a` moved the independence criterion from deciding to not-deciding under URN
+   identities, and the run said nothing. It is also why p21/n30 exist — one accepting vector
+   per identity syntax the manifest says the criterion evaluates, so that trade goes red at
+   the commit.
 
 A third rule, added after this suite failed it: **a criterion's trigger must fail closed.**
 An exact-equality trigger (`if claimed != "independent": valid`) reads any unfamiliar claim
