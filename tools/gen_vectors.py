@@ -5,6 +5,7 @@ regeneration is byte-identical). The two live-provenance vectors embed records f
 live ledger, cross-checkable against the public endpoints named in their `provenance`
 blocks (the genesis record body at /v1/genesis; the anchor record at /v1/anchors)."""
 
+import hashlib
 import json
 import os
 import sys
@@ -105,6 +106,12 @@ BOUNDARY_PREFIX = [
     {"event": "record", "seq": 3},
 ]
 BOUNDARY_PREFIX_DIGEST = digest_of(BOUNDARY_PREFIX)
+
+# Suite-transition pair: the digest the SAME canonical bytes take under the successor
+# suite (sha3-256). Computed live so it is exactly the value a verifier arrives at if it
+# re-digests history under the new algorithm at a transition — the failure mode n29 pins.
+SUCCESSOR_SUITE_PREFIX_DIGEST = "0x" + hashlib.sha3_256(
+    canonical(BOUNDARY_PREFIX).encode("utf-8")).hexdigest()
 
 vectors = [
     # ---------------------------------------------------------------- positives
@@ -707,6 +714,53 @@ vectors = [
                 "decisionEvidenceDigest": DECISION_EVIDENCE_A_DIGEST,
             },
             "decision_evidence": DECISION_EVIDENCE_B,
+        },
+    },
+    {
+        "id": "p20-suite-transition-preserves-prefix",
+        "kind": "boundary_binding",
+        "expect": "valid",
+        "description": "The algorithm-transition accepting twin, requested by Songbo Bu on the IETF web-bot-auth list (2026-08-09): an algorithm-transition vector that preserves the prior prefix without rewriting it. A transition event that moves the stream's digest suite forward (here keccak256 \u2192 sha3-256, for the continuation) binds the prefix under the suite IN FORCE WHEN THE PREFIX WAS WRITTEN: the prior records stay byte-for-byte as committed, their original digest remains the binding, and the event binds its own position exactly as p18 requires. The successor suite governs records after the boundary \u2014 never the history the boundary extends.",
+        "input": {
+            "prefix": [
+                {"event": "record", "seq": 1},
+                {"event": "record", "seq": 2},
+                {"event": "record", "seq": 3},
+            ],
+            "boundary_event": {
+                "event": "digest_suite_transition",
+                "ruleVersion": "suite-transition-v1",
+                "fromSuite": "keccak256-jcs",
+                "toSuite": "sha3-256-jcs",
+                "prefixDigest": BOUNDARY_PREFIX_DIGEST,
+                "position": 3,
+                "attestedPrefixLength": 3,
+            },
+            "covered_through": 3,
+        },
+    },
+    {
+        "id": "n29-suite-transition-redigests-prefix",
+        "kind": "boundary_binding",
+        "expect": "reject",
+        "reason": "boundary_reject",
+        "description": "The retroactive-re-digest class. The same transition event names the same three records \u2014 but the digest it binds is computed under the SUCCESSOR suite (sha3-256 over the identical canonical bytes). That is precisely the value a verifier arrives at if it helpfully re-hashes history under the new algorithm at a transition, which is what makes this vector discriminating rather than trivially wrong: an engine with that bug AGREES with the claimed digest and accepts. The binding to the bytes as originally committed is broken \u2014 any re-forged prefix that digests correctly under the new suite could stand in for the history \u2014 so prefix preservation across a transition means the prior suite's digest remains the binding, and this rejects.",
+        "input": {
+            "prefix": [
+                {"event": "record", "seq": 1},
+                {"event": "record", "seq": 2},
+                {"event": "record", "seq": 3},
+            ],
+            "boundary_event": {
+                "event": "digest_suite_transition",
+                "ruleVersion": "suite-transition-v1",
+                "fromSuite": "keccak256-jcs",
+                "toSuite": "sha3-256-jcs",
+                "prefixDigest": SUCCESSOR_SUITE_PREFIX_DIGEST,
+                "position": 3,
+                "attestedPrefixLength": 3,
+            },
+            "covered_through": 3,
         },
     },
     # ------------------------------------------------------ offer binding (2-sided)
