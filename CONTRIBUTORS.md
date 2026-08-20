@@ -93,6 +93,18 @@ the list.
 
 ## [@0rkz](https://github.com/0rkz) — PayPerByte
 
+**Delivery-commitment pair** — vectors `p22` / `n32`, merged from
+[PR #7](https://github.com/tersignhq/evidence-record-conformance/pull/7). He found the hole by
+enumeration rather than by argument: across every accepting `independence_claim` vector, none
+carried `delivery` in `covers` or in its derived commitments — because `derive_settlement_commits`
+cannot emit `delivery` at all, so the commitment-scope rule treated it as a candidate scope no
+record could commit to. The pair closes it with a live PayPerByte fixture: `p22` accepts a record
+whose deliverable digest recomputes byte-exact from the record's own bytes while claiming nothing
+about who delivered it; `n32` rejects the same record claiming independence over that commitment,
+and rejects **on the independence question** — the deliverer signed, and a distinct address is not
+thereby an outside one — rather than on the vocabulary gap, so the verdict survives the derivation
+change it anticipates without re-pinning.
+
 **Bilateral anchor cross-check** —
 [#3](https://github.com/tersignhq/evidence-record-conformance/issues/3). Independently
 recomputed the anchor-preimage relation from a separate implementation, and had his own v2-sig
