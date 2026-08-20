@@ -225,6 +225,17 @@
       "reason": "independence_reject"
     },
     {
+      "file": "p22-delivery-commitment-recomputed.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
+      "file": "n32-delivery-self-attested.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
       "file": "p18-boundary-binds-prefix-and-position.json",
       "kind": "boundary_binding",
       "expect": "valid"
