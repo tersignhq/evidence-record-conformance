@@ -14,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from verify import canonical, digest_of, chain_link_digest  # noqa: E402
+from keccak import keccak256  # noqa: E402  (vendored, self-checked at import)
 
 V = os.path.join(ROOT, "vectors")
 os.makedirs(V, exist_ok=True)
@@ -34,6 +35,20 @@ GENESIS_COUNTERSIG = (
 )
 ANCHOR_SUBJECT = "0xb2c5d2bd28ff65e13c1549a718a4c447916d5277ce046b2061ed63749ff287d9"
 ANCHOR_ANCHORED = "0xcf48bed1712f5b7df2a309fb52cb2b3d51ab1a04730e3b115cd3db79c96c9b1a"
+
+# Delivery-commitment pair (p22/n32): a deliverable digest recomputed from the record's
+# own bytes, per tersignhq/evidence-record-conformance#3 (2026-08-19, @wowlegend). Real
+# v2-sig provenance-tier values from a live PayPerByte receipt (0rkz/foreseal-x402-
+# conformance, Apache-2.0): keccak256(answer slice) == payloadHash, signer distinct from
+# payTo. Recomputed independently against this suite's own vendored keccak256 below, not
+# merely copied from the source repo.
+DELIVERY_ANSWER_SLICE = '{"v":"address-reputation/v1","ts":1784840974,"query":{"domain":"payperbyte.io","address":"0xffff4b8da8c165b556326453446f6940c8afe0db","amount":0,"chain":"base"},"verdict":"ALLOW","score":100,"reasons":["domain registration age unknown","valid HTTPS certificate","domain has mail (MX) records","archived web history spans ~4y","receiving address has on-chain history on Base mainnet (tx_count=1)","receiving address is a deployed contract"],"signals":{"domain":{"rdap":{"creation_date":null,"age_days":null,"registrar":null,"source":"https://rdap.org/domain/payperbyte.io","error":"ReadTimeout: HTTPSConnectionPool(host=\'rdap.org\', port=443): Read timed out. (read timeout=10)"},"tls":{"has_https":true,"cert_valid":true,"issuer":"Let\'s Encrypt","not_before":"Jun 26 22:35:07 2026 GMT","not_after":"Sep 24 22:35:06 2026 GMT","cert_age_days":26,"error":null},"dns":{"a_record":true,"mx_record":true,"source":"https://dns.google/resolve","error":null},"wayback":{"first_seen":"2021-12-18T20:00:46Z","age_days":1678,"source":"http://web.archive.org/cdx/search/cdx?url=payperbyte.io&output=json&limit=1&sort=ascending&fl=timestamp","error":null}},"onchain":{"chain":"base","chain_label":"Base mainnet","chain_id":8453,"is_testnet":false,"address":"0xffff4b8da8c165b556326453446f6940c8afe0db","tx_count":1,"balance_wei":0,"balance_eth":0.0,"is_contract":true,"is_delegated_eoa":false,"zero_history":false,"code_size":171,"latest_block":49025813,"source":"https://mainnet.base.org","error":null},"blocklist":{"address_hit":false,"domain_hit":false,"source":null,"reason":null,"hits":[],"feed_status":{"seed_addresses":1,"seed_domains":1,"bulk_feeds":"off","urlhaus_api":"off"}}},"retrieved_at":"2026-07-23T21:09:34Z","methodology":"ar-v1","input_hashes":{"domain":"0xd363468c364bf3c1a2cc62617cbd3be3b87a7a2f1f982dd2963f0cd82a30192f","onchain":"0x0b87e8d317b09148979633293124170f877ba8faf18bbec623d0baf33de732ef","blocklist":"0x7efbc0b52602dbe7c126366ea7543df21275d2d56f321836378bfd143b189552"},"source":"rdap.org + live TLS + dns.google + web.archive.org + public RPC + curated blocklist","error":null}'
+DELIVERY_DIGEST = "0x38ed25ba153654d842f76ea24a3c5e5197c99ae788d50d39c065f7063efdd60f"
+DELIVERY_SIGNER = "0x670444bE8515C63c50166EbcD0E5b23c578BbE04"  # data-provider signer (provenance tier)
+DELIVERY_PAY_TO = "0xffFf4B8Da8C165B556326453446F6940C8AFE0DB"  # settlement payTo — distinct address
+DELIVERY_PAYER = "0xE87c9E192dF8dEdcC2389260B15427C38A4A0bA6"   # paying agent, same live receipt
+
+assert keccak256(DELIVERY_ANSWER_SLICE.encode("utf-8")).hex() == DELIVERY_DIGEST[2:],     "delivery answer-slice digest drifted"
 
 assert digest_of(GENESIS_ARTIFACT) == GENESIS_DIGEST, "live genesis digest drifted"
 
@@ -611,6 +626,57 @@ vectors = [
             "attestations": [
                 {"by": "0x2222222222222222222222222222222222222222", "role": "payer"},
                 {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    # ------------------ independence: delivery commitment (2-sided, new commitment class)
+    # tersignhq/evidence-record-conformance#3 (2026-08-19): derive_settlement_commits does
+    # not yet derive "delivery" from anything — n20/n21 above reject covers=["delivery"]
+    # only because the vocabulary has no delivery derivation at all, a vocabulary gap
+    # rather than a scope decision. This pair does not depend on that engine change:
+    # p22 never reaches the derivation (claimed is silent, independence is not evaluated
+    # at all — the record commits to delivery and asserts nothing about who delivered
+    # it); n32 rejects on the independence check itself (deliverer's own signature is the
+    # only attestation, and the deliverer is a party), before the commitment-scope branch
+    # runs, so its verdict and reason do not change once delivery becomes derivable. Real
+    # v2-sig provenance-tier values (0rkz/foreseal-x402-conformance, Apache-2.0):
+    # keccak256(DELIVERY_ANSWER_SLICE) == DELIVERY_DIGEST, re-checked above against this
+    # suite's own vendored keccak256, not merely copied from the source repo. That
+    # DELIVERY_SIGNER is who it claims to be is asserted OUT-OF-BAND, not by this vector
+    # or the verifier — same disclaimer as the rest of this suite's live vectors.
+    {
+        "id": "p22-delivery-commitment-recomputed",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "A record carries a deliverable digest that recomputes from the record's own presented bytes (keccak256(DELIVERY_ANSWER_SLICE) == DELIVERY_DIGEST), signed by an address distinct from the settlement payTo. Identity binding — that the signing address is who it claims to be — is stated out-of-band, as it is for this suite's other live vectors; the vector commits to the digest, not to the signer's real-world identity. No independence is claimed — the record commits to delivery and asserts nothing about who delivered it, or about the signer being non-party. Silence is a valid state (p9); this is that same rule on a delivery commitment instead of a settlement one. Reported by @0rkz against tersignhq/evidence-record-conformance#3 (2026-08-19, @wowlegend).",
+        "input": {
+            "claimed": "none",
+            "deliverable_bytes": DELIVERY_ANSWER_SLICE,
+            "deliverable_digest": DELIVERY_DIGEST,
+            "deliverable_signer": DELIVERY_SIGNER,
+            "payTo": DELIVERY_PAY_TO,
+            "parties": [DELIVERY_PAYER, DELIVERY_SIGNER],
+            "attestations": [
+                {"by": DELIVERY_SIGNER, "role": "deliverer"},
+            ],
+        },
+    },
+    {
+        "id": "n32-delivery-self-attested",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Same record as p22, with independence claimed over the new commitment: `claimed: \"independent\"`, `covers: [\"delivery\"]`. The record's only attestation for the deliverable is the deliverer's own signature, and the deliverer is a party to the transaction (a different address from payTo, but not thereby independent — the position/faculty distinction @Rul1an drew for p17/n21 applies here unchanged). `outside` stays 0 on the parties/attestations check, so this rejects there, before the commitment-scope branch is reached — the same reason it rejects today (delivery not yet derivable) and the same reason it will reject once derive_settlement_commits learns delivery, per @wowlegend on tersignhq/evidence-record-conformance#3 (2026-08-19): commitment scope doing its job on the new commitment, not a vocabulary gap.",
+        "input": {
+            "claimed": "independent",
+            "covers": ["delivery"],
+            "deliverable_bytes": DELIVERY_ANSWER_SLICE,
+            "deliverable_digest": DELIVERY_DIGEST,
+            "deliverable_signer": DELIVERY_SIGNER,
+            "payTo": DELIVERY_PAY_TO,
+            "parties": [DELIVERY_PAYER, DELIVERY_SIGNER],
+            "attestations": [
+                {"by": DELIVERY_SIGNER, "role": "deliverer"},
             ],
         },
     },
