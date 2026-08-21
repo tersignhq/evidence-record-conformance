@@ -50,7 +50,7 @@ the verifier discriminates, not merely accepts.
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo) | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates) | `boundary_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p22 (**delivery commitment**, recomputed digest, claim silent) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over; percent-encoding stays a stated open sibling), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation) | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over; percent-encoding stays a stated open sibling), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -92,6 +92,16 @@ independent the attestor, the attestation covered the committed bytes and nothin
 claim covering an uncommitted fact class rejects (n20), and a scoped claim within the
 commitments accepts (p16). This is a rule its authors fail-safe on deliberately: a record with
 no delivered-bytes commitment carries no delivery independence, whoever counter-signed it.
+Three fact classes are derivable (`MANIFEST.json` → `commitment_derivation`): `settlement` and
+`network` off a settlement result, and — since v0.4.0 — `delivery` off the record's own bytes,
+when `keccak256(utf8(deliverable_bytes))` recomputes to `deliverable_digest` (p23 accepts a
+delivery-scoped claim with a non-party attestor; n33 substitutes one byte of the deliverable and
+the claim overreaches). Until then no record could commit to `delivery` at all, so n20 rejected
+for a structural reason that happened to be correct for the wrong cause — enumerated by
+[@0rkz](https://github.com/tersignhq/evidence-record-conformance/issues/3), whose PayPerByte
+fixture (p22/n32) anticipated the derivation and does not move under it. Field naming follows
+the manifest's `field_naming` rule: harness keys `snake_case`, protocol-quoted keys keep the
+protocol's spelling.
 
 A fifth property, and the reason the fourth cannot be satisfied by assertion: **a record's
 commitments are DERIVED from the record, never declared alongside it — and a declared

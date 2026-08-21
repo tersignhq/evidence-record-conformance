@@ -49,6 +49,11 @@ DELIVERY_PAY_TO = "0xffFf4B8Da8C165B556326453446F6940C8AFE0DB"  # settlement pay
 DELIVERY_PAYER = "0xE87c9E192dF8dEdcC2389260B15427C38A4A0bA6"   # paying agent, same live receipt
 
 assert keccak256(DELIVERY_ANSWER_SLICE.encode("utf-8")).hex() == DELIVERY_DIGEST[2:],     "delivery answer-slice digest drifted"
+# n33's substitution: the delivered verdict flipped, digest left as issued. One field of
+# meaning, not a random nibble — the tamper a reader of this record would care about.
+DELIVERY_ANSWER_SLICE_SUBSTITUTED = DELIVERY_ANSWER_SLICE.replace('"verdict":"ALLOW"', '"verdict":"DENY"', 1)
+assert DELIVERY_ANSWER_SLICE_SUBSTITUTED != DELIVERY_ANSWER_SLICE, "substitution did not apply"
+assert keccak256(DELIVERY_ANSWER_SLICE_SUBSTITUTED.encode("utf-8")).hex() != DELIVERY_DIGEST[2:], "substituted bytes must not recompute"
 
 assert digest_of(GENESIS_ARTIFACT) == GENESIS_DIGEST, "live genesis digest drifted"
 
@@ -630,10 +635,11 @@ vectors = [
         },
     },
     # ------------------ independence: delivery commitment (2-sided, new commitment class)
-    # tersignhq/evidence-record-conformance#3 (2026-08-19): derive_settlement_commits does
-    # not yet derive "delivery" from anything — n20/n21 above reject covers=["delivery"]
-    # only because the vocabulary has no delivery derivation at all, a vocabulary gap
-    # rather than a scope decision. This pair does not depend on that engine change:
+    # tersignhq/evidence-record-conformance#3 (2026-08-19): until p23/n33, no derivation
+    # could emit "delivery" — n20/n21 above rejected covers=["delivery"] because the
+    # vocabulary had no delivery derivation at all, a vocabulary gap rather than a scope
+    # decision. derive_delivery_commits now reads it off the record's own bytes. This pair
+    # is deliberately independent of that engine change, which is what makes it a control:
     # p22 never reaches the derivation (claimed is silent, independence is not evaluated
     # at all — the record commits to delivery and asserts nothing about who delivered
     # it); n32 rejects on the independence check itself (deliverer's own signature is the
@@ -666,7 +672,7 @@ vectors = [
         "kind": "independence_claim",
         "expect": "reject",
         "reason": "independence_reject",
-        "description": "Same record as p22, with independence claimed over the new commitment: `claimed: \"independent\"`, `covers: [\"delivery\"]`. The record's only attestation for the deliverable is the deliverer's own signature, and the deliverer is a party to the transaction (a different address from payTo, but not thereby independent — the position/faculty distinction @Rul1an drew for p17/n21 applies here unchanged). `outside` stays 0 on the parties/attestations check, so this rejects there, before the commitment-scope branch is reached — the same reason it rejects today (delivery not yet derivable) and the same reason it will reject once derive_settlement_commits learns delivery, per @wowlegend on tersignhq/evidence-record-conformance#3 (2026-08-19): commitment scope doing its job on the new commitment, not a vocabulary gap.",
+        "description": "Same record as p22, with independence claimed over the new commitment: `claimed: \"independent\"`, `covers: [\"delivery\"]`. The record's only attestation for the deliverable is the deliverer's own signature, and the deliverer is a party to the transaction (a different address from payTo, but not thereby independent — the position/faculty distinction @Rul1an drew for p17/n21 applies here unchanged). `outside` stays 0 on the parties/attestations check, so this rejects there, before the commitment-scope branch is reached — the same reason it rejected before delivery was derivable and the same reason it rejects now that it is (p23/n33 drive the derivation; this vector does not move under it), per @wowlegend on tersignhq/evidence-record-conformance#3 (2026-08-19): commitment scope doing its job on the new commitment, not a vocabulary gap.",
         "input": {
             "claimed": "independent",
             "covers": ["delivery"],
@@ -677,6 +683,53 @@ vectors = [
             "parties": [DELIVERY_PAYER, DELIVERY_SIGNER],
             "attestations": [
                 {"by": DELIVERY_SIGNER, "role": "deliverer"},
+            ],
+        },
+    },
+    # The derivation itself, DRIVEN (p23/n33). p22/n32 never reach it — p22's claim is silent
+    # and n32 rejects upstream on the independence count — so a suite green on those two alone
+    # is green with the delivery derivation absent: the n29 shape, a correct verdict reached by
+    # an early exit. p23 is the falsifying input for the pre-derivation engine (which read
+    # covers=["delivery"] as unevaluable and rejected it); n33 is its substitution twin — the
+    # presented bytes are not the bytes that were digested, so the record commits to no
+    # delivery and the claim overreaches. Same live PayPerByte fixture as p22 (@0rkz, PR #7);
+    # the non-party attestor is the counter-signing ledger, exactly as in p16.
+    {
+        "id": "p23-delivery-independence-within-commitment",
+        "kind": "independence_claim",
+        "expect": "valid",
+        "description": "Accepting twin of n33, and the vector that drives the delivery derivation p22/n32 anticipated. The record commits to delivery — keccak256(deliverable_bytes) recomputes to deliverable_digest — and a non-party (the counter-signing ledger) attests alongside the deliverer, so `claimed: \"independent\"`, `covers: [\"delivery\"]` is a claim within the record's own DERIVED commitments. No settlement result is present: a record can commit to delivery without committing to settlement, which is the shape acceptance evidence takes downstream of a settlement record rather than inside it. Built on @0rkz's PayPerByte fixture (PR #7, issue #3); the pre-derivation engine rejected this exact input as unevaluable, which is what made it the falsifying case (repo rule 1).",
+        "input": {
+            "claimed": "independent",
+            "covers": ["delivery"],
+            "deliverable_bytes": DELIVERY_ANSWER_SLICE,
+            "deliverable_digest": DELIVERY_DIGEST,
+            "deliverable_signer": DELIVERY_SIGNER,
+            "payTo": DELIVERY_PAY_TO,
+            "parties": [DELIVERY_PAYER, DELIVERY_SIGNER],
+            "attestations": [
+                {"by": DELIVERY_SIGNER, "role": "deliverer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
+            ],
+        },
+    },
+    {
+        "id": "n33-delivery-substitution-scope-overreach",
+        "kind": "independence_claim",
+        "expect": "reject",
+        "reason": "independence_reject",
+        "description": "Rejecting twin of p23: same claim, same non-party attestation, same digest — but the presented deliverable bytes are not the bytes that were digested (`\"verdict\":\"ALLOW\"` substituted with `\"verdict\":\"DENY\"` — the delivered verdict flipped, the tamper a reader would care about). The digest no longer recomputes, so the record commits to no delivery, and an independence claim covering `delivery` reaches past the record's commitments — n20's overreach on a delivery commitment instead of a settlement one. It rejects on the scope branch (commitments evaluated and found empty), not the unevaluable one: a record that presents bytes and a digest HAS presented a commitment for evaluation; it simply fails it. This suite pins verdict and reason; the branch is visible in the stdlib verifier's detail line (`claim covers ['delivery'] — fact(s) the record does not commit to`, not `commitments are not evaluable`). The genuinely non-party attestation keeps this discriminating — an engine that trusts a declared digest without recomputing it accepts this vector.",
+        "input": {
+            "claimed": "independent",
+            "covers": ["delivery"],
+            "deliverable_bytes": DELIVERY_ANSWER_SLICE_SUBSTITUTED,
+            "deliverable_digest": DELIVERY_DIGEST,
+            "deliverable_signer": DELIVERY_SIGNER,
+            "payTo": DELIVERY_PAY_TO,
+            "parties": [DELIVERY_PAYER, DELIVERY_SIGNER],
+            "attestations": [
+                {"by": DELIVERY_SIGNER, "role": "deliverer"},
+                {"by": LEDGER_SIGNER, "role": "counter-signing ledger"},
             ],
         },
     },
@@ -914,7 +967,7 @@ vectors = [
 
 manifest = {
     "suite": "evidence-record-conformance",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "layer": "evidence-record",
     "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core — a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
     "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON numbers rejected (number_domain_reject); duplicate object names rejected",
@@ -925,6 +978,8 @@ manifest = {
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
     "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
     "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate): 0x-addresses compare after strip + lowercase; scheme-qualified identifiers (lowercase alnum scheme, one colon, printable non-space ASCII path) compare after strip, case-significant; digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
+    "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a non-empty string; `network` when settlement_result.network is a non-empty string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation — position is the independence axis, decided before scope is",
+    "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],
          **({"reason": v["reason"]} if v["expect"] == "reject" else {})}

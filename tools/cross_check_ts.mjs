@@ -52,6 +52,41 @@ const normAddr = (a) => {
   return null;
 };
 const normDigest = (x) => (typeof x === "string" && DIGEST_RE.test(x.trim().toLowerCase()) ? x.trim().toLowerCase() : null);
+
+// Commitment derivation — mirrors verify.py's derive_settlement_commits /
+// derive_delivery_commits / derive_record_commits, same branch shapes, same return shapes.
+const deriveSettlementCommits = (r) => {
+  const commits = [];
+  if (r.success === true && typeof r.transaction === "string" && r.transaction.trim() !== "") commits.push("settlement");
+  if (typeof r.network === "string" && r.network.trim() !== "") commits.push("network");
+  return commits;
+};
+// Key PRESENCE decides evaluability (`in` — identical semantics to Python's `in`, the
+// record_commits lesson); the recompute decides commitment. keccak256 over utf8 bytes in
+// both engines: stringToHex encodes utf8, as Python's .encode("utf-8") does.
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+const deriveDeliveryCommits = (inp) => {
+  if (!("deliverable_bytes" in inp) && !("deliverable_digest" in inp)) return null;
+  const presented = inp.deliverable_bytes;
+  const declared = normDigest(inp.deliverable_digest);
+  if (typeof presented !== "string" || declared === null) return [];
+  // A lone surrogate has no UTF-8 form: Python's .encode raises, TextEncoder would
+  // substitute U+FFFD and hash on. Both engines read it as presented-and-empty.
+  if (LONE_SURROGATE.test(presented)) return [];
+  if (keccak256(stringToHex(presented)) === declared) return ["delivery"];
+  return [];
+};
+const deriveRecordCommits = (inp) => {
+  const parts = [];
+  // Array excluded to match Python's isinstance(dict) exactly.
+  if (inp.settlement_result && typeof inp.settlement_result === "object" && !Array.isArray(inp.settlement_result)) {
+    parts.push(deriveSettlementCommits(inp.settlement_result));
+  }
+  const delivery = deriveDeliveryCommits(inp);
+  if (delivery !== null) parts.push(delivery);
+  if (parts.length === 0) return null;
+  return parts.flat();
+};
 const isSeq = (x) => typeof x === "number" && Number.isInteger(x);
 
 const NO_CLAIM = new Set(["", "none", "issuer_attested"]);
@@ -253,16 +288,11 @@ const CHECKS = {
       if (!Array.isArray(covers) || covers.length === 0 || !covers.every((c) => typeof c === "string")) {
         return ["reject", "independence_reject"];
       }
-      let committed;
-      if (inp.settlement_result && typeof inp.settlement_result === "object" && !Array.isArray(inp.settlement_result)) {
-        // Mirrors verify.py's derive_settlement_commits: §5.3.2 makes `transaction: ""` the
-        // encoding of a failed settlement, so success+empty commits to no resolvable
-        // settlement at all. (Array excluded to match Python's isinstance(dict) exactly.)
-        const r = inp.settlement_result;
-        committed = [];
-        if (r.success === true && typeof r.transaction === "string" && r.transaction.trim() !== "") committed.push("settlement");
-        if (typeof r.network === "string" && r.network.trim() !== "") committed.push("network");
-      }
+      // Mirrors verify.py's derive_record_commits — settlement/network off the settlement
+      // result (§5.3.2 makes `transaction: ""` a failed settlement, so success+empty commits
+      // to nothing resolvable), delivery off the presented bytes. null = nothing presented;
+      // [] = presented and found to commit to nothing. Both engines must share this shape.
+      const committed = deriveRecordCommits(inp);
       if (!Array.isArray(committed) || !committed.every((c) => typeof c === "string")) {
         return ["reject", "independence_reject"];
       }

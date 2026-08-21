@@ -69,6 +69,36 @@ def mutations(kind, inp):
         with_key("covers", None, "covers=null")
         with_key("covers", [], "covers=empty-list")
         without_key("covers", "covers-absent")
+        # Fork-prone key 4: the delivery pair — key PRESENCE decides evaluability, the
+        # recompute decides commitment. null-vs-absent, container shape, digest case, and a
+        # non-ASCII suffix (utf8 in Python `.encode` vs viem `stringToHex`) must read
+        # identically in both engines.
+        with_key("deliverable_bytes", None, "deliverable_bytes=null")
+        with_key("deliverable_bytes", [], "deliverable_bytes=array")
+        with_key("deliverable_bytes", {"v": 1}, "deliverable_bytes=object")
+        without_key("deliverable_bytes", "deliverable_bytes-absent")
+        with_key("deliverable_digest", None, "deliverable_digest=null")
+        with_key("deliverable_digest", "0x1234", "deliverable_digest=malformed")
+        with_key("deliverable_digest", "0x" + "00" * 32, "deliverable_digest=mismatch")
+        without_key("deliverable_digest", "deliverable_digest-absent")
+        if isinstance(inp.get("deliverable_digest"), str):
+            with_key("deliverable_digest", "0x" + inp["deliverable_digest"][2:].upper(), "deliverable_digest=uppercase")
+            with_key("deliverable_digest", "  " + inp["deliverable_digest"] + "  ", "deliverable_digest=padded")
+        if isinstance(inp.get("deliverable_bytes"), str):
+            with_key("deliverable_bytes", inp["deliverable_bytes"] + " ", "deliverable_bytes=trailing-space")
+            with_key("deliverable_bytes", inp["deliverable_bytes"] + "\u00e9", "deliverable_bytes=non-ascii-suffix")
+            with_key("deliverable_bytes", inp["deliverable_bytes"] + "\U0001F600", "deliverable_bytes=astral-suffix")
+            # Valid JSON, no UTF-8 form: the one string both engines must refuse to hash.
+            with_key("deliverable_bytes", inp["deliverable_bytes"] + "\ud800", "deliverable_bytes=lone-surrogate")
+        if "deliverable_bytes" not in inp:
+            # A settlement-shaped record that grows a digest-only delivery key: both engines
+            # must read it as presented-and-empty, never as unevaluable.
+            with_key("deliverable_digest", "0x" + "00" * 32, "deliverable_digest-only")
+        # Both commitment sources at once: composition order must not leak into the verdict.
+        m = json.loads(json.dumps(inp))
+        m.setdefault("settlement_result", {"success": True, "transaction": "0xab", "network": "eip155:8453"})
+        m["covers"] = ["settlement", "delivery"]
+        out.append(("covers=settlement+delivery", m))
     if kind == "decision_evidence_binding":
         # Binding-specific fail-closed battery. These cases are intentionally outside the
         # shared manifest oracle so Python/TS shape readings are compared directly.

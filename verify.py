@@ -489,6 +489,59 @@ def derive_settlement_commits(result):
     return commits
 
 
+def derive_delivery_commits(inp):
+    """What a record's delivery fields commit to, read off the record rather than declared.
+
+    None when the record presents no delivery commitment to evaluate — neither key present,
+    tested by key PRESENCE so both engines read an explicit null the same way (the
+    `record_commits` lesson, n23). Otherwise a list: `["delivery"]` when the deliverable
+    digest the record carries recomputes from the deliverable bytes it presents,
+    keccak256(utf8(bytes)) == digest, and `[]` when it does not. A digest carried beside
+    bytes that do not hash to it is the delivery-side twin of `transaction: ""`: a
+    well-formed field committing to nothing a reader can check — evaluated, and empty.
+
+    WHO delivered is deliberately not read here. `deliverable_signer` names a position, and
+    position is the INDEPENDENCE axis, decided upstream by the parties/attestations count
+    (the position/faculty distinction, p17/n21). Folding the signer in would let one axis do
+    the other's work and the reject would name the wrong defect. Enumerated by @0rkz against
+    issue #3; p22/n32 anticipated this derivation and must not move under it; p23/n33 drive it.
+    """
+    if "deliverable_bytes" not in inp and "deliverable_digest" not in inp:
+        return None
+    presented = inp.get("deliverable_bytes")
+    declared = _norm_digest(inp.get("deliverable_digest"))
+    if not isinstance(presented, str) or declared is None:
+        return []
+    try:
+        # A lone surrogate is valid JSON text with no UTF-8 form: Python raises here, a JS
+        # TextEncoder substitutes U+FFFD and hashes on — two engines, two verdicts. Both
+        # now read it as bytes that cannot be the digested bytes: presented, and empty.
+        encoded = presented.encode("utf-8")
+    except UnicodeEncodeError:
+        return []
+    if "0x" + keccak256(encoded).hex() == declared:
+        return ["delivery"]
+    return []
+
+
+def derive_record_commits(inp):
+    """Every fact class the record commits to, composed from the per-fact derivations.
+
+    Settlement and network come off the settlement result; delivery comes off the presented
+    bytes. None when the record presents nothing derivable at all — distinct from an empty
+    list, which is a record that presented commitments and was found to commit to nothing.
+    """
+    parts = []
+    if isinstance(inp.get("settlement_result"), dict):
+        parts.append(derive_settlement_commits(inp["settlement_result"]))
+    delivery = derive_delivery_commits(inp)
+    if delivery is not None:
+        parts.append(delivery)
+    if not parts:
+        return None
+    return [c for part in parts for c in part]
+
+
 def check_independence_claim(inp):
     claimed = inp.get("claimed")
     if claimed is None:
@@ -572,14 +625,15 @@ def check_independence_claim(inp):
             covers = [covers]
         if not isinstance(covers, list) or not covers or not all(isinstance(c, str) for c in covers):
             return "reject", "independence_reject", "scope assertion is not evaluable"
-        committed = None
-        if isinstance(inp.get("settlement_result"), dict):
-            # x402 v2 §5.3.2 defines the empty string as what `transaction` carries when
-            # settlement failed, and the type only requires a string — so `success: true`
-            # with `transaction: ""` is well formed and commits to no settlement anyone can
-            # resolve. Deriving the commitments off the result is what makes the
-            # commitment-scope rule bite on that record without resolving anything on-chain.
-            committed = derive_settlement_commits(inp["settlement_result"])
+        # x402 v2 §5.3.2 defines the empty string as what `transaction` carries when
+        # settlement failed, and the type only requires a string — so `success: true`
+        # with `transaction: ""` is well formed and commits to no settlement anyone can
+        # resolve. Deriving the commitments off the record is what makes the
+        # commitment-scope rule bite without resolving anything on-chain, and it is why
+        # `delivery` is now a scope a record can actually reach: before this, no record
+        # could commit to it, so n20 rejected for a structural reason that happened to be
+        # correct for the wrong cause (@0rkz, issue #3).
+        committed = derive_record_commits(inp)
         if not isinstance(committed, list) or not all(isinstance(c, str) for c in committed):
             return "reject", "independence_reject", "independence claimed over a scope, but the record's commitments are not evaluable"
         uncovered = sorted(set(covers) - set(committed))

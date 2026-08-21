@@ -103,7 +103,12 @@ whose deliverable digest recomputes byte-exact from the record's own bytes while
 about who delivered it; `n32` rejects the same record claiming independence over that commitment,
 and rejects **on the independence question** — the deliverer signed, and a distinct address is not
 thereby an outside one — rather than on the vocabulary gap, so the verdict survives the derivation
-change it anticipates without re-pinning.
+change it anticipates without re-pinning. That derivation landed in v0.4.0 (`derive_delivery_commits`,
+both engines), driven by `p23` / `n33` — built on his fixture, with the counter-signing ledger as
+the non-party attestor — and p22/n32 did not move, which was the test. His field names
+(`deliverable_bytes` / `deliverable_digest` / `deliverable_signer`) were kept as contributed: they
+already followed the suite's harness-key convention, now written down in the manifest
+(`field_naming`) so the next contributor does not have to infer it.
 
 **Bilateral anchor cross-check** —
 [#3](https://github.com/tersignhq/evidence-record-conformance/issues/3). Independently

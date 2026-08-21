@@ -1,9 +1,8 @@
 {
-  "id": "n32-delivery-self-attested",
+  "id": "p23-delivery-independence-within-commitment",
   "kind": "independence_claim",
-  "expect": "reject",
-  "reason": "independence_reject",
-  "description": "Same record as p22, with independence claimed over the new commitment: `claimed: \"independent\"`, `covers: [\"delivery\"]`. The record's only attestation for the deliverable is the deliverer's own signature, and the deliverer is a party to the transaction (a different address from payTo, but not thereby independent \u2014 the position/faculty distinction @Rul1an drew for p17/n21 applies here unchanged). `outside` stays 0 on the parties/attestations check, so this rejects there, before the commitment-scope branch is reached \u2014 the same reason it rejected before delivery was derivable and the same reason it rejects now that it is (p23/n33 drive the derivation; this vector does not move under it), per @wowlegend on tersignhq/evidence-record-conformance#3 (2026-08-19): commitment scope doing its job on the new commitment, not a vocabulary gap.",
+  "expect": "valid",
+  "description": "Accepting twin of n33, and the vector that drives the delivery derivation p22/n32 anticipated. The record commits to delivery \u2014 keccak256(deliverable_bytes) recomputes to deliverable_digest \u2014 and a non-party (the counter-signing ledger) attests alongside the deliverer, so `claimed: \"independent\"`, `covers: [\"delivery\"]` is a claim within the record's own DERIVED commitments. No settlement result is present: a record can commit to delivery without committing to settlement, which is the shape acceptance evidence takes downstream of a settlement record rather than inside it. Built on @0rkz's PayPerByte fixture (PR #7, issue #3); the pre-derivation engine rejected this exact input as unevaluable, which is what made it the falsifying case (repo rule 1).",
   "input": {
     "claimed": "independent",
     "covers": [
@@ -21,6 +20,10 @@
       {
         "by": "0x670444bE8515C63c50166EbcD0E5b23c578BbE04",
         "role": "deliverer"
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger"
       }
     ]
   }

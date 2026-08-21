@@ -1,6 +1,6 @@
 {
   "suite": "evidence-record-conformance",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "layer": "evidence-record",
   "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core \u2014 a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
   "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON numbers rejected (number_domain_reject); duplicate object names rejected",
@@ -11,6 +11,8 @@
   "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
   "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
   "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate): 0x-addresses compare after strip + lowercase; scheme-qualified identifiers (lowercase alnum scheme, one colon, printable non-space ASCII path) compare after strip, case-significant; digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
+  "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a non-empty string; `network` when settlement_result.network is a non-empty string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation \u2014 position is the independence axis, decided before scope is",
+  "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
   "vectors": [
     {
       "file": "p1-live-genesis-receipt.json",
@@ -231,6 +233,17 @@
     },
     {
       "file": "n32-delivery-self-attested.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "independence_reject"
+    },
+    {
+      "file": "p23-delivery-independence-within-commitment.json",
+      "kind": "independence_claim",
+      "expect": "valid"
+    },
+    {
+      "file": "n33-delivery-substitution-scope-overreach.json",
       "kind": "independence_claim",
       "expect": "reject",
       "reason": "independence_reject"
