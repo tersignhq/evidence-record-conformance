@@ -733,6 +733,51 @@ vectors = [
             ],
         },
     },
+    # ------------------ completeness: witnessed inclusion is not completeness (2-sided pin)
+    # A public log, however many parties cosign its checkpoint, evidences that what was included
+    # existed and that the log is consistent; it cannot evidence that the issuer's sequence has
+    # no gap, because the issuer chose what to include. The pair pins that this evaluator reads
+    # `witness` material as non-load-bearing for completeness: p24 carries a cosigned checkpoint
+    # and per-record inclusion proofs beside a complete set and is valid on the set alone; n34
+    # carries the same witness block beside a set with seq 2 missing and rejects on the gap — an
+    # engine that let inclusion proofs stand in for the missing record would accept it. Spec:
+    # compliance_fields.md §Sequential numbering (amended 2026-08-22). Log names are generic.
+    {
+        "id": "p24-witnessed-complete-set",
+        "kind": "chain_set",
+        "expect": "valid",
+        "description": "Accepting twin of n34: a complete set (seq 1..3 under the committed head) that ALSO carries witness material — a cosigned checkpoint of a public log and one inclusion-proof reference per record. The verdict rests on the set: every seq present, links continuous, head matches. The witness block is permitted and ignored by the completeness predicate; it is evidence of existence and of the log's consistency, never of no-omission. Pins the rule added to the extension's §Sequential numbering on 2026-08-22: inclusion proofs and checkpoint cosignatures, however many signers, are not a completeness attestation.",
+        "input": {
+            "head": {"seq": 3, "digest": d[2]},
+            "records": [
+                {"seq": 1, "artifact_digest": d[0], "prev_digest": None, "link": links[0]},
+                {"seq": 2, "artifact_digest": d[1], "prev_digest": d[0], "link": links[1]},
+                {"seq": 3, "artifact_digest": d[2], "prev_digest": d[1], "link": links[2]},
+            ],
+            "witness": {
+                "checkpoint": {"origin": "example.org/log", "tree_size": 7574, "cosignatures": 7, "quorum": 4},
+                "inclusion": [{"seq": 1, "leaf_index": 7011}, {"seq": 2, "leaf_index": 7012}, {"seq": 3, "leaf_index": 7013}],
+            },
+        },
+    },
+    {
+        "id": "n34-witnessed-inclusion-not-completeness",
+        "kind": "chain_set",
+        "expect": "reject",
+        "reason": "completeness_reject",
+        "description": "Rejecting twin of p24: seq 2 is absent from the presented set while the witness block carries a seven-cosignature checkpoint and inclusion proofs for seq 1, 2 AND 3 — a leaf index offered in place of the record that is not presented. A leaf index is a claim that something was included; it is not the record, and the evaluator cannot recompute a link over a leaf index. The log proves what it holds existed and that its own history is consistent; it cannot make a record the issuer did not present part of the set. An evaluator MUST reject on the gap (`missing seq [2] under committed head`) exactly as it would without the witness block — an engine that counted witnessed inclusions as presence, or read a cosigned checkpoint as a completeness attestation, accepts this vector and is wrong. No-omission requires a non-party attestation over the sequence itself, made when the records were issued; cosigners of a log the issuer writes to are not that party.",
+        "input": {
+            "head": {"seq": 3, "digest": d[2]},
+            "records": [
+                {"seq": 1, "artifact_digest": d[0], "prev_digest": None, "link": links[0]},
+                {"seq": 3, "artifact_digest": d[2], "prev_digest": d[1], "link": links[2]},
+            ],
+            "witness": {
+                "checkpoint": {"origin": "example.org/log", "tree_size": 7574, "cosignatures": 7, "quorum": 4},
+                "inclusion": [{"seq": 1, "leaf_index": 7011}, {"seq": 2, "leaf_index": 7012}, {"seq": 3, "leaf_index": 7013}],
+            },
+        },
+    },
     # -------------------------------------- boundary binding (2-sided, 3 known failure classes)
     {
         "id": "p18-boundary-binds-prefix-and-position",
@@ -978,6 +1023,7 @@ manifest = {
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
     "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for AUEC, MCP, or another protocol; producer truth and decision semantics remain out of scope",
     "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate): 0x-addresses compare after strip + lowercase; scheme-qualified identifiers (lowercase alnum scheme, one colon, printable non-space ASCII path) compare after strip, case-significant; digests compare after strip + lowercase; identifiers that do not parse after normalization fail closed",
+    "witnessed_inclusion": "witness material (a cosigned checkpoint, inclusion proofs) presented beside a chain set is permitted and NOT load-bearing for completeness: it evidences existence and the log's consistency, never no-omission; a set with a gap rejects on the gap regardless of how many parties cosigned the log (p24/n34). Completeness requires a non-party attestation over the sequence itself, made at issuance",
     "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a non-empty string; `network` when settlement_result.network is a non-empty string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation — position is the independence axis, decided before scope is",
     "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
     "vectors": [
