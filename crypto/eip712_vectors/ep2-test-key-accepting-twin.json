@@ -1,0 +1,18 @@
+{
+  "id": "ep2-test-key-accepting-twin",
+  "kind": "payload_signature",
+  "expect": "valid",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 1783761710,
+      "network": "eip155:8453",
+      "payer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f41474cde18a9363dd2a8c2f1d4fe5d8a42c79e61a18a9e27e86a334f66449800a21b",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}

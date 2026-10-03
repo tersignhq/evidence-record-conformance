@@ -1,0 +1,19 @@
+{
+  "id": "en2-domain-name-altered",
+  "kind": "payload_signature",
+  "expect": "reject",
+  "reject_reason": "signer_mismatch",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 1783761710,
+      "network": "eip155:8453",
+      "payer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f41499728799189ebdd96547c6b916092655abec3fcd27a06b443eb86d6a27bd0d31b",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}

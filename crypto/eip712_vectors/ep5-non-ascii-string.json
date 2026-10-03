@@ -1,0 +1,18 @@
+{
+  "id": "ep5-non-ascii-string",
+  "kind": "payload_signature",
+  "expect": "valid",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 1783761710,
+      "network": "eip155:8453",
+      "payer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo/r\u00e9sum\u00e9-\u20ac-\u65e5\u672c",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f4176753ed7bb84fd3cc7c6469fab90cd63008eeb9f6d343554d119fd73c1071b431b",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}

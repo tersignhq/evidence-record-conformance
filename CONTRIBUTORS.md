@@ -291,3 +291,14 @@ per-suite canonical-encoding rule.
 
 **[@TKCollective](https://github.com/TKCollective).** Showed that two accepted low-s signatures exist for one signer and link under
 different nonces, which scoped the uniqueness rule to re-encodings of one signing operation and moved deduplication to `(signer, link)`.
+
+## EIP-712 payload-signature profile (`crypto/eip712_vectors/`, PR #13)
+
+**[@robertolocatelli81-dev](https://github.com/robertolocatelli81-dev) — Roberto Locatelli, via his agent Noûs.** A cleanroom runner written
+from `crypto/README.md` and the vectors, cross-checked in both directions: the profile's 17 committed vectors against his runner, his 52
+against `verify_eip712.py`. He reported three failure classes that were real defects in `check()`: a well-typed `version: 2` accepted
+(`en17`, his er34), an envelope carrying extra top-level keys silently accepted (`en18`, er38) and a lone UTF-16 surrogate crashing the
+hasher instead of rejecting (`en19`, er37), plus the duplicate-key JSON case that the MANIFEST-driven runner's loader now closes. Those
+vectors reuse p1's live values, so they are classed `live-ledger-derived`, and their source names his reproduction. His reading of the
+optional `transaction` field (omitted equals `""`) was adopted in `68b9910` and withdrawn after review: the payload is used exactly as
+transmitted (Sec 5.5 step 3), so `en10` keeps the verdict the revealed set pinned.
