@@ -40,3 +40,30 @@ jobs:
           node tools/cross_check_ts.mjs
       - name: Direct engine parity — corpus + off-corpus mutation battery, no manifest oracle
         run: python3 tools/differential.py
+  regeneration-arch:
+    # Every generator must regenerate every committed vector byte-for-byte on more than one CPU. aarch64 runs on a native
+    # GitHub-hosted arm64 runner (real hardware, not emulation); x86_64 on ubuntu-latest. The generators are stdlib-only and
+    # read nothing but committed files, so any difference here is a portability bug in a generator, not in a verifier.
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Platform
+        run: python3 -c "import platform, sys; print(platform.machine(), sys.byteorder, sys.version.split()[0])"
+      - name: Regenerate every profile from an empty vectors directory and diff against the commit
+        run: bash tools/regen_check.sh
+  regeneration-s390x:
+    # Big-endian coverage. No hosted s390x hardware exists, so this one is qemu-user emulation and is labelled as such.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: s390x
+      - name: Regenerate under s390x (big-endian, emulated) and diff against the commit
+        run: |
+          docker run --rm --platform linux/s390x --network none -v "$PWD":/src:ro s390x/python:3.12-slim \
+            sh -c 'cp -r /src /work && cd /work && python3 -c "import platform, sys; print(platform.machine(), sys.byteorder)" && sh tools/regen_check.sh'
