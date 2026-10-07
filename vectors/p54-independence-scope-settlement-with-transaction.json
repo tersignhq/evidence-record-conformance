@@ -1,0 +1,27 @@
+{
+  "id": "p54-independence-scope-settlement-with-transaction",
+  "kind": "independence_claim",
+  "expect": "valid",
+  "description": "Accepting twin of n104: the same record with a `transaction` member. The result claims success and names a transaction, so settlement is among the derived commitments, and an attestation by a non-party reaches it. p17 accepts the same scope with another attestor; this pair differs in the `transaction` member alone.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "settlement"
+    ],
+    "settlement_result": {
+      "success": true,
+      "network": "eip155:8453",
+      "transaction": "0x9e1f4c2a8b7d6e5f0a3c1b8d7e6f5a4c3b2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f"
+    },
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x4444444444444444444444444444444444444444",
+        "role": "auditor"
+      }
+    ]
+  }
+}

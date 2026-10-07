@@ -1,0 +1,23 @@
+{
+  "id": "p56-independence-address-letter-case-outside-party",
+  "kind": "independence_claim",
+  "expect": "valid",
+  "description": "Accepting twin of n106: the second attestation is by an address outside the parties, written the same way, 0X followed by upper-case hex digits, so one attestor is outside the parties and the claim accepts. The first attestation is still a party's own, in another letter case. An engine that does not parse the upper-case prefix rejects here; n106 cannot show that, since an attestor that does not parse rejects the claim as well.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0xabCDeF0123456789AbcdEf0123456789aBCDEF01",
+      "0xfedcba9876543210fedcba9876543210fedcba98"
+    ],
+    "attestations": [
+      {
+        "by": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "role": "auditor"
+      },
+      {
+        "by": "0X0123456789ABCDEF0123456789ABCDEF01234567",
+        "role": "auditor"
+      }
+    ]
+  }
+}

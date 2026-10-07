@@ -1,0 +1,27 @@
+{
+  "id": "n104-independence-scope-settlement-no-transaction",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "A settlement-scoped independence claim over a record whose settlement result carries no `transaction` member at all. n21 pins the empty string; this pins the absent member. A result that names no transaction commits to no settlement, however independent its attestor, so `settlement` is not among the record's derived commitments and the claim overreaches. An engine that reads only an empty `transaction` as no settlement accepts this vector. p54 is the accepting twin.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "settlement"
+    ],
+    "settlement_result": {
+      "success": true,
+      "network": "eip155:8453"
+    },
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x4444444444444444444444444444444444444444",
+        "role": "auditor"
+      }
+    ]
+  }
+}

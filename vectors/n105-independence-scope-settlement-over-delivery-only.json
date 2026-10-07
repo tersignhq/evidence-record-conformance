@@ -1,0 +1,27 @@
+{
+  "id": "n105-independence-scope-settlement-over-delivery-only",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "The record binds delivered bytes (keccak256 of deliverable_bytes recomputes to deliverable_digest) and carries no settlement result. A claim covering settlement as well as delivery overreaches: the record commits to delivery only. An engine that checks scope only over the fact classes whose fields a record presents accepts this vector. p55 is the accepting twin.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "delivery",
+      "settlement"
+    ],
+    "deliverable_bytes": "{\"answer\":\"synthetic deliverable\"}",
+    "deliverable_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+    "deliverable_signer": "0x3333333333333333333333333333333333333333",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x4444444444444444444444444444444444444444",
+        "role": "auditor"
+      }
+    ]
+  }
+}

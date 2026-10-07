@@ -47,6 +47,10 @@ and 11 vector kinds was fully exercised, **and every kind produced both verdicts
 from the manifest, so a fork that quietly drops a class goes red. A green run demonstrates
 the verifier discriminates, not merely accepts.
 
+A reject counts only with its reason, and reasons compare as exact strings: `independence_reject`
+matches itself and nothing else, with no case folding, no whitespace trimming and no prefix match.
+`verify.py`, `tools/cross_check_ts.mjs` and `tools/compare_run.py` all compare this way.
+
 ## Vector classes
 
 | class | accepts | rejects | reason code |
@@ -69,7 +73,7 @@ the verifier discriminates, not merely accepts.
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo), n94 **lone surrogate in the offer** | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution**, n95 **lone surrogate in the evidence** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates), n96 **lone surrogate in the prefix** | `boundary_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one) | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present), p54 (**settlement result naming a transaction**, n104's twin), p55 (**delivery scope over a record with no settlement result**, n105's twin), p56 (**an outside attestor written `0X` with upper-case digits**, n106's twin) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one), n104 **settlement result with no `transaction` member** (n21 pins the empty string), n105 **settlement claimed over a delivery-only record**, n106 **a party's address in another letter case** (an EIP-55 checksum form against lowercase, and `0X` with upper-case digits) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -164,6 +168,51 @@ This suite instantiates the relation with its local RFC-8785-compatible canonica
 Keccak-256. The conformance property is the algorithm-parametric relation “matching canonical
 object accepts; missing or mismatching commitment rejects”, not a prescription of a digest,
 canonicalization, or field location for AUEC, MCP, or another protocol.
+
+## Wrong readings and the vectors that reject them
+
+Each row names a wrong reading and the vectors an engine that reads that way fails, by accepting
+them or by rejecting them for another reason.
+
+| wrong reading | vectors | reason |
+|---|---|---|
+| a party's own attestation read as independent | n7, n30, n32 | `independence_reject` |
+| identifiers compared as written | n13, n31, n45–n49, n54, n58, n63–n66, n69, n106 | `independence_reject` |
+| a settlement claim over a record that names no settlement transaction | n21, n104, n105 | `independence_reject` |
+| a number outside the I-JSON domain read as a number | n10, n11, n35, n103 | `number_domain_reject` |
+| duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
+
+## Settlement scope and address letter case (v0.5.6)
+
+Six vectors in three two-sided pairs, all `independence_claim`. Neither engine changed: both
+already read all six as the vectors expect. Each reject twin pins a reading no earlier vector
+decided:
+
+- **A settlement result with no `transaction` member** (n104, twin p54). n21 pins the empty
+  string; n104 pins the absent member. An engine that reads only an empty `transaction` as no
+  settlement passes every v0.5.5 vector and accepts n104.
+- **A settlement claim over a record that carries no settlement result** (n105, twin p55). The
+  record binds delivered bytes and nothing else, so a claim covering settlement as well
+  overreaches. An engine that checks scope only over the fact classes whose fields a record
+  presents passes every v0.5.5 vector and accepts n105.
+- **A 0x-address in another letter case** (n106, twin p56). Rule (2) of
+  `identifier_normalization` named no vector: the earlier alias vectors compare a 0x-address with
+  another syntax (n63–n66, n69), never two bare 0x-addresses that differ only in letter case.
+  n106 lists one party in its EIP-55 checksum form and has it attest in lowercase, and has the
+  other attest as `0X` followed by upper-case digits. An engine that compares a bare 0x-address
+  as written, or lowercases the digits but not the prefix, passes every v0.5.5 vector and accepts
+  n106. p56 accepts an outside attestor written the same way, which is what shows that `0X`
+  parses: an attestor that does not parse rejects the claim too, so n106 alone cannot tell the
+  two readings apart.
+
+p54 and p55 add no killing power over p16/p17 and p23, which accept the same scopes; each differs
+from its reject twin in one member, so the pair shows which member decides the verdict. p56 does:
+an engine that does not parse `0X` passes every v0.5.5 vector and fails p56.
+
+Additive: every pre-0.5.6 vector is byte-identical, the kinds stay at 11 and the reject-reason
+closure at 10. `MANIFEST.json` gains the six entries and two clauses: `commitment_derivation`
+names n104/p54 and n105/p55, and rule (2) of `identifier_normalization` names the `0X` prefix and
+n106/p56. `tools/compare_run.py` is new (see *Reproduction*).
 
 ## Strings, sequence numbers and phases (v0.5.5)
 
@@ -366,12 +415,12 @@ or live record.
 
 | `origin.class` | vectors | material |
 |---|---|---|
-| `synthetic` | 124 | inputs constructed in `tools/gen_vectors.py` |
+| `synthetic` | 130 | inputs constructed in `tools/gen_vectors.py` |
 | `live-ledger` | 3 (p1, p5, p27) | a record from the live ledger, unaltered, with a `provenance` block in the vector |
 | `live-ledger-derived` | 10 (p4, n1, n3, n5, n75, n77, n87, n88, n89, n97) | a value from those records, reused or altered |
 | `contributed` | 19 | an outside contributor's PR, commit, fixture or published reproduction |
 
-Of the 156 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
+Of the 162 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
 @mohammedmessaoudene-cmd p19/n27/n28, @navigatorbuilds p20/n29, @0rkz p22/n32). Ten more, also
 `contributed`, were written here on outside material, and their origin names its author: p23/n33 on
 @0rkz's PayPerByte fixture, n95 on p19's decision-evidence object from PR #5, n22/n23/n24 from
@@ -569,6 +618,34 @@ at import against measured known-answer values.
 ## Reproduction
 
 Independent reproduction means a run by an implementation that shares no code and no authors with this suite's engines. At `0eda303`, two such implementations have each run the full set and published the output: a Node verifier ([#8](https://github.com/tersignhq/evidence-record-conformance/issues/8)) and a clean-room Python verifier ([#9](https://github.com/tersignhq/evidence-record-conformance/issues/9)). Both match all 69 verdicts and every named reject reason. That reproduces the 69 vectors; a reading no vector pins is not reproduced by it. v0.5.4 adds 39 vectors and changes how identifiers normalize, and v0.5.5 adds 48 more and changes how unpaired surrogates, duplicate names that differ only in how a surrogate pair is written, and out-of-range `chain_link` sequence numbers read; both runs predate them. Agreement makes no verifier a reference, ours included. Earlier outside runs re-ran *our* verifier (byte-identical at `46ad663`; mutation-tested at `0e560c1`), and an outside verifier ran `p18`, `n25` and `n26` (CONTRIBUTORS.md, @Tetsurohhori).
+
+v0.5.6 adds six vectors; at this release no outside implementation has run them. To report a run,
+publish each vector's verdict and, for a reject, its reason, as a JSON array with one object per
+vector in `MANIFEST.json`:
+
+```
+[
+  {"file": "n1-value-drift.json", "verdict": "reject", "reason": "recompute_mismatch"},
+  {"file": "p2-canonical-key-order.json", "verdict": "valid"}
+]
+```
+
+`file` is the vector's file name as `MANIFEST.json` lists it, `verdict` is `valid` or `reject`, a
+reject carries `reason`, and a valid carries none (`null` counts as none). An entry with any other
+key, two entries for one file, and text that is not such an array are refused.
+`python3 tools/compare_run.py <output.json>` compares that output with `MANIFEST.json`, verdict
+and reason as exact strings, lists each disagreement, and ends with the line
+
+```
+agrees on N/M verdicts and reasons at v<version> (MANIFEST.json sha256 <digest>)
+```
+
+where M is the number of vectors in the manifest. A vector the output leaves out counts as a
+disagreement, and an entry for a file the manifest does not list is named on that line and fails
+the comparison. It exits 0 only
+when every vector agrees, 1 on any disagreement, and 2 on output it refuses, an empty one
+included. It compares outputs and nothing else: whether a runner is independent is for readers
+to judge from its repository.
 
 Cross-implementation measurement: `tools/cross_check_ts.mjs` is a second implementation of
 **every check** on a TypeScript stack, written by the same authors as `verify.py`. Agreement

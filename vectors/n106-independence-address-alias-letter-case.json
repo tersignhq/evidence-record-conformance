@@ -1,0 +1,24 @@
+{
+  "id": "n106-independence-address-alias-letter-case",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "Both attestations are by parties to the transaction, each written in another letter case. The first party is listed in its EIP-55 checksum form and attests in lowercase; the second is listed in lowercase and attests as 0X followed by upper-case hex digits. A 0x-address compares lowercased, its prefix included (identifier_normalization, rule 2), so neither attestor is outside the parties and the claim rejects. An engine that compares a 0x-address as written, or lowercases the digits but not the prefix, counts an attestor as outside and accepts this vector. p56 is the accepting twin.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0xabCDeF0123456789AbcdEf0123456789aBCDEF01",
+      "0xfedcba9876543210fedcba9876543210fedcba98"
+    ],
+    "attestations": [
+      {
+        "by": "0xabcdef0123456789abcdef0123456789abcdef01",
+        "role": "auditor"
+      },
+      {
+        "by": "0XFEDCBA9876543210FEDCBA9876543210FEDCBA98",
+        "role": "auditor"
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "p55-independence-scope-delivery-only",
+  "kind": "independence_claim",
+  "expect": "valid",
+  "description": "Accepting twin of n105: the same record, with the claim scoped to delivery, which the record commits to. p23 accepts the same scope over another deliverable; this pair differs in `covers` alone.",
+  "input": {
+    "claimed": "independent",
+    "covers": [
+      "delivery"
+    ],
+    "deliverable_bytes": "{\"answer\":\"synthetic deliverable\"}",
+    "deliverable_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+    "deliverable_signer": "0x3333333333333333333333333333333333333333",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x4444444444444444444444444444444444444444",
+        "role": "auditor"
+      }
+    ]
+  }
+}
