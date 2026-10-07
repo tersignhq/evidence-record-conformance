@@ -9,8 +9,8 @@ keys `file` (the vector's file name as the manifest lists it), `verdict` and, fo
 
 Prints `agrees on N/M verdicts and reasons at v<version> (MANIFEST.json sha256 <digest>)`, where
 M is the number of vectors in the manifest. A vector the output leaves out counts as a
-disagreement; an entry for a file the manifest does not list is named on that line and fails the
-comparison.
+disagreement; an entry for a file the manifest does not list is named on its own line, counted on
+that line, and fails the comparison.
 
 Exit 0 only when all M agree and the output names nothing else; 1 on any disagreement; 2 on
 input it refuses: unreadable or duplicate-named JSON, a shape other than the one above, two

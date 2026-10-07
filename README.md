@@ -176,10 +176,10 @@ them or by rejecting them for another reason.
 
 | wrong reading | vectors | reason |
 |---|---|---|
-| a party's own attestation read as independent | n7, n30, n32 | `independence_reject` |
+| a party's own attestation read as independent | n7, n30, n32, and every vector in the next row | `independence_reject` |
 | identifiers compared as written | n13, n31, n45–n49, n54, n58, n63–n66, n69, n106 | `independence_reject` |
 | a settlement claim over a record that names no settlement transaction | n21, n104, n105 | `independence_reject` |
-| a number outside the I-JSON domain read as a number | n10, n11, n35, n103 | `number_domain_reject` |
+| a number outside the vector domain (I-JSON integers) read as a number | n10, n11, n35, n103 | `number_domain_reject` |
 | duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
 
 ## Settlement scope and address letter case (v0.5.6)
@@ -193,15 +193,15 @@ decided:
   settlement passes every v0.5.5 vector and accepts n104.
 - **A settlement claim over a record that carries no settlement result** (n105, twin p55). The
   record binds delivered bytes and nothing else, so a claim covering settlement as well
-  overreaches. An engine that checks scope only over the fact classes whose fields a record
-  presents passes every v0.5.5 vector and accepts n105.
+  overreaches. An engine that reads a record with no settlement result as settled passes every
+  v0.5.5 vector and accepts n105.
 - **A 0x-address in another letter case** (n106, twin p56). Rule (2) of
   `identifier_normalization` named no vector: the earlier alias vectors compare a 0x-address with
   another syntax (n63–n66, n69), never two bare 0x-addresses that differ only in letter case.
   n106 lists one party in its EIP-55 checksum form and has it attest in lowercase, and has the
-  other attest as `0X` followed by upper-case digits. An engine that compares a bare 0x-address
-  as written, or lowercases the digits but not the prefix, passes every v0.5.5 vector and accepts
-  n106. p56 accepts an outside attestor written the same way, which is what shows that `0X`
+  other attest as `0X` followed by upper-case digits. An engine that parses `0X` but compares a
+  bare 0x-address as written, or lowercases the digits but not the prefix, passes every v0.5.5
+  vector and accepts n106; one that compares as written and parses only `0x` is caught by p56. p56 accepts an outside attestor written the same way, which is what shows that `0X`
   parses: an attestor that does not parse rejects the claim too, so n106 alone cannot tell the
   two readings apart.
 
@@ -641,8 +641,8 @@ agrees on N/M verdicts and reasons at v<version> (MANIFEST.json sha256 <digest>)
 ```
 
 where M is the number of vectors in the manifest. A vector the output leaves out counts as a
-disagreement, and an entry for a file the manifest does not list is named on that line and fails
-the comparison. It exits 0 only
+disagreement, and an entry for a file the manifest does not list is named on its own line, counted on
+that line, and fails the comparison. It exits 0 only
 when every vector agrees, 1 on any disagreement, and 2 on output it refuses, an empty one
 included. It compares outputs and nothing else: whether a runner is independent is for readers
 to judge from its repository.

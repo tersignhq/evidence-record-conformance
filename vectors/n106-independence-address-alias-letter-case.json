@@ -3,7 +3,7 @@
   "kind": "independence_claim",
   "expect": "reject",
   "reason": "independence_reject",
-  "description": "Both attestations are by parties to the transaction, each written in another letter case. The first party is listed in its EIP-55 checksum form and attests in lowercase; the second is listed in lowercase and attests as 0X followed by upper-case hex digits. A 0x-address compares lowercased, its prefix included (identifier_normalization, rule 2), so neither attestor is outside the parties and the claim rejects. An engine that compares a 0x-address as written, or lowercases the digits but not the prefix, counts an attestor as outside and accepts this vector. p56 is the accepting twin.",
+  "description": "Both attestations are by parties to the transaction, each written in another letter case. The first party is listed in its EIP-55 checksum form and attests in lowercase; the second is listed in lowercase and attests as 0X followed by upper-case hex digits. A 0x-address compares lowercased, its prefix included (identifier_normalization, rule 2), so neither attestor is outside the parties and the claim rejects. An engine that parses the 0X prefix but compares a 0x-address as written, or lowercases the digits but not the prefix, counts an attestor as outside and accepts this vector. p56 is the accepting twin; it also catches an engine that compares as written and parses only 0x.",
   "input": {
     "claimed": "independent",
     "parties": [
