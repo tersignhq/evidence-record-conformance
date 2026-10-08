@@ -1,0 +1,53 @@
+name: Reproduction report
+description: A run of an implementation over a tagged release, one verdict per vector.
+title: "Run: <implementation> at <tag>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The output format is in README, *Reproduction*. Outputs are compared as data; nothing in them is executed. Agreement makes no verifier a reference.
+  - type: input
+    id: tag
+    attributes:
+      label: Release tag
+      description: The tag you ran, for example `v0.5.6`.
+    validations:
+      required: true
+  - type: input
+    id: implementation
+    attributes:
+      label: Implementation repository and commit
+      description: A public repository URL and the full commit SHA you ran.
+      placeholder: https://github.com/<owner>/<repo> at <40-character commit SHA>
+    validations:
+      required: true
+  - type: input
+    id: vector_set
+    attributes:
+      label: Vector set
+      description: The manifest whose vectors you ran, for example `MANIFEST.json` (core suite) or `crypto/MANIFEST.json`.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Per-vector output
+      description: "A JSON array with one object per vector in that manifest, in the input format of `tools/compare_run.py`: `file`, `verdict` (`valid` or `reject`) and, for a reject, `reason`."
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: compare_run
+    attributes:
+      label: compare_run result
+      description: For the core suite, the last line `python3 tools/compare_run.py <output.json>` printed, and its exit status.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: independence
+    attributes:
+      label: Independence statement
+      description: Who wrote the implementation; whether it shares code or authors with this suite's engines (`verify.py`, `tools/cross_check_ts.mjs`, the runners under `crypto/`); and whether its authors read those engines before or while writing it.
+    validations:
+      required: true

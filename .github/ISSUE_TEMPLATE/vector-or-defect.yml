@@ -1,0 +1,39 @@
+name: Vector, profile or defect
+description: A wrong expected result, a reading no vector pins, a new kind or profile, or a defect in a verifier or tool.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A verifier or engine that accepts a forged or altered record is reported privately, not here (SECURITY.md).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What this is
+      options:
+        - A vector whose expected verdict or reason is wrong
+        - A reading no vector pins (a proposed vector)
+        - A new kind or profile
+        - A defect in a verifier, engine or tool
+    validations:
+      required: true
+  - type: textarea
+    id: requirement
+    attributes:
+      label: Requirement it rests on
+      description: The section and sentence of the format it tests (an x402 clause, for example), or the `MANIFEST.json` key of the suite rule.
+    validations:
+      required: true
+  - type: textarea
+    id: case
+    attributes:
+      label: Input and expected result
+      description: The vector or input, the verdict and reason you expect, and its twin on the other side (an accepting twin for a reject, a rejecting one for an accept).
+    validations:
+      required: true
+  - type: input
+    id: ref
+    attributes:
+      label: Tag or commit
+      description: Where you observed it.
+    validations:
+      required: true

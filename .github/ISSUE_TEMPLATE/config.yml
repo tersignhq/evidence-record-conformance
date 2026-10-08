@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability privately
+    url: https://github.com/tersignhq/evidence-record-conformance/security/advisories/new
+    about: A verifier or engine that accepts a forged or altered record, or fails other than by rejecting. Scope is in SECURITY.md.
