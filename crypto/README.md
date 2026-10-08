@@ -88,7 +88,7 @@ Reject reasons (declared in `MANIFEST.json`, each exercised by at least one vect
 
 **On cn3.** A verifier that only checks "recovered address == signer" accepts cn3. That includes one built on `eth_account` (0.13.7, `Account.recover_message`), which returns the ledger address for it. So a single link would admit two distinct signature byte strings, and any system that keys or deduplicates on signature bytes breaks. EIP-2 low-s is what makes the signature canonical.
 
-**Cross-check with `eth_account` 0.13.7** (re-run at this commit on all 46 vectors, 27 of which are signature-level questions). It is a signature library, not a record verifier, so only the signature-level vectors apply. It **accepts** cn3 (high-s), cn14 (no `0x`), cn18 (`0X`) and cn22 (`v = 1`, normalized to a recovery id), and it **raises** instead of rejecting on cn5, cn6, cn15, cn16 and cn20. The earlier claim here ("agrees on every vector except cn3") was made at 8 vectors and predates cn7–cn28.
+**Cross-check with `eth_account` 0.13.7** (re-run at this commit on all 46 vectors, 27 of which are signature-level questions). It is a signature library, not a record verifier, so only the signature-level vectors apply. It **accepts** cn3 (high-s), cn14 (no `0x`), cn18 (`0X`) and cn22 (`v = 1`, normalized to a recovery id), and it **raises** instead of rejecting on cn5, cn6, cn15, cn16 and cn20.
 
 The test key and the fixed nonce are published in `MANIFEST.json` (`test_key_address`, `test_key_derivation`, `test_nonce_derivation`) and derived in `gen_crypto_vectors.py`. Neither is ever a real signer.
 
