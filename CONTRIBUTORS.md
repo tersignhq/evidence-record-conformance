@@ -260,23 +260,7 @@ offer sharing the resource, network and payer cannot be told apart from the one 
 
 ## How to contribute
 
-Counter-vectors and adversarial additions are the most useful thing you can send. A vector that
-makes this suite go red is worth more to us than one that makes it green — the whole point is
-that the criteria discriminate rather than merely accept.
-
-Two conventions, both enforced by the run itself: every criterion carries **both** an accepting
-and a rejecting twin, so an implementation that unconditionally rejects a class fails just as
-one that unconditionally accepts it does; and the reject-reason closure is pinned in the
-verifier rather than derived from the manifest, so a fork that quietly drops a class goes red.
-
-Every new vector also needs an entry in `PROVENANCE` in `tools/gen_vectors.py` naming its
-author and origin (the manifest's `vector_provenance` defines both); generation fails without
-one.
-
-Run `python3 tools/gen_vectors.py && python3 verify.py && node tools/cross_check_ts.mjs &&
-python3 tools/differential.py` before opening a PR — CI runs all four, the generator must
-reproduce `vectors/` and `MANIFEST.json` byte-identically, and the differential harness must
-report zero engine divergences over the corpus and its off-corpus mutation battery.
+See [CONTRIBUTING.md](CONTRIBUTING.md): what is merged, the licence terms and the commands CI runs.
 
 ---
 

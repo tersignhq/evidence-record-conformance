@@ -688,5 +688,6 @@ therefore read as closed.
 
 ## License
 
-Apache-2.0. Maintained by [Tersign](https://tersign.ai). Cross-runs, counter-vectors, and
-adversarial additions welcome.
+Apache-2.0. Maintained by [Tersign](https://tersign.ai), which decides what merges and what the
+suite pins; see [CONTRIBUTING.md](CONTRIBUTING.md). Cross-runs, counter-vectors and adversarial
+additions welcome.
