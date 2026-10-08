@@ -1,5 +1,5 @@
-// Cross-implementation measurement: an INDEPENDENT TypeScript-stack implementation of
-// every check in verify.py, run over the full committed corpus. Two implementations,
+// Cross-implementation measurement: a SECOND TypeScript-stack implementation of every
+// check in verify.py, by the same authors, run over the full committed corpus. Two implementations,
 // one vector set, byte-level agreement required — conformance by measurement, not by
 // resemblance. Run:  npm i viem  (in the repo root), then  node tools/cross_check_ts.mjs
 //

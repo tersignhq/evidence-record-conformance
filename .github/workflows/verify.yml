@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Independent TypeScript-stack implementation over the full corpus
+      - name: Second TypeScript-stack implementation (same authors) over the full corpus
         run: |
           npm i viem
           node tools/cross_check_ts.mjs

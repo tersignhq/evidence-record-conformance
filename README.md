@@ -167,7 +167,7 @@ missing commitment and substitution detectable.
 This suite instantiates the relation with its local RFC-8785-compatible canonicalizer and
 Keccak-256. The conformance property is the algorithm-parametric relation “matching canonical
 object accepts; missing or mismatching commitment rejects”, not a prescription of a digest,
-canonicalization, or field location for AUEC, MCP, or another protocol.
+canonicalization, or field location for any protocol.
 
 ## Wrong readings and the vectors that reject them
 
