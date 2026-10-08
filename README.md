@@ -619,6 +619,15 @@ at import against measured known-answer values.
 
 Independent reproduction means a run by an implementation that shares no code and no authors with this suite's engines. At `0eda303`, two such implementations have each run the full set and published the output: a Node verifier ([#8](https://github.com/tersignhq/evidence-record-conformance/issues/8)) and a clean-room Python verifier ([#9](https://github.com/tersignhq/evidence-record-conformance/issues/9)). Both match all 69 verdicts and every named reject reason. That reproduces the 69 vectors; a reading no vector pins is not reproduced by it. v0.5.4 adds 39 vectors and changes how identifiers normalize, and v0.5.5 adds 48 more and changes how unpaired surrogates, duplicate names that differ only in how a surrogate pair is written, and out-of-range `chain_link` sequence numbers read; both runs predate them. Agreement makes no verifier a reference, ours included. Earlier outside runs re-ran *our* verifier (byte-identical at `46ad663`; mutation-tested at `0e560c1`), and an outside verifier ran `p18`, `n25` and `n26` (CONTRIBUTORS.md, @Tetsurohhori).
 
+Regeneration is a separate question from verdicts. At `521c180` outside runs regenerated the
+structural set across a changed hash seed and two Python minors, and both the structural and crypto
+sets on glibc and musl and on s390x under emulation, byte-identical from empty directories with no
+network, with a syscall record for one x86_64 glibc run of each set
+([#14](https://github.com/tersignhq/evidence-record-conformance/issues/14)). CI regenerates every
+profile on every push and pull request, on x86_64, on aarch64 hardware and on s390x under emulation
+(`tools/regen_check.sh`). Regeneration shows that the generators are deterministic, not that the
+vectors are correct.
+
 v0.5.6 adds six vectors; at this release no outside implementation has run them. To report a run,
 publish each vector's verdict and, for a reject, its reason, as a JSON array with one object per
 vector in `MANIFEST.json`:

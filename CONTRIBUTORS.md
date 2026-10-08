@@ -19,11 +19,8 @@ author preserved, and the provenance line
 [`d672d5c`](https://github.com/tersignhq/evidence-record-conformance/commit/d672d5c) — and the
 PR closed with that explanation. That work is in `main` under its author's name.
 
-It was the first pull request this repository received, and handling it that way was a
-mistake worth recording: it optimised for landing the code over the signal the repository
-emits, and a closed PR reads as a rejection to anyone who does not dig. The preference since
-is to merge a contributor's branch, rebased onto `main` where needed, so the badge, the link
-and the authorship stay together. Every pull request since (#5, #6, #7) was merged that way.
+Since then, every merged pull request has landed through GitHub and shows as merged with its
+link: #5, #6 and #7 by merge commit, #11 and #15 by squash.
 
 ---
 
@@ -72,7 +69,7 @@ anything on-chain.
 In the same review he made the sharper form of an argument this suite rests on: *position was
 doing the work of faculty*. A party that merely occupies a different position — a distinct
 address, a declared label — is not thereby independent, and a declared field grounds nothing.
-That distinction is why the `settledBy` producer field he raised was **not** adopted: a
+That distinction is why the proposed `settledBy` producer field was **not** adopted: a
 criterion satisfiable by declaration reproduces the defect it was meant to catch.
 
 **The derivation has to replace the declaration, not sit behind it** — vectors `n22` / `n23`,
@@ -145,7 +142,7 @@ OpenAI ChatGPT and Codex assisted with implementation, testing, analysis and dra
 Mohammed Messaoudene reviewed the executed evidence and remains responsible for the
 contribution.
 
-## [@navigatorbuilds](https://github.com/navigatorbuilds) — Elara (AI maintainer, elara-mesh)
+## [@navigatorbuilds](https://github.com/navigatorbuilds) — Elara (AI agent)
 
 **Suite-transition pair** — vectors `p20` / `n29`, merged from
 [PR #6](https://github.com/tersignhq/evidence-record-conformance/pull/6). Requested by
@@ -167,7 +164,7 @@ the list.
 prefix it extends *and* its own position in that prefix's continuation. That is the rule `p18`
 accepts and `n25` rejects.
 
-## [@0rkz](https://github.com/0rkz) — PayPerByte
+## [@0rkz](https://github.com/0rkz)
 
 **Delivery-commitment pair** — vectors `p22` / `n32`, merged from
 [PR #7](https://github.com/tersignhq/evidence-record-conformance/pull/7). He found the hole by
@@ -217,6 +214,14 @@ third outcome with its own exit code. The vectors were written here. He then ran
 observed agreeing on all three, and declined to score himself on the vectors his verifier has no
 path to
 ([issuecomment-5234222504](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3004#issuecomment-5234222504)).
+
+**Regeneration outside CI** — [#14](https://github.com/tersignhq/evidence-record-conformance/issues/14)
+(2026-10-03 to 2026-10-06). At `521c180` he regenerated the structural set (156 vectors and
+`MANIFEST.json`) and the crypto set (46 vectors and its manifest) from empty directories with no
+network: byte-identical across a changed hash seed and Python 3.11 and 3.12 (structural), on glibc
+and musl and on s390x under emulation (both sets), with a syscall record for one x86_64 glibc
+run of each set. He re-ran both sets at `73865e2` on Python 3.10 as a control on CI. Regeneration shows that the
+generators are deterministic, not that the vectors are correct.
 
 ## [@stillmarcus24](https://github.com/stillmarcus24)
 
@@ -285,7 +290,7 @@ He reported the malformed-field class (a crash or a silent coercion where a reje
 on every field. Vectors `cn7`–`cn16`, `cn18` and `cp5`–`cp7` are written on the inputs he published; they reuse cp1's live values, so they are
 classed `live-ledger-derived`, and their source names his reproduction.
 
-**[@stillmarcus24](https://github.com/stillmarcus24) — Still OS.** A second runner, in Node, that confirmed `cn3` recovers the same signer
+**[@stillmarcus24](https://github.com/stillmarcus24).** A second runner, in Node, that confirmed `cn3` recovers the same signer
 from `s' = n - s`, which made the low-s check's order normative (before recovery, rejected, never normalized), and asked for the
 per-suite canonical-encoding rule.
 
