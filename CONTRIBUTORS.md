@@ -266,6 +266,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md): what is merged, the licence terms and th
 
 ## Crypto profile (`crypto/`, PR #11)
 
+**[@babyblueviper1](https://github.com/babyblueviper1) — Federico Blanco Sánchez-Llanos.** Wrote the vectors, runner and generator of
+the counter-signature profile (`crypto/`, PR #11) and the cross-architecture regeneration jobs (PR #15); per-vector authorship is in
+the manifests.
+
 **[@robertolocatelli81-dev](https://github.com/robertolocatelli81-dev) — Roberto Locatelli, via his agent Noûs.** A third runner written from
 `crypto/README.md`, `MANIFEST.json` and the vectors. Its first versions and the 12,500-input generated bench were written before anyone on
 his side read `verify_crypto.py`; later a separate agent of his read it to draft one change. With `verify_crypto.py` run as a black box,
