@@ -1,12 +1,12 @@
 #!/bin/sh
 # Regenerate every vector profile from an EMPTY output directory and fail if any committed byte changes.
-# POSIX sh + python3 stdlib only (runs inside slim containers). A generator that is absent on this checkout is skipped and named.
+# POSIX sh + python3 stdlib only (runs inside slim containers). A generator that is missing fails the run.
 set -eu
 fail=0
 aside=$(mktemp -d)  # a fresh directory per run, so a second run on one machine does not collide with the first
 trap 'rm -rf "$aside"' EXIT  # the moved-aside copies are committed bytes; git holds them
 check() {  # $1 = label, $2 = generator, $3 = output dir, $4 = manifest
-    if [ ! -f "$2" ]; then echo "skip  $1 ($2 not on this checkout)"; return 0; fi
+    if [ ! -f "$2" ]; then echo "FAIL  $1: generator $2 is missing"; fail=1; return 0; fi
     before=$(sha256sum "$3"/*.json "$4" | sha256sum | cut -d' ' -f1)
     n=$(ls "$3"/*.json | wc -l)
     mv "$3" "$aside/$(echo "$3" | tr / _)"
