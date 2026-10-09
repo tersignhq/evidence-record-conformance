@@ -10,6 +10,8 @@
  },
  "primary_type": "Receipt",
  "type": "Receipt(uint256 version,string network,string resourceUrl,string payer,uint256 issuedAt,string transaction)",
+ "integer_domain": "version and issuedAt (uint256, x402 Sec 5.3) are JSON integer tokens, and the token 1.0 is not one (en26); every integer in [0, 2**256 - 1] passes the field check, with no freshness or other policy bound on issuedAt (ep7, ep8, ep9); x402 Sec 5.5 step 6 leaves issuedAt to verifier policy",
+ "signer_shape": "signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared case-insensitively with the recovered address (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects as malformed_input); surrounding whitespace and a 0X prefix on the signer are not pinned",
  "reject_reasons": [
   "unsupported_format",
   "malformed_input",
@@ -350,7 +352,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "p1 with the declared signer one hex digit short (0x + 39 hex). signer is this suite's envelope key: after the core's identifier_normalization it must be 0x + 40 hex. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch"
+    "source": "p1 with the declared signer one hex digit short (0x + 39 hex). Rests on this suite's rule signer_shape (this manifest): signer is 0x + 40 hex digits. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch"
    }
   },
   {
@@ -360,7 +362,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "p1's payload with the test key as payer and issuedAt = 0, the bottom of this suite's uint256 integer domain [0, 2**256 - 1], signed by the test key (a runner that starts the domain at 1, or reads 0 as absent, rejects it)"
+    "source": "p1's payload with the test key as payer and issuedAt = 0, the bottom of the uint256 range [0, 2**256 - 1], signed by the test key. Rests on this suite's rule integer_domain (this manifest): every integer in that range passes, with no policy bound on issuedAt. A runner that starts the domain at 1, or reads 0 as absent, rejects it"
    }
   },
   {
@@ -370,7 +372,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "ep8 with issuedAt = -1, one below the uint256 domain, on ep8's signature: ep8 is its accepting twin (en9 is the same fault on p1)"
+    "source": "ep8 with issuedAt = -1, on ep8's signature. x402 extension-offer-and-receipt.md Sec 5.3 (EIP-712 Types for Receipt, Normative Schema) types it { \"name\": \"issuedAt\", \"type\": \"uint256\" }, and -1 is not a uint256. ep8 is its accepting twin (en9 is the same fault on p1)"
    }
   },
   {
@@ -380,7 +382,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "p1 with version written as true: a JSON boolean is not an integer token (this suite's integer domain; the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it"
+    "source": "p1 with version written as true. x402 extension-offer-and-receipt.md types version three times: Sec 5.2 (Receipt Payload Fields), row `version` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"version\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"version\": { \"type\": \"integer\" }. A JSON boolean is none of these (the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it"
    }
   },
   {
@@ -390,7 +392,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31"
+    "source": "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31. Rests on this suite's rule integer_domain (this manifest)"
    }
   },
   {
@@ -400,7 +402,7 @@
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "live-ledger-derived",
-    "source": "ep9 with issuedAt written as true, on ep9's signature: a JSON boolean is not an integer token (this suite's integer domain), and a runner that reads true as 1 accepts it"
+    "source": "ep9 with issuedAt written as true, on ep9's signature. x402 extension-offer-and-receipt.md types issuedAt three times: Sec 5.2 (Receipt Payload Fields), row `issuedAt` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"issuedAt\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"issuedAt\": { \"type\": \"integer\" }. A JSON boolean is none of these. ep9 is its accepting twin; a runner that reads true as 1 accepts it"
    }
   },
   {

@@ -10,6 +10,13 @@ from gen_crypto_vectors import PRIV, K, TEST_ADDR, sighex, with_sig, off_curve_r
 
 P1 = json.load(open(os.path.join(os.path.dirname(HERE), "vectors", "p1-live-genesis-receipt.json")))["input"]["payload"]
 LEDGER = "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6"
+# This suite's own rules, not x402's; a vector that rests on one names its key in its source (CONTRIBUTING.md).
+INTEGER_DOMAIN = ("version and issuedAt (uint256, x402 Sec 5.3) are JSON integer tokens, and the token 1.0 is not one (en26); "
+                  "every integer in [0, 2**256 - 1] passes the field check, with no freshness "
+                  "or other policy bound on issuedAt (ep7, ep8, ep9); x402 Sec 5.5 step 6 leaves issuedAt to verifier policy")
+SIGNER_SHAPE = ("signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared "
+                "case-insensitively with the recovered address (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects "
+                "as malformed_input); surrounding whitespace and a 0X prefix on the signer are not pinned")
 
 
 def tsign(msg, **kw):
@@ -80,12 +87,12 @@ def main():
         ("en26-version-integral-float-token", "reject", "malformed_input", {**live, "payload": {**m, "version": 1.0}}, DERIVED, "p1 with version written as the token 1.0: not an integer token (a loader-level case, like the duplicate-key one: JSON.parse turns 1.0 into 1, so a runner must read number tokens to see it; the counter-signature profile's cn29 is the same class)"),
         ("en27-malformed-payload-and-signature", "reject", "malformed_input", {**live, "payload": {**m, "issuedAt": -1}, "signature": with_sig(P1["signature"], v=29)}, DERIVED, "two faults in one input, en9's payload and en14's signature: the payload is checked before the signature (this suite's check order), so a runner that checks the signature first reports malformed_signature (cn34's class)"),
         ("en24-signature-uppercase-0X-prefix", "reject", "malformed_signature", {**t, "signature": "0X" + t["signature"][2:]}, "live-ledger-derived", "ep2's signature with a 0X prefix (cn18's class)"),
-        ("en28-signer-not-an-address", "reject", "malformed_input", {**live, "signer": live["signer"][:-1]}, DERIVED, "p1 with the declared signer one hex digit short (0x + 39 hex). signer is this suite's envelope key: after the core's identifier_normalization it must be 0x + 40 hex. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch", TERSIGN),
-        ("ep8-issuedat-zero", "valid", None, t0, DERIVED, "p1's payload with the test key as payer and issuedAt = 0, the bottom of this suite's uint256 integer domain [0, 2**256 - 1], signed by the test key (a runner that starts the domain at 1, or reads 0 as absent, rejects it)", TERSIGN),
-        ("en29-issuedat-minus-one", "reject", "malformed_input", {**t0, "payload": {**m0, "issuedAt": -1}}, DERIVED, "ep8 with issuedAt = -1, one below the uint256 domain, on ep8's signature: ep8 is its accepting twin (en9 is the same fault on p1)", TERSIGN),
-        ("en30-version-bool-true", "reject", "malformed_input", {**live, "payload": {**m, "version": True}}, DERIVED, "p1 with version written as true: a JSON boolean is not an integer token (this suite's integer domain; the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it", TERSIGN),
-        ("ep9-issuedat-one", "valid", None, t1, DERIVED, "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31", TERSIGN),
-        ("en31-issuedat-bool-true", "reject", "malformed_input", {**t1, "payload": {**m1, "issuedAt": True}}, DERIVED, "ep9 with issuedAt written as true, on ep9's signature: a JSON boolean is not an integer token (this suite's integer domain), and a runner that reads true as 1 accepts it", TERSIGN),
+        ("en28-signer-not-an-address", "reject", "malformed_input", {**live, "signer": live["signer"][:-1]}, DERIVED, "p1 with the declared signer one hex digit short (0x + 39 hex). Rests on this suite's rule signer_shape (this manifest): signer is 0x + 40 hex digits. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch", TERSIGN),
+        ("ep8-issuedat-zero", "valid", None, t0, DERIVED, "p1's payload with the test key as payer and issuedAt = 0, the bottom of the uint256 range [0, 2**256 - 1], signed by the test key. Rests on this suite's rule integer_domain (this manifest): every integer in that range passes, with no policy bound on issuedAt. A runner that starts the domain at 1, or reads 0 as absent, rejects it", TERSIGN),
+        ("en29-issuedat-minus-one", "reject", "malformed_input", {**t0, "payload": {**m0, "issuedAt": -1}}, DERIVED, "ep8 with issuedAt = -1, on ep8's signature. x402 extension-offer-and-receipt.md Sec 5.3 (EIP-712 Types for Receipt, Normative Schema) types it { \"name\": \"issuedAt\", \"type\": \"uint256\" }, and -1 is not a uint256. ep8 is its accepting twin (en9 is the same fault on p1)", TERSIGN),
+        ("en30-version-bool-true", "reject", "malformed_input", {**live, "payload": {**m, "version": True}}, DERIVED, "p1 with version written as true. x402 extension-offer-and-receipt.md types version three times: Sec 5.2 (Receipt Payload Fields), row `version` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"version\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"version\": { \"type\": \"integer\" }. A JSON boolean is none of these (the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it", TERSIGN),
+        ("ep9-issuedat-one", "valid", None, t1, DERIVED, "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31. Rests on this suite's rule integer_domain (this manifest)", TERSIGN),
+        ("en31-issuedat-bool-true", "reject", "malformed_input", {**t1, "payload": {**m1, "issuedAt": True}}, DERIVED, "ep9 with issuedAt written as true, on ep9's signature. x402 extension-offer-and-receipt.md types issuedAt three times: Sec 5.2 (Receipt Payload Fields), row `issuedAt` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"issuedAt\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"issuedAt\": { \"type\": \"integer\" }. A JSON boolean is none of these. ep9 is its accepting twin; a runner that reads true as 1 accepts it", TERSIGN),
         ("en32-transaction-null", "reject", "malformed_input", {**live, "payload": {**m, "transaction": None}}, DERIVED, "p1 with transaction written as null, not \"\": the pinned Receipt type declares string transaction and the payload is hashed exactly as transmitted, so null is not read as \"\". ep1 is its accepting twin; a runner that reads null as \"\" recovers p1's payer and accepts it", TERSIGN),
         ("en33-payer-number", "reject", "malformed_input", {**live, "payload": {**m, "payer": int(m["payer"], 16)}}, DERIVED, "p1 with payer written as a JSON number, the address's integer value: the pinned Receipt type declares string payer. ep1 is its accepting twin", TERSIGN),
     ]
@@ -108,6 +115,7 @@ def main():
         entries.append({"file": vid + ".json", "kind": "payload_signature", "expect": expect, "author": by[0] if by else "@babyblueviper1", "origin": {"class": cls, "source": src}})
     man = {"profile": "EIP-712 payload signature (x402 offer-and-receipt Receipt)", "runner": "crypto/verify_eip712.py",
            "generator": "crypto/gen_eip712_vectors.py", "licence": "Apache-2.0, as the repository (LICENSE)", "domain": E.DOMAIN, "primary_type": "Receipt", "type": E.RECEIPT_TYPE,
+           "integer_domain": INTEGER_DOMAIN, "signer_shape": SIGNER_SHAPE,
            "reject_reasons": list(E.REJECT_REASONS), "test_key_address": TEST_ADDR, "test_key_derivation": TEST_KEY_DERIVATION,
            "test_nonce_derivation": TEST_NONCE_DERIVATION, "vectors": entries}
     with open(os.path.join(HERE, "EIP712_MANIFEST.json"), "w") as fh:
