@@ -24,7 +24,7 @@ def main():
     reordered = "Receipt(uint256 version,string network,string resourceUrl,string payer,string transaction,uint256 issuedAt)"
     reorder_fields = tuple(f for f in E.FIELDS if f[0] != "issuedAt" and f[0] != "transaction") + (("transaction", "string"), ("issuedAt", "uint256"))
     s_int = int(P1["signature"][66:130], 16); v_live = int(P1["signature"][130:], 16)
-    LIVE_SRC = "p1's payload, signature and payer as served (core vector p1, live-ledger); Tersign published the typed-data construction on PR #11"
+    LIVE_SRC = "p1's payload, signature and payer as served (core vector p1, live-ledger)"
     tmsg_v2 = {**m, "payer": TEST_ADDR, "version": 2}
     srv = {"format": "eip712", "payload": dict(m), "signature": tsign(m), "signer": TEST_ADDR}
     d28 = 0

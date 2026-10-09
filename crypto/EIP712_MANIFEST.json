@@ -30,7 +30,7 @@
    "author": "@babyblueviper1",
    "origin": {
     "class": "live-ledger",
-    "source": "p1's payload, signature and payer as served (core vector p1, live-ledger); Tersign published the typed-data construction on PR #11"
+    "source": "p1's payload, signature and payer as served (core vector p1, live-ledger)"
    }
   },
   {
