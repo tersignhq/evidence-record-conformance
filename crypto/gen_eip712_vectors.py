@@ -41,6 +41,11 @@ def main():
     latin1 = {"format": "eip712", "payload": ml1, "signature": tsign(ml1), "signer": TEST_ADDR}
     mmax = {**m, "payer": TEST_ADDR, "issuedAt": 2 ** 256 - 1}
     tmax = {"format": "eip712", "payload": mmax, "signature": tsign(mmax), "signer": TEST_ADDR}
+    m0 = {**m, "payer": TEST_ADDR, "issuedAt": 0}
+    t0 = {"format": "eip712", "payload": m0, "signature": tsign(m0), "signer": TEST_ADDR}
+    m1 = {**m, "payer": TEST_ADDR, "issuedAt": 1}
+    t1 = {"format": "eip712", "payload": m1, "signature": tsign(m1), "signer": TEST_ADDR}
+    TERSIGN = "Tersign (@wowlegend)"   # a row's optional 7th element is its author; without one it is @babyblueviper1 (PR #11, #13)
     DERIVED = "live-ledger-derived"
     V = [
         ("ep1-live-p1-payload-signature", "valid", None, live, "live-ledger", LIVE_SRC),
@@ -75,13 +80,21 @@ def main():
         ("en26-version-integral-float-token", "reject", "malformed_input", {**live, "payload": {**m, "version": 1.0}}, DERIVED, "p1 with version written as the token 1.0: not an integer token (a loader-level case, like the duplicate-key one: JSON.parse turns 1.0 into 1, so a runner must read number tokens to see it; the counter-signature profile's cn29 is the same class)"),
         ("en27-malformed-payload-and-signature", "reject", "malformed_input", {**live, "payload": {**m, "issuedAt": -1}, "signature": with_sig(P1["signature"], v=29)}, DERIVED, "two faults in one input, en9's payload and en14's signature: the payload is checked before the signature (this suite's check order), so a runner that checks the signature first reports malformed_signature (cn34's class)"),
         ("en24-signature-uppercase-0X-prefix", "reject", "malformed_signature", {**t, "signature": "0X" + t["signature"][2:]}, "live-ledger-derived", "ep2's signature with a 0X prefix (cn18's class)"),
+        ("en28-signer-not-an-address", "reject", "malformed_input", {**live, "signer": live["signer"][:-1]}, DERIVED, "p1 with the declared signer one hex digit short (0x + 39 hex). signer is this suite's envelope key: after the core's identifier_normalization it must be 0x + 40 hex. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch", TERSIGN),
+        ("ep8-issuedat-zero", "valid", None, t0, DERIVED, "p1's payload with the test key as payer and issuedAt = 0, the bottom of this suite's uint256 integer domain [0, 2**256 - 1], signed by the test key (a runner that starts the domain at 1, or reads 0 as absent, rejects it)", TERSIGN),
+        ("en29-issuedat-minus-one", "reject", "malformed_input", {**t0, "payload": {**m0, "issuedAt": -1}}, DERIVED, "ep8 with issuedAt = -1, one below the uint256 domain, on ep8's signature: ep8 is its accepting twin (en9 is the same fault on p1)", TERSIGN),
+        ("en30-version-bool-true", "reject", "malformed_input", {**live, "payload": {**m, "version": True}}, DERIVED, "p1 with version written as true: a JSON boolean is not an integer token (this suite's integer domain; the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it", TERSIGN),
+        ("ep9-issuedat-one", "valid", None, t1, DERIVED, "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31", TERSIGN),
+        ("en31-issuedat-bool-true", "reject", "malformed_input", {**t1, "payload": {**m1, "issuedAt": True}}, DERIVED, "ep9 with issuedAt written as true, on ep9's signature: a JSON boolean is not an integer token (this suite's integer domain), and a runner that reads true as 1 accepts it", TERSIGN),
+        ("en32-transaction-null", "reject", "malformed_input", {**live, "payload": {**m, "transaction": None}}, DERIVED, "p1 with transaction written as null, not \"\": the pinned Receipt type declares string transaction and the payload is hashed exactly as transmitted, so null is not read as \"\". ep1 is its accepting twin; a runner that reads null as \"\" recovers p1's payer and accepts it", TERSIGN),
+        ("en33-payer-number", "reject", "malformed_input", {**live, "payload": {**m, "payer": int(m["payer"], 16)}}, DERIVED, "p1 with payer written as a JSON number, the address's integer value: the pinned Receipt type declares string payer. ep1 is its accepting twin", TERSIGN),
     ]
     out = os.path.join(HERE, "eip712_vectors")
     os.makedirs(out, exist_ok=True)
     for f in os.listdir(out):
         os.remove(os.path.join(out, f))
     entries = []
-    for vid, expect, reason, inp, cls, src in V:
+    for vid, expect, reason, inp, cls, src, *by in V:
         v = {"id": vid, "kind": "payload_signature", "expect": expect}
         if reason:
             v["reject_reason"] = reason
@@ -92,7 +105,7 @@ def main():
                                "note": "payload, signature and payer are p1's genesis receipt as served"}
         with open(os.path.join(out, vid + ".json"), "w") as fh:
             fh.write(json.dumps(v, indent=2) + "\n")
-        entries.append({"file": vid + ".json", "kind": "payload_signature", "expect": expect, "author": "@babyblueviper1", "origin": {"class": cls, "source": src}})
+        entries.append({"file": vid + ".json", "kind": "payload_signature", "expect": expect, "author": by[0] if by else "@babyblueviper1", "origin": {"class": cls, "source": src}})
     man = {"profile": "EIP-712 payload signature (x402 offer-and-receipt Receipt)", "runner": "crypto/verify_eip712.py",
            "generator": "crypto/gen_eip712_vectors.py", "licence": "Apache-2.0, as the repository (LICENSE)", "domain": E.DOMAIN, "primary_type": "Receipt", "type": E.RECEIPT_TYPE,
            "reject_reasons": list(E.REJECT_REASONS), "test_key_address": TEST_ADDR, "test_key_derivation": TEST_KEY_DERIVATION,
@@ -100,7 +113,7 @@ def main():
     with open(os.path.join(HERE, "EIP712_MANIFEST.json"), "w") as fh:
         fh.write(json.dumps(man, indent=1, ensure_ascii=False) + "\n")
     bad = 0
-    for vid, expect, reason, inp, _, _ in V:
+    for vid, expect, reason, inp, *_ in V:
         got = E.check(inp)
         ok = got == (expect, reason); bad += not ok
         print(("ok  " if ok else "FAIL"), vid, got)

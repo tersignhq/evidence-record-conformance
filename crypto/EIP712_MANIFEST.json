@@ -342,6 +342,86 @@
     "class": "live-ledger-derived",
     "source": "ep2's signature with a 0X prefix (cn18's class)"
    }
+  },
+  {
+   "file": "en28-signer-not-an-address.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1 with the declared signer one hex digit short (0x + 39 hex). signer is this suite's envelope key: after the core's identifier_normalization it must be 0x + 40 hex. ep1 is its accepting twin; a runner that skips the shape check reports signer_mismatch"
+   }
+  },
+  {
+   "file": "ep8-issuedat-zero.json",
+   "kind": "payload_signature",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1's payload with the test key as payer and issuedAt = 0, the bottom of this suite's uint256 integer domain [0, 2**256 - 1], signed by the test key (a runner that starts the domain at 1, or reads 0 as absent, rejects it)"
+   }
+  },
+  {
+   "file": "en29-issuedat-minus-one.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep8 with issuedAt = -1, one below the uint256 domain, on ep8's signature: ep8 is its accepting twin (en9 is the same fault on p1)"
+   }
+  },
+  {
+   "file": "en30-version-bool-true.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1 with version written as true: a JSON boolean is not an integer token (this suite's integer domain; the counter-signature profile's cn11 class). ep1 is its accepting twin; a runner that reads true as 1 recovers p1's payer and accepts it"
+   }
+  },
+  {
+   "file": "ep9-issuedat-one.json",
+   "kind": "payload_signature",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1's payload with the test key as payer and issuedAt = 1, signed by the test key: the accepting twin of en31"
+   }
+  },
+  {
+   "file": "en31-issuedat-bool-true.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep9 with issuedAt written as true, on ep9's signature: a JSON boolean is not an integer token (this suite's integer domain), and a runner that reads true as 1 accepts it"
+   }
+  },
+  {
+   "file": "en32-transaction-null.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1 with transaction written as null, not \"\": the pinned Receipt type declares string transaction and the payload is hashed exactly as transmitted, so null is not read as \"\". ep1 is its accepting twin; a runner that reads null as \"\" recovers p1's payer and accepts it"
+   }
+  },
+  {
+   "file": "en33-payer-number.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "p1 with payer written as a JSON number, the address's integer value: the pinned Receipt type declares string payer. ep1 is its accepting twin"
+   }
   }
  ]
 }

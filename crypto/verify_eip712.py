@@ -6,8 +6,9 @@ Input: {format, payload, signature, signer}. This runner rejects an envelope wit
 fields the Receipt type does not have (malformed_input); the profile does not pin either (README "Not pinned"): x402 Sec 2's
 SHOULD is met by rejecting and equally by accepting without interpreting the field. Order: format == "eip712" else
 unsupported_format; payload carries all six Receipt fields (version, network, resourceUrl, payer, issuedAt, transaction);
-uint256 fields are integer tokens in [0, 2**256 - 1] (ep7 accepts 2**256 - 1, en25 rejects 2**256; the token 1.0 is not
-an integer, en26). Of these, a loader that parses JSON numbers to doubles, as JSON.parse does, loses only ep7 (2**256 - 1
+uint256 fields are integer tokens in [0, 2**256 - 1] (ep8 accepts 0, en29 rejects -1; ep7 accepts 2**256 - 1, en25 rejects
+2**256; the token 1.0 is not an integer, en26, nor is true, en30 and en31); string fields are strings (null is not "", en32;
+a number is not a string, en33). Of these, a loader that parses JSON numbers to doubles, as JSON.parse does, loses only ep7 (2**256 - 1
 is not exact as a double; 2**256 is) and en26 (1.0 becomes 1); a runner has to read numbers as tokens to see them; string fields must be UTF-8 encodable (a lone UTF-16 surrogate,
 en19, rejects instead of crashing the hasher); otherwise malformed_input. The payload is hashed exactly as transmitted
 (x402 extension-offer-and-receipt.md Sec 5.5 step 3): an omitted `transaction` is a missing field, not "" -- the extension
@@ -94,7 +95,13 @@ def check(inp, mut=None):
         v = m[k]
         if mut == "integral_float_as_int" and isinstance(v, float) and v.is_integer():
             v = int(v); m = {**m, k: v}
-        if t == "uint256" and not (isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= cap):
+        if mut == "null_string_as_empty" and t == "string" and v is None:
+            v = ""; m = {**m, k: v}
+        if mut == "string_field_coerced" and t == "string" and not isinstance(v, str):
+            v = str(v); m = {**m, k: v}
+        lo = 1 if mut == "uint_zero_rejected" else 0
+        is_int = isinstance(v, int) and (mut == "bool_as_int" or not isinstance(v, bool))
+        if t == "uint256" and not (is_int and lo <= v <= cap):
             return "reject", "malformed_input"
         if t == "string":
             if not isinstance(v, str):
@@ -105,7 +112,7 @@ def check(inp, mut=None):
                 return "reject", "malformed_input"
     if m["version"] != SUPPORTED_VERSION and mut != "no_version_check":
         return "reject", "unsupported_version"
-    signer = norm_hex(inp.get("signer"), 20)
+    signer = norm_hex(inp.get("signer"), 20) if mut != "signer_shape_unchecked" else str(inp.get("signer")).strip().lower()
     if signer is None:
         return "reject", "malformed_input"
     b = _sig_shape(inp, mut)
@@ -134,6 +141,11 @@ MUTANTS = {   # each is a plausible one-site broken verifier; the suite must fai
     "no_uint_upper_bound": "en25-issuedat-2pow256",
     "integral_float_as_int": "en26-version-integral-float-token",
     "signature_before_payload": "en27-malformed-payload-and-signature",
+    "signer_shape_unchecked": "en28-signer-not-an-address",
+    "uint_zero_rejected": "ep8-issuedat-zero",
+    "bool_as_int": "en30-version-bool-true",
+    "null_string_as_empty": "en32-transaction-null",
+    "string_field_coerced": "en33-payer-number",
 }
 
 
