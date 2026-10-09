@@ -1,0 +1,19 @@
+{
+  "id": "en25-issuedat-2pow256",
+  "kind": "payload_signature",
+  "expect": "reject",
+  "reject_reason": "malformed_input",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 115792089237316195423570985008687907853269984665640564039457584007913129639936,
+      "network": "eip155:8453",
+      "payer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f4171f6a67960aa600d7389a161e507cecdc921e3bc31dd1d19c091bfbca5b19a581b",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}

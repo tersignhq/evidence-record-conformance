@@ -1,0 +1,18 @@
+{
+  "id": "ep3-server-key-not-payer",
+  "kind": "payload_signature",
+  "expect": "valid",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 1783761710,
+      "network": "eip155:8453",
+      "payer": "0x36f82906859E5B0bd076069f8cdfAea355358b14",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f4168e2a3f212b372c48ab2f1c1374aad030219246bd58769e1c47e0d77d0180b841c",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}

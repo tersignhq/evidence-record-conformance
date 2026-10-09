@@ -27,6 +27,20 @@ jobs:
           python3 crypto/gen_crypto_vectors.py
           after=$(cat crypto/vectors/*.json crypto/MANIFEST.json | sha256sum)
           test "$before" = "$after"
+  eip712-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: EIP-712 payload-signature vectors, read from crypto/EIP712_MANIFEST.json (fails on an unexercised reason, a one-sided kind or an empty set)
+        run: python3 crypto/verify_eip712.py
+      - name: EIP-712 mutants (each one-site broken verifier must fail its named vector)
+        run: python3 crypto/verify_eip712.py --mutants
+      - name: EIP-712 vector regeneration is byte-identical
+        run: |
+          before=$(cat crypto/eip712_vectors/*.json crypto/EIP712_MANIFEST.json | sha256sum)
+          python3 crypto/gen_eip712_vectors.py
+          after=$(cat crypto/eip712_vectors/*.json crypto/EIP712_MANIFEST.json | sha256sum)
+          test "$before" = "$after"
   cross-implementation:
     runs-on: ubuntu-latest
     steps:

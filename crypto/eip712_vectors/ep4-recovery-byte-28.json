@@ -1,0 +1,18 @@
+{
+  "id": "ep4-recovery-byte-28",
+  "kind": "payload_signature",
+  "expect": "valid",
+  "input": {
+    "format": "eip712",
+    "payload": {
+      "issuedAt": 1783761711,
+      "network": "eip155:8453",
+      "payer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b",
+      "resourceUrl": "https://tersign-ledger.kevinn-zhang.workers.dev/v1/receipts/genesis/demo",
+      "transaction": "",
+      "version": 1
+    },
+    "signature": "0xc71e83c3996f7eaa85353b606ec9d78e05cd7633ec4ced0a7fbced96cb7f6f415312a086d85ba06129440f6d9904d0fae00ee920007f48904c4211d8c98119ae1c",
+    "signer": "0xc6c2919698cd8f3c63e731f9231871f75138e60b"
+  }
+}
