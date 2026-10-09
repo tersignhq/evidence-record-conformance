@@ -9,7 +9,9 @@ public issue or pull request for it.
 
 - The verifiers and engines in this repository: `verify.py`, the runners under `crypto/` and the
   tools under `tools/`.
-- The evidence-bundle verifier published at https://tersign.ai/verify/v1/.
+- The evidence-bundle verifier releases published under https://tersign.ai/verify/: every release
+  listed at https://tersign.ai/verify/releases.json, including the one https://tersign.ai/verify/v1/
+  serves.
 
 A report is in scope when one of these accepts a forged, altered or incomplete record that the
 suite's rules reject, or fails on attacker-controlled input other than by rejecting it (a crash, a
