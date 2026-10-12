@@ -248,6 +248,15 @@ unrecognized phase as itself, which only the vocabulary rule rejects; it was wri
 coverage gaps also listed an *earlier* phase presented: v0.5.5's `n90` presents a delivery record
 as funding, the reverse of `n6`; it was written here.
 
+**Members the suite does not define** — [#17](https://github.com/tersignhq/evidence-record-conformance/issues/17)
+(2026-10-11, against `9be9eec`). Its probe added one member no file of the suite defines,
+`x_unknown_2026: 1`, to every valid vector's `input` and found all 56 still valid, beside a positive
+control showing the probe sees a change when one happens; no sentence or vector said what a verifier
+does with such a member. v0.5.8 rejects it (`unknown_member_reject`; `defined_members` in
+`MANIFEST.json`). `n107`–`n117` carry the probe's member and value verbatim, one per kind, and are
+classed `contributed` (`n112`, on p5's live anchor, `live-ledger-derived`); the other v0.5.8 vectors
+were written here.
+
 ## Reported upstream
 
 **Offer substitution** — `p15` / `n19` pin the class @johnakeke reported against the x402
