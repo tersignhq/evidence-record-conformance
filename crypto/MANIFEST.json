@@ -8,6 +8,7 @@
   "1": "keccak256(artifact_digest || prev_digest, or 32 zero bytes when absent || uint64_be(seq)), the core chain_link"
  },
  "link_version_rule": "an input may carry link_version; absent means 1; any value other than the integer 1 rejects as unsupported_link_version",
+ "defined_fields": "an input is a JSON object whose every key is one of artifact_digest, seq, countersignature, ledger_signer, prev_digest, link_version; artifact_digest, seq, countersignature, ledger_signer are required, and prev_digest and link_version may be absent (cp3 omits prev_digest, cp1 omits link_version and cp8 carries it). A key outside these six rejects as malformed_input in step 1, whatever its value, before the field domain, the link version and the signature are read: cn36 adds x_unknown_2026: 1 to cp1, cn38 adds a key whose value is null, and cn37 adds one to cn14's input, whose signature lacks its 0x prefix, and rejects as malformed_input, not malformed_signature. Keys compare as exact strings; no vector pins a near-spelling of a defined field (v0.5.9)",
  "field_domain": "artifact_digest, prev_digest and ledger_signer: strip leading/trailing Unicode White_Space characters (the core's identifier_normalization set) and lowercase, then exactly 0x + 64 hex (digests) or 0x + 40 hex (signer); seq: an integer token in [1, 2**53 - 1]; countersignature: matched whole and unnormalized, exactly 0x + 130 hex digits, v in {27, 28}",
  "reject_reasons": [
   "malformed_input",
@@ -481,6 +482,36 @@
    "origin": {
     "class": "live-ledger-derived",
     "source": "cp1 with link_version 0"
+   }
+  },
+  {
+   "file": "cn36-undefined-field.json",
+   "kind": "countersignature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "cp1 with the member of @robertolocatelli81-dev's probe in issue #17 (`x_unknown_2026: 1`) added, a field this profile does not define; written here"
+   }
+  },
+  {
+   "file": "cn37-undefined-field-and-malformed-signature.json",
+   "kind": "countersignature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "cn14's input (cp1's signature without 0x) with a field this profile does not define added; written here"
+   }
+  },
+  {
+   "file": "cn38-undefined-field-null-value.json",
+   "kind": "countersignature",
+   "expect": "reject",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "cp1 with a field this profile does not define added, its value null; written here"
    }
   }
  ]

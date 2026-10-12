@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); sys.path.insert(0, os.path.dirname(HERE))
 from keccak import keccak256  # noqa: E402
 import secp256k1_recover as S  # noqa: E402
-from verify_crypto import link, SEQ_MAX, REJECT_REASONS  # noqa: E402
+from verify_crypto import link, SEQ_MAX, REJECT_REASONS, REQUIRED_FIELDS, DEFINED_FIELDS  # noqa: E402
 
 # ---- live material (unaltered)
 SIGNER = "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6"
@@ -52,6 +52,15 @@ def off_curve_r():
         x += 1
 
 
+DEFINED_FIELDS_RULE = (
+    f"an input is a JSON object whose every key is one of {', '.join(DEFINED_FIELDS)}; {', '.join(REQUIRED_FIELDS)} are required, "
+    "and prev_digest and link_version may be absent (cp3 omits prev_digest, cp1 omits link_version and cp8 carries it). A key outside these six rejects as malformed_input in step 1, "
+    "whatever its value, before the field domain, the link version and the signature are read: cn36 adds x_unknown_2026: 1 to "
+    "cp1, cn38 adds a key whose value is null, and cn37 adds one to cn14's input, whose signature lacks its 0x prefix, and "
+    "rejects as malformed_input, not malformed_signature. Keys compare as exact strings; no vector pins a near-spelling of a "
+    "defined field (v0.5.9)")
+
+
 def main():
     base = {"artifact_digest": G_ART, "prev_digest": None, "seq": 1, "countersignature": G_SIG, "ledger_signer": SIGNER}
     s2 = {"artifact_digest": S2_ART, "prev_digest": G_ART, "seq": 2, "countersignature": S2_SIG, "ledger_signer": SIGNER}
@@ -68,6 +77,7 @@ def main():
     R2 = "@robertolocatelli81-dev's published reproduction (Noûs), PR #11 issuecomment-5907121036; written here on cp1's values"
     C1 = (ME, "live-ledger-derived", R1); C2 = (ME, "live-ledger-derived", R2)   # cp1's live values, written on Nous's published inputs
     TK = (ME, "live-ledger-derived", "cp1's artifact_digest (live), signed here with the published test key")
+    TS = "Tersign (@wowlegend)"   # v0.5.9's vectors (defined_fields), written here on cp1's live values
     V = [  # id, expect, reason, input, (author, class, source)
         ("cp1-live-genesis-link-countersignature", "valid", None, base, (ME, "live-ledger", "the ledger's counter-signature over the genesis link, unaltered; the vector's provenance block names the public endpoints")),
         ("cp2-test-key-accepting-twin", "valid", None, {**base, "countersignature": t_sig, "ledger_signer": TEST_ADDR}, TK),
@@ -115,6 +125,9 @@ def main():
         ("cn33-digest-u001c-padded", "reject", "malformed_input", {**base, "artifact_digest": G_ART + "\u001c"}, LD("cp1's digest followed by U+001C")),
         ("cn34-malformed-field-and-malformed-signature", "reject", "malformed_input", {**base, "artifact_digest": "0xnot-hex-at-all", "countersignature": G_SIG[2:]}, LD("cn7's digest and cn14's signature in one input")),
         ("cn35-link-version-zero", "reject", "unsupported_link_version", {**base, "link_version": 0}, LD("cp1 with link_version 0")),
+        ("cn36-undefined-field", "reject", "malformed_input", {**base, "x_unknown_2026": 1}, (TS, "live-ledger-derived", "cp1 with the member of @robertolocatelli81-dev's probe in issue #17 (`x_unknown_2026: 1`) added, a field this profile does not define; written here")),
+        ("cn37-undefined-field-and-malformed-signature", "reject", "malformed_input", {**base, "countersignature": G_SIG[2:], "x_undefined": 1}, (TS, "live-ledger-derived", "cn14's input (cp1's signature without 0x) with a field this profile does not define added; written here")),
+        ("cn38-undefined-field-null-value", "reject", "malformed_input", {**base, "x_undefined": None}, (TS, "live-ledger-derived", "cp1 with a field this profile does not define added, its value null; written here")),
     ]
     os.makedirs(os.path.join(HERE, "vectors"), exist_ok=True)
     for f in os.listdir(os.path.join(HERE, "vectors")):
@@ -142,6 +155,7 @@ def main():
         "link_version": 1,
         "link_recipe": {"1": "keccak256(artifact_digest || prev_digest, or 32 zero bytes when absent || uint64_be(seq)), the core chain_link"},
         "link_version_rule": "an input may carry link_version; absent means 1; any value other than the integer 1 rejects as unsupported_link_version",
+        "defined_fields": DEFINED_FIELDS_RULE,
         "field_domain": "artifact_digest, prev_digest and ledger_signer: strip leading/trailing Unicode White_Space characters (the core's identifier_normalization set) and lowercase, then exactly 0x + 64 hex (digests) or 0x + 40 hex (signer); seq: an integer token in [1, 2**53 - 1]; countersignature: matched whole and unnormalized, exactly 0x + 130 hex digits, v in {27, 28}",
         "reject_reasons": list(REJECT_REASONS),
         "set_rules": "the runner reads this file, not a directory listing, and fails on a file on disk but not listed (or the reverse), an empty set, a one-sided kind, a declared reason no vector exercises, or a reason not declared",
@@ -202,7 +216,10 @@ DESC = {
  "cn32-link-version-null": "cp1 with link_version: null. A present null is a value, not absence; only an omitted key means 1: unsupported_link_version.",
  "cn33-digest-u001c-padded": "cp1's digest followed by U+001C. U+001C has no White_Space property (Python's str.strip() removes it anyway), so normalization does not strip it and the digest does not parse: malformed_input. Kills a str.strip() verifier.",
  "cn34-malformed-field-and-malformed-signature": "A malformed artifact_digest (cn7) and a countersignature without 0x (cn14) in one input. Field shape is checked before the signature (normative order), so the reason is malformed_input. cn14 alone passes under either order.",
- "cn35-link-version-zero": "cp1 with link_version: 0. Twin of cn27 below 1: unsupported_link_version (kills an accept-if-<=1 check)."
+ "cn35-link-version-zero": "cp1 with link_version: 0. Twin of cn27 below 1: unsupported_link_version (kills an accept-if-<=1 check).",
+ "cn36-undefined-field": "cp1 with x_unknown_2026: 1 added, a field this profile does not define. The input is closed (MANIFEST defined_fields): a key outside the six fields rejects as malformed_input, whatever its value. Until v0.5.9 this read valid: the runner read the fields it knew and ignored the rest. cp1 is the accepting twin.",
+ "cn37-undefined-field-and-malformed-signature": "cn14's input (cp1's signature without its 0x prefix) with x_undefined: 1 added. The undefined field is decided in step 1, before the signature is parsed, so the reason is malformed_input; a runner that checks fields it does not define only after the signature reports malformed_signature.",
+ "cn38-undefined-field-null-value": "cp1 with x_undefined: null added. A key counts by its name, whatever its value: a runner that skips null-valued keys accepts this vector. cp1 is the accepting twin."
 }
 
 if __name__ == "__main__":

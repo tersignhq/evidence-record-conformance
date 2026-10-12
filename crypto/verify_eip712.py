@@ -2,9 +2,9 @@
 """EIP-712 payload-signature profile (x402 offer-and-receipt Receipt), stdlib only + the suite's keccak.py.
 Pinned (never read from the record): domain {name: "x402 receipt", version: "1", chainId: 1}, primaryType Receipt,
 Receipt(uint256 version,string network,string resourceUrl,string payer,uint256 issuedAt,string transaction).
-Input: {format, payload, signature, signer}. This runner rejects an envelope with other top-level keys and a payload with
-fields the Receipt type does not have (malformed_input); the profile does not pin either (README "Not pinned"): x402 Sec 2's
-SHOULD is met by rejecting and equally by accepting without interpreting the field. Order: format == "eip712" else
+Input: {format, payload, signature, signer}. An envelope with any other top-level key, and a payload with a field the Receipt
+type does not have, reject as malformed_input, whatever the value (pinned since v0.5.9: en35, en34; EIP712_MANIFEST
+defined_fields): the signature covers only the six Receipt fields, so an extra payload field is unsigned. Order: format == "eip712" else
 unsupported_format; payload carries all six Receipt fields (version, network, resourceUrl, payer, issuedAt, transaction);
 uint256 fields are integer tokens in [0, 2**256 - 1] (ep8 accepts 0, en29 rejects -1; ep7 accepts 2**256 - 1, en25 rejects
 2**256; the token 1.0 is not an integer, en26, nor is true, en30 and en31); string fields are strings (null is not "", en32;
@@ -78,7 +78,8 @@ def _sig_shape(inp, mut):
 
 def check(inp, mut=None):
     """mut names a one-site broken verifier (MUTANTS); None is the profile."""
-    top_ok = isinstance(inp, dict) and set(inp) == TOP_LEVEL_KEYS
+    top_ok = isinstance(inp, dict) and (TOP_LEVEL_KEYS <= set(inp) if mut == "envelope_undefined_key_ignored"
+                                        else set(inp) == TOP_LEVEL_KEYS)
     if not top_ok:
         return "reject", "malformed_input"
     if inp.get("format") != "eip712":
@@ -88,7 +89,8 @@ def check(inp, mut=None):
     m = inp.get("payload")
     if mut == "transaction_filled_empty" and isinstance(m, dict) and "transaction" not in m:
         m = {**m, "transaction": ""}
-    if not isinstance(m, dict) or set(m) != ALL_FIELD_KEYS:
+    if not isinstance(m, dict) or (not ALL_FIELD_KEYS <= set(m) if mut == "payload_undefined_field_ignored"
+                                   else set(m) != ALL_FIELD_KEYS):
         return "reject", "malformed_input"
     cap = {"uint_cap_2_53": 2 ** 53 - 1, "uint_cap_2_64": 2 ** 64 - 1, "no_uint_upper_bound": float("inf")}.get(mut, UINT_MAX)
     for k, t in FIELDS:
@@ -146,6 +148,8 @@ MUTANTS = {   # each is a plausible one-site broken verifier; the suite must fai
     "bool_as_int": "en30-version-bool-true",
     "null_string_as_empty": "en32-transaction-null",
     "string_field_coerced": "en33-payer-number",
+    "payload_undefined_field_ignored": "en34-payload-undefined-field",
+    "envelope_undefined_key_ignored": "en35-envelope-undefined-key",
 }
 
 

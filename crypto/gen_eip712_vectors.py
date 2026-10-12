@@ -14,6 +14,12 @@ LEDGER = "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6"
 INTEGER_DOMAIN = ("version and issuedAt (uint256, x402 Sec 5.3) are JSON integer tokens, and the token 1.0 is not one (en26); "
                   "every integer in [0, 2**256 - 1] passes the field check, with no freshness "
                   "or other policy bound on issuedAt (ep7, ep8, ep9); x402 Sec 5.5 step 6 leaves issuedAt to verifier policy")
+DEFINED_FIELDS = ("the input is a JSON object whose keys are exactly format, payload, signature and signer, and the payload has "
+                  "exactly the six Receipt fields; a key beyond them, in the envelope or in the payload, rejects as malformed_input "
+                  "whatever its value, before the signature is read (en35 adds x_unknown_2026: 1 to ep1's envelope, en34 to ep1's "
+                  "payload; ep1 accepts). The signature covers only the Receipt type's fields, so a payload field outside them is "
+                  "unsigned; rejecting it is how this suite meets x402 Sec 2's SHOULD to treat unknown extension-specific fields as "
+                  "unsupported (v0.5.9)")
 SIGNER_SHAPE = ("signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared "
                 "case-insensitively with the recovered address (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects "
                 "as malformed_input); surrounding whitespace, a 0X prefix and whether a mixed-case signer must be its EIP-55 checksum are not pinned")
@@ -95,6 +101,8 @@ def main():
         ("en31-issuedat-bool-true", "reject", "malformed_input", {**t1, "payload": {**m1, "issuedAt": True}}, DERIVED, "ep9 with issuedAt written as true, on ep9's signature. x402 extension-offer-and-receipt.md types issuedAt in (among other places) Sec 5.2 (Receipt Payload Fields), row `issuedAt` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"issuedAt\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"issuedAt\": { \"type\": \"integer\" }. A JSON boolean is none of these. ep9 is its accepting twin; a runner that reads true as 1 accepts it", TERSIGN),
         ("en32-transaction-null", "reject", "malformed_input", {**live, "payload": {**m, "transaction": None}}, DERIVED, "p1 with transaction written as null, not \"\": x402 Sec 5.2 (Receipt Payload Fields) types transaction as string (row `transaction` | string | Optional) and the pinned Receipt type declares string transaction and the payload is hashed exactly as transmitted, so null is not read as \"\". ep1 is its accepting twin; a runner that reads null as \"\" recovers p1's payer and accepts it", TERSIGN),
         ("en33-payer-number", "reject", "malformed_input", {**live, "payload": {**m, "payer": int(m["payer"], 16)}}, DERIVED, "p1 with payer written as a JSON number, the address's integer value: x402 Sec 5.2 (Receipt Payload Fields) types payer as string (row `payer` | string | Yes) and the pinned Receipt type declares string payer. ep1 is its accepting twin", TERSIGN),
+        ("en34-payload-undefined-field", "reject", "malformed_input", {**live, "payload": {**m, "x_unknown_2026": 1}}, DERIVED, "p1 with the member of @robertolocatelli81-dev's probe in issue #17 (`x_unknown_2026: 1`) added to the payload, a field the Receipt type does not have; the signature does not cover it, and p1's signature still recovers p1's payer over the six Receipt fields. Rests on this suite's rule defined_fields (this manifest). ep1 is its accepting twin", TERSIGN),
+        ("en35-envelope-undefined-key", "reject", "malformed_input", {**live, "x_unknown_2026": 1}, DERIVED, "p1's envelope with the member of @robertolocatelli81-dev's probe in issue #17 (`x_unknown_2026: 1`) added beside format, payload, signature and signer. Rests on this suite's rule defined_fields (this manifest). ep1 is its accepting twin", TERSIGN),
     ]
     out = os.path.join(HERE, "eip712_vectors")
     os.makedirs(out, exist_ok=True)
@@ -115,7 +123,7 @@ def main():
         entries.append({"file": vid + ".json", "kind": "payload_signature", "expect": expect, "author": by[0] if by else "@babyblueviper1", "origin": {"class": cls, "source": src}})
     man = {"profile": "EIP-712 payload signature (x402 offer-and-receipt Receipt)", "runner": "crypto/verify_eip712.py",
            "generator": "crypto/gen_eip712_vectors.py", "licence": "Apache-2.0, as the repository (LICENSE)", "domain": E.DOMAIN, "primary_type": "Receipt", "type": E.RECEIPT_TYPE,
-           "integer_domain": INTEGER_DOMAIN, "signer_shape": SIGNER_SHAPE,
+           "integer_domain": INTEGER_DOMAIN, "signer_shape": SIGNER_SHAPE, "defined_fields": DEFINED_FIELDS,
            "reject_reasons": list(E.REJECT_REASONS), "test_key_address": TEST_ADDR, "test_key_derivation": TEST_KEY_DERIVATION,
            "test_nonce_derivation": TEST_NONCE_DERIVATION, "vectors": entries}
     with open(os.path.join(HERE, "EIP712_MANIFEST.json"), "w") as fh:

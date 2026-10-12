@@ -4,7 +4,9 @@
                                                    reject reason matches AND the set is well formed (see manifest_problems)
     python3 crypto/verify_crypto.py --mutants   -> each plausible broken verifier must be killed by its named vector
 Check, per vector, in this order:
- 1. every required field is present (artifact_digest, seq, countersignature, ledger_signer), else malformed_input;
+ 1. the input is an object whose every key is one of the six fields this profile defines (artifact_digest, prev_digest, seq,
+    countersignature, ledger_signer, link_version), whatever the value (v0.5.9; cn36-cn38), and every required field is present
+    (artifact_digest, seq, countersignature, ledger_signer), else malformed_input;
  2. field domain (malformed_input): artifact_digest, prev_digest (when present) and ledger_signer are normalized as the core's
     identifier_normalization does -- strip leading/trailing Unicode White_Space characters (exactly the core's set) and lowercase --
     then must be exactly 0x + 64 hex (digests) / 0x + 40 hex (signer); seq is an integer token in [1, 2**53 - 1] (not bool/str/float);
@@ -31,6 +33,9 @@ SEQ_MAX = 2 ** 53 - 1
 # the reject-reason closure is pinned HERE, not derived from MANIFEST.json (the core's convention): a fork that drops a class goes red
 REJECT_REASONS = ("malformed_input", "unsupported_link_version", "malformed_signature", "non_canonical_s", "unrecoverable", "signer_mismatch")
 LINK_VERSION = 1
+# v0.5.9: the input is closed. Every key is one of these six; any other rejects as malformed_input in step 1, whatever its value.
+REQUIRED_FIELDS = ("artifact_digest", "seq", "countersignature", "ledger_signer")
+DEFINED_FIELDS = REQUIRED_FIELDS + ("prev_digest", "link_version")
 
 
 def norm_hex(x, nbytes):
@@ -48,7 +53,11 @@ def link(artifact_digest, prev_digest, seq):
 
 def check(inp, mut=None):
     """mut names a one-site broken verifier (MUTANTS); None is the profile."""
-    if not isinstance(inp, dict) or any(k not in inp for k in ("artifact_digest", "seq", "countersignature", "ledger_signer")):
+    if not isinstance(inp, dict) or any(k not in inp for k in REQUIRED_FIELDS):
+        return "reject", "malformed_input"
+    defined = REQUIRED_FIELDS if mut == "required_fields_only" else DEFINED_FIELDS
+    undefined = [k for k in inp if k not in defined and not (mut == "undefined_field_null_ignored" and inp[k] is None)]
+    if undefined and mut not in ("undefined_field_ignored", "undefined_field_checked_last"):
         return "reject", "malformed_input"
     if mut == "no_whitespace_strip":
         nh = lambda x, n: x.lower() if isinstance(x, str) and _HEX_RE[n].match(x.lower()) else None
@@ -114,6 +123,8 @@ def check(inp, mut=None):
     want = "0x9d38ba84730271eb27ac9bd4bd2620c08db4fda6" if mut == "hardcoded_tersign_signer" else signer
     if S.address(Q) != want:
         return "reject", "signer_mismatch"
+    if undefined and mut == "undefined_field_checked_last":
+        return "reject", "malformed_input"
     return "valid", None
 
 
@@ -140,6 +151,10 @@ MUTANTS = {   # each is a plausible broken verifier; the suite must fail it on t
     "link_version_at_most_1": "cn35-link-version-zero",
     "signature_lowercase_only": "cp11-signature-uppercase-hex-digits",
     "signature_checked_first": "cn34-malformed-field-and-malformed-signature",
+    "undefined_field_ignored": "cn36-undefined-field",
+    "undefined_field_checked_last": "cn37-undefined-field-and-malformed-signature",
+    "undefined_field_null_ignored": "cn38-undefined-field-null-value",
+    "required_fields_only": "cp8-explicit-link-version-1",
 }
 MANIFEST = os.path.join(HERE, "MANIFEST.json")
 
