@@ -55,9 +55,11 @@ def off_curve_r():
 DEFINED_FIELDS_RULE = (
     f"an input is a JSON object whose every key is one of {', '.join(DEFINED_FIELDS)}; {', '.join(REQUIRED_FIELDS)} are required, "
     "and prev_digest and link_version may be absent (cp3 omits prev_digest, cp1 omits link_version and cp8 carries it). A key outside these six rejects as malformed_input in step 1, "
-    "whatever its value, before the field domain, the link version and the signature are read: cn36 adds x_unknown_2026: 1 to "
-    "cp1, cn38 adds a key whose value is null, and cn37 adds one to cn14's input, whose signature lacks its 0x prefix, and "
-    "rejects as malformed_input, not malformed_signature. Keys compare as exact strings; no vector pins a near-spelling of a "
+    "whatever its value, before the link version and the signature are read: cn36 adds x_unknown_2026: 1 to cp1, cn38 adds a "
+    "key whose value is null, cn39 adds one to cn27's input, whose link_version is 1000, and rejects as malformed_input, not "
+    "unsupported_link_version, and cn37 adds one to cn14's input, whose signature lacks its 0x prefix, and rejects as "
+    "malformed_input, not malformed_signature. The field domain rejects with the same reason, malformed_input, so no vector "
+    "can show whether the key check comes before it. Keys compare as exact strings; no vector pins a near-spelling of a "
     "defined field (v0.5.9)")
 
 
@@ -128,6 +130,7 @@ def main():
         ("cn36-undefined-field", "reject", "malformed_input", {**base, "x_unknown_2026": 1}, (TS, "live-ledger-derived", "cp1 with the member of @robertolocatelli81-dev's probe in issue #17 (`x_unknown_2026: 1`) added, a field this profile does not define; written here")),
         ("cn37-undefined-field-and-malformed-signature", "reject", "malformed_input", {**base, "countersignature": G_SIG[2:], "x_undefined": 1}, (TS, "live-ledger-derived", "cn14's input (cp1's signature without 0x) with a field this profile does not define added; written here")),
         ("cn38-undefined-field-null-value", "reject", "malformed_input", {**base, "x_undefined": None}, (TS, "live-ledger-derived", "cp1 with a field this profile does not define added, its value null; written here")),
+        ("cn39-undefined-field-and-unsupported-link-version", "reject", "malformed_input", {**base, "link_version": 1000, "x_undefined": 1}, (TS, "live-ledger-derived", "cn27's input (cp1 with link_version 1000) with a field this profile does not define added; written here")),
     ]
     os.makedirs(os.path.join(HERE, "vectors"), exist_ok=True)
     for f in os.listdir(os.path.join(HERE, "vectors")):
@@ -219,7 +222,8 @@ DESC = {
  "cn35-link-version-zero": "cp1 with link_version: 0. Twin of cn27 below 1: unsupported_link_version (kills an accept-if-<=1 check).",
  "cn36-undefined-field": "cp1 with x_unknown_2026: 1 added, a field this profile does not define. The input is closed (MANIFEST defined_fields): a key outside the six fields rejects as malformed_input, whatever its value. Until v0.5.9 this read valid: the runner read the fields it knew and ignored the rest. cp1 is the accepting twin.",
  "cn37-undefined-field-and-malformed-signature": "cn14's input (cp1's signature without its 0x prefix) with x_undefined: 1 added. The undefined field is decided in step 1, before the signature is parsed, so the reason is malformed_input; a runner that checks fields it does not define only after the signature reports malformed_signature.",
- "cn38-undefined-field-null-value": "cp1 with x_undefined: null added. A key counts by its name, whatever its value: a runner that skips null-valued keys accepts this vector. cp1 is the accepting twin."
+ "cn38-undefined-field-null-value": "cp1 with x_undefined: null added. A key counts by its name, whatever its value: a runner that skips null-valued keys accepts this vector. cp1 is the accepting twin.",
+ "cn39-undefined-field-and-unsupported-link-version": "cn27's input (cp1 with link_version: 1000) with x_undefined: 1 added. The undefined field is decided in step 1, before link_version is read in step 3, so the reason is malformed_input; a runner that checks fields it does not define only after the link version reports unsupported_link_version."
 }
 
 if __name__ == "__main__":

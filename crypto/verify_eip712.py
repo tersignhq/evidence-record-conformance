@@ -3,8 +3,8 @@
 Pinned (never read from the record): domain {name: "x402 receipt", version: "1", chainId: 1}, primaryType Receipt,
 Receipt(uint256 version,string network,string resourceUrl,string payer,uint256 issuedAt,string transaction).
 Input: {format, payload, signature, signer}. An envelope with any other top-level key, and a payload with a field the Receipt
-type does not have, reject as malformed_input, whatever the value (pinned since v0.5.9: en35, en34; EIP712_MANIFEST
-defined_fields): the signature covers only the six Receipt fields, so an extra payload field is unsigned. Order: format == "eip712" else
+type does not have, reject as malformed_input, whatever the value, before the signature is read (pinned since v0.5.9: en35,
+en34; en36 and en37 beside a malformed signature, en38 and en39 with a null value; EIP712_MANIFEST defined_fields): the signature covers only the six Receipt fields, so an extra payload field is unsigned. Order: format == "eip712" else
 unsupported_format; payload carries all six Receipt fields (version, network, resourceUrl, payer, issuedAt, transaction);
 uint256 fields are integer tokens in [0, 2**256 - 1] (ep8 accepts 0, en29 rejects -1; ep7 accepts 2**256 - 1, en25 rejects
 2**256; the token 1.0 is not an integer, en26, nor is true, en30 and en31); string fields are strings (null is not "", en32;
@@ -78,8 +78,12 @@ def _sig_shape(inp, mut):
 
 def check(inp, mut=None):
     """mut names a one-site broken verifier (MUTANTS); None is the profile."""
-    top_ok = isinstance(inp, dict) and (TOP_LEVEL_KEYS <= set(inp) if mut == "envelope_undefined_key_ignored"
-                                        else set(inp) == TOP_LEVEL_KEYS)
+    env_keys = set(inp) if isinstance(inp, dict) else set()
+    if mut == "envelope_undefined_null_ignored":
+        env_keys = {k for k in env_keys if k in TOP_LEVEL_KEYS or inp[k] is not None}
+    top_ok = isinstance(inp, dict) and (TOP_LEVEL_KEYS <= env_keys
+                                        if mut in ("envelope_undefined_key_ignored", "envelope_undefined_key_after_signature")
+                                        else env_keys == TOP_LEVEL_KEYS)
     if not top_ok:
         return "reject", "malformed_input"
     if inp.get("format") != "eip712":
@@ -89,8 +93,12 @@ def check(inp, mut=None):
     m = inp.get("payload")
     if mut == "transaction_filled_empty" and isinstance(m, dict) and "transaction" not in m:
         m = {**m, "transaction": ""}
-    if not isinstance(m, dict) or (not ALL_FIELD_KEYS <= set(m) if mut == "payload_undefined_field_ignored"
-                                   else set(m) != ALL_FIELD_KEYS):
+    pl_keys = set(m) if isinstance(m, dict) else set()
+    if mut == "payload_undefined_null_ignored":
+        pl_keys = {k for k in pl_keys if k in ALL_FIELD_KEYS or m[k] is not None}
+    if not isinstance(m, dict) or (not ALL_FIELD_KEYS <= pl_keys
+                                   if mut in ("payload_undefined_field_ignored", "payload_undefined_field_after_signature")
+                                   else pl_keys != ALL_FIELD_KEYS):
         return "reject", "malformed_input"
     cap = {"uint_cap_2_53": 2 ** 53 - 1, "uint_cap_2_64": 2 ** 64 - 1, "no_uint_upper_bound": float("inf")}.get(mut, UINT_MAX)
     for k, t in FIELDS:
@@ -120,6 +128,9 @@ def check(inp, mut=None):
     b = _sig_shape(inp, mut)
     if b is None:
         return "reject", "malformed_signature"
+    if (mut == "envelope_undefined_key_after_signature" and set(inp) != TOP_LEVEL_KEYS) or \
+            (mut == "payload_undefined_field_after_signature" and set(m) != ALL_FIELD_KEYS):
+        return "reject", "malformed_input"
     r, s = int.from_bytes(b[:32], "big"), int.from_bytes(b[32:64], "big")
     if s > S.N // 2 and mut != "no_low_s_check":
         return "reject", "non_canonical_s"
@@ -150,6 +161,10 @@ MUTANTS = {   # each is a plausible one-site broken verifier; the suite must fai
     "string_field_coerced": "en33-payer-number",
     "payload_undefined_field_ignored": "en34-payload-undefined-field",
     "envelope_undefined_key_ignored": "en35-envelope-undefined-key",
+    "payload_undefined_field_after_signature": "en36-payload-undefined-field-and-malformed-signature",
+    "envelope_undefined_key_after_signature": "en37-envelope-undefined-key-and-malformed-signature",
+    "payload_undefined_null_ignored": "en38-payload-undefined-field-null-value",
+    "envelope_undefined_null_ignored": "en39-envelope-undefined-key-null-value",
 }
 
 

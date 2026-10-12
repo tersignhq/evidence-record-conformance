@@ -5,7 +5,7 @@
     python3 crypto/verify_crypto.py --mutants   -> each plausible broken verifier must be killed by its named vector
 Check, per vector, in this order:
  1. the input is an object whose every key is one of the six fields this profile defines (artifact_digest, prev_digest, seq,
-    countersignature, ledger_signer, link_version), whatever the value (v0.5.9; cn36-cn38), and every required field is present
+    countersignature, ledger_signer, link_version), whatever the value (v0.5.9; cn36-cn39), and every required field is present
     (artifact_digest, seq, countersignature, ledger_signer), else malformed_input;
  2. field domain (malformed_input): artifact_digest, prev_digest (when present) and ledger_signer are normalized as the core's
     identifier_normalization does -- strip leading/trailing Unicode White_Space characters (exactly the core's set) and lowercase --
@@ -57,7 +57,7 @@ def check(inp, mut=None):
         return "reject", "malformed_input"
     defined = REQUIRED_FIELDS if mut == "required_fields_only" else DEFINED_FIELDS
     undefined = [k for k in inp if k not in defined and not (mut == "undefined_field_null_ignored" and inp[k] is None)]
-    if undefined and mut not in ("undefined_field_ignored", "undefined_field_checked_last"):
+    if undefined and mut not in ("undefined_field_ignored", "undefined_field_checked_last", "undefined_field_after_link_version"):
         return "reject", "malformed_input"
     if mut == "no_whitespace_strip":
         nh = lambda x, n: x.lower() if isinstance(x, str) and _HEX_RE[n].match(x.lower()) else None
@@ -96,6 +96,8 @@ def check(inp, mut=None):
         lv_ok = isinstance(lv, int) and not isinstance(lv, bool) and lv <= LINK_VERSION
     else:
         lv_ok = isinstance(lv, int) and not isinstance(lv, bool) and lv == LINK_VERSION
+    if undefined and mut == "undefined_field_after_link_version" and lv_ok:
+        return "reject", "malformed_input"
     if mut != "link_version_ignored" and not lv_ok:
         return "reject", "unsupported_link_version"
     sig_field = inp["countersignature"]
@@ -154,6 +156,7 @@ MUTANTS = {   # each is a plausible broken verifier; the suite must fail it on t
     "undefined_field_ignored": "cn36-undefined-field",
     "undefined_field_checked_last": "cn37-undefined-field-and-malformed-signature",
     "undefined_field_null_ignored": "cn38-undefined-field-null-value",
+    "undefined_field_after_link_version": "cn39-undefined-field-and-unsupported-link-version",
     "required_fields_only": "cp8-explicit-link-version-1",
 }
 MANIFEST = os.path.join(HERE, "MANIFEST.json")
