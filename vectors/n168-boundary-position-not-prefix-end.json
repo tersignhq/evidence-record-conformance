@@ -1,0 +1,31 @@
+{
+  "id": "n168-boundary-position-not-prefix-end",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p18's input with `position` 2 while the prefix the event binds ends at 3: an event that names the prefix truthfully and claims an earlier point in its continuation. `position` must equal the number of entries in the prefix, so the record rejects with boundary_reject. n25 carries no position at all; this vector pins the value. An engine that checks only that a position is present accepts it. p18 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 2,
+      "attestedPrefixLength": 3
+    },
+    "covered_through": 3
+  }
+}

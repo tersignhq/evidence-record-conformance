@@ -1,0 +1,20 @@
+{
+  "id": "n163-offer-binding-receipt-without-offer-digest",
+  "kind": "offer_binding",
+  "expect": "reject",
+  "reason": "binding_reject",
+  "description": "p60's input with `offerDigest` removed from the receipt, which keeps `issuedAt`. A receipt that commits to no offer digest binds no terms, so the offer presented beside it cannot be shown to be the one paid, and the record rejects with binding_reject. n19 carries a digest that does not match; no earlier vector carries a receipt with none, so an engine that skips the comparison when a receipt carries no digest accepts this vector. p60 is the accepting twin.",
+  "input": {
+    "offer": {
+      "resourceUrl": "https://api.example/premium",
+      "network": "eip155:8453",
+      "scheme": "exact",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "payTo": "0x2222222222222222222222222222222222222222",
+      "amount": "1"
+    },
+    "receipt": {
+      "issuedAt": 1735689600
+    }
+  }
+}

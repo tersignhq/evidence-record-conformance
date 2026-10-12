@@ -28,7 +28,11 @@ escaped; since v0.5.8 defined members on every input — an undefined member at 
 under each value class, the names every JavaScript object inherits, letter-case, fullwidth and
 trailing-space variants of each name, and, one level down, an undefined member and a variant of
 the first name in each object, and an undefined member and `constructor` in the first object of
-each array, closed, not read or open), run
+each array, closed, not read or open; since v0.5.9 (#9) `attestedPrefixLength` under eighteen
+values beside four coverage forms and absent, `covered_through` and `position` at their
+fork-prone shapes, the chain head's digest absent, null, malformed, a number, empty, zero bytes
+and the first record's, a first record naming a predecessor (outside, and as zero bytes), the
+links removed with the prevs intact and broken, and a receipt with no `offerDigest`), run
 through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
 Any divergence exits non-zero and prints the offending input.
@@ -175,6 +179,39 @@ def mutations(kind, inp):
         with_records(_truncate, "records=truncated-under-full-head")
         if isinstance(inp.get("head"), dict) and isinstance(inp["head"].get("seq"), int):
             with_head("seq", inp["head"]["seq"] + 1, "head.seq=off-by-one")
+        # v0.5.9 (#9): the head digest in every shape the two engines might read differently, a
+        # first record naming a predecessor, and the prev pointers with the links taken away.
+        m = json.loads(json.dumps(inp))
+        if isinstance(m.get("head"), dict) and "digest" in m["head"]:
+            del m["head"]["digest"]
+            out.append(("head.digest-absent", kind, m))
+        for tag, value in (("null", None), ("malformed", "0x1234"), ("number", 1), ("empty", ""),
+                           ("zero", "0x" + "00" * 32)):
+            with_head("digest", value, f"head.digest={tag}")
+        if isinstance(inp.get("records"), list) and inp["records"] and isinstance(inp["records"][0], dict):
+            with_head("digest", inp["records"][0].get("artifact_digest"), "head.digest=first-record")
+
+        def _first_prev(records):
+            if records:
+                records[0]["prev_digest"] = "0x" + "ab" * 32
+
+        def _first_prev_zero(records):
+            if records:
+                records[0]["prev_digest"] = "0x" + "00" * 32
+
+        def _unlink(records):
+            for r in records:
+                r.pop("link", None)
+
+        def _unlink_and_break(records):
+            _unlink(records)
+            if len(records) >= 2:
+                records[1]["prev_digest"] = "0x" + "ab" * 32
+
+        with_records(_first_prev, "records[0].prev_digest=outside")
+        with_records(_first_prev_zero, "records[0].prev_digest=zero-bytes")
+        with_records(_unlink, "records=no-links")
+        with_records(_unlink_and_break, "records=no-links+prev-break")
         with_head("acc", None, "head.acc=null", acc_kind)
         with_head("acc", "0x1234", "head.acc=malformed", acc_kind)
         m = json.loads(json.dumps(inp))
@@ -408,7 +445,41 @@ def mutations(kind, inp):
             m = json.loads(json.dumps(inp))
             m["record"]["economic_phase"] = m["presented_as"] = "shipped"
             out.append(("phase=presented=unrecognized", kind, m))
+    if kind == "boundary_binding" and isinstance(inp.get("boundary_event"), dict):
+        # v0.5.9 (#9): `attestedPrefixLength` wherever it is present, under every value class and
+        # beside each coverage form; `covered_through` and `position` at their fork-prone shapes.
+        n = len(inp["prefix"]) if isinstance(inp.get("prefix"), list) else 3
+        absent = object()
+        for value in (-1, 0, 1, n - 1, n, n + 1, 99, 2**53, -(2**53), 0.0, float(n), "0", str(n),
+                      True, False, None, [n], {}):
+            for cov_tag, cov in (("no-coverage", absent), ("coverage-0", 0), ("coverage-n", n),
+                                 ("coverage-null", None)):
+                m = json.loads(json.dumps(inp))
+                m["boundary_event"]["attestedPrefixLength"] = value
+                if cov is absent:
+                    m.pop("covered_through", None)
+                else:
+                    m["covered_through"] = cov
+                out.append((f"attestedPrefixLength={value!r}+{cov_tag}", kind, m))
+        for cov_tag, cov in (("coverage-n", n), ("no-coverage", absent)):
+            m = json.loads(json.dumps(inp))
+            m["boundary_event"].pop("attestedPrefixLength", None)
+            if cov is absent:
+                m.pop("covered_through", None)
+            else:
+                m["covered_through"] = cov
+            out.append((f"attestedPrefixLength-absent+{cov_tag}", kind, m))
+        for cov in (-1, n + 1, float(n), str(n), True, [n]):
+            with_key("covered_through", cov, f"covered_through={cov!r}")
+        for pos in (n - 1, n + 1, float(n), str(n), True, None):
+            m = json.loads(json.dumps(inp))
+            m["boundary_event"]["position"] = pos
+            out.append((f"position={pos!r}", kind, m))
     if kind == "offer_binding":
+        m = json.loads(json.dumps(inp))
+        if isinstance(m.get("receipt"), dict) and "offerDigest" in m["receipt"]:
+            del m["receipt"]["offerDigest"]
+            out.append(("receipt.offerDigest-absent", kind, m))
         # Regression for key absence versus an explicit JSON null. Python previously used
         # indexing while JS canonicalization received undefined; a refactor to `.get()` can
         # accidentally turn absence into null and accept a digest of canonical `null`.

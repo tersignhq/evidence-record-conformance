@@ -1,0 +1,12 @@
+{
+  "id": "p66-digest-integer-negative-bound",
+  "kind": "digest_recompute",
+  "expect": "valid",
+  "description": "-(2^53-1), the most negative I-JSON-interoperable integer: inside the domain, digested identically by every RFC 8785 implementation. Accepting twin of n164, as p12 is of n11; a verifier that refuses the bound itself fails this vector.",
+  "input": {
+    "payload": {
+      "n": -9007199254740991
+    },
+    "expected_digest": "0x19076fb81879348aa0eb665316c011d9a4b075a09759914eddf16d0b24de5034"
+  }
+}

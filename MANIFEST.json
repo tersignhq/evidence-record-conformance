@@ -1,24 +1,26 @@
 {
   "suite": "evidence-record-conformance",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "layer": "evidence-record",
   "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core \u2014 a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
-  "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON number TOKENS rejected (number_domain_reject) \u2014 the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
+  "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1: p12/n11 at the positive bound, p66/n164 at the negative); non-integer JSON number TOKENS rejected (number_domain_reject) \u2014 the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
   "content_address": "keccak256(utf8(canonical(payload)))",
   "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) \u2014 wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null. seq is an integer TOKEN in [1, 2^53-1], and seq_uint64_be is that integer as 8 big-endian bytes. The lower bound is the first number chain_set gives a record (it numbers records 1..head.seq); chain_link does not relate a null prev_digest to seq, and no vector pins that relation. 2^53-1 is the I-JSON integer bound (p12/n11), past which two JSON engines can read one token as different integers. A seq of 0 (n75), a seq past 2^53-1 (n76), or a seq that is not an integer token (a fraction form, n77; an exponent form, n97; a string, n87; a boolean, n88; null, n89) rejects with continuity_reject; p4 accepts the lower bound and p43 the upper",
-  "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present exactly once (a second record at an occupied seq rejects: n39); where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
+  "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present exactly once (a second record at an occupied seq rejects: n39); where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8). In order: `head` must be an object whose `seq` is an integer token of at least 1 and whose `digest` parses as a 32-byte hex digest after the whitespace strip of identifier_normalization, lowercased, and `records` must be an array of objects, each with an integer-token `seq`. Each of these failures rejects with completeness_reject, chain_set's reason for a head or a sequence it cannot read, before any record's digests are read: a head.seq written as the token 3.0 rejects with completeness_reject (n38), not with number_domain_reject, which canonicalization names for a number token inside a digested payload, and a head with no digest rejects with completeness_reject (n165), not with continuity_reject. A head.seq above 100000, this suite's profile bound, and a record seq that is not an integer token reject the same way; no vector pins either. Completeness is decided next (n4, n39), then continuity, record by record in seq order, each failure continuity_reject: the record's artifact_digest and prev_digest must parse; the first record's prev_digest must be null or 32 zero bytes, its hashing-time form (n161 names a predecessor the set does not carry and rejects); each later record's prev_digest must equal the previous record's artifact_digest, whether or not the records present links (n162 breaks it in a set with no links and rejects; p65 is that set unbroken and accepts); a presented link must recompute (n17); and, after the last record, head.digest must equal the final record's artifact_digest (n160 names the second record's and rejects; p6 accepts). No vector pins an unparseable artifact_digest, prev_digest or link, or a first prev_digest written as 32 zero bytes",
   "chain_commitment": "acc_0 = keccak256(utf8('tersign-chain-commitment-v1')); acc_n = keccak256(acc_{n-1} || link_n) over the recomputed links of a chain_set-valid set; head.acc must equal acc_{head.seq}. Production stamps keccak256(utf8(canonical({acc, head, schema:'tersign-chain-commitment-v1', seq}))); a prefix that passes the structural chain_set predicate but was not the one the commitment was built over rejects here",
   "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
   "phase_claim": "the economic-phase vocabulary is closed: funding, delivery, settlement, refund, reversal, each compared as an exact string (each accepts presented as itself: p47, p7, p48, p49, p50). A record verifies as evidence of the phase it carries and of no other phase, later or earlier: `record` must be an object (n79) carrying `economic_phase` (n78); that phase must be in the vocabulary, since a token outside it is not interpretable and verifies as no phase, its own spelling included (n80, n18), and so does a vocabulary word in another letter case (n91); `presented_as` is read against the same vocabulary, so a word in another letter case there is no phase either (n99), and no vector pins any other near-spelling on either side, such as a word padded with whitespace; and `presented_as` must be present (n100) and equal the record's phase. A vector pins three of the twenty ordered pairs of distinct words: a funding record presented as delivery (n6), a delivery record presented as funding (n90), and a refund record presented as reversal (n101), so refund and reversal are two phases; no vector pins the other seventeen, settlement's included. Every reject is phase_reject; p7 accepts",
-  "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
+  "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))) (p15 accepts; n19, a substituted offer, rejects); a receipt that commits to no offer digest cannot bind terms and fails closed (n163, p60's receipt without its offerDigest, rejects; p60 accepts). Each of these rejects with binding_reject",
   "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for any protocol; producer truth and decision semantics remain out of scope",
+  "independence_claim": "`claimed` is read against a closed vocabulary of exact strings, letter case included. Absent, null, or one of the silence tokens \"\", none and issuer_attested, it claims nothing, and the record is valid: the criterion does not read its parties or attestations (p9; p62 carries a string in place of an attestation and accepts), though defined_members still checks each attestation object (n147). independent is the claim. An array of strings is a claim set: its silence tokens are dropped, a set with nothing left claims nothing (p11), and a set whose every remaining member is independent is the claim (p10). Every other value fails closed with independence_reject, so a token the verifier does not know is never read as no claim: an unrecognized token, a stronger property included (n8, effect_corroborated, attested only by parties), and a claim set holding a member outside the vocabulary beside a silence token, which rejects even with an attestor outside the parties (n9; p11 is its twin). A record that claims independence is then evaluated: `parties` must be a non-empty array, `attestations` a non-empty array (n15 carries none), each attestation a JSON object carrying `by` (n16 carries a string in its place), every party and every `by` must parse under identifier_normalization (n14), and at least one attestor must be outside the parties (n7 rejects; p8 accepts). `record_commits` and `covers` are then read as commitment_derivation states. Each of these rejects with independence_reject. No vector pins an absent or null `claimed`, the silence tokens \"\" and issuer_attested as a single string, independent in another letter case, a `claimed` that is neither a string nor an array of strings, an empty `parties` or `attestations` array, a party that does not parse, or an attestation object without `by`",
   "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate). Every identifier, whether in `parties` or an attestation's `by`, is normalized by one rule and compared only after it; the rule folds toward SAME PARTY, and an identifier it cannot decide does not parse. (1) Strip leading and trailing characters with the Unicode White_Space property, U+0009-U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000-U+200A, U+2028, U+2029, U+202F, U+205F and U+3000, and no others (n13/p33); a character without the property is not stripped, so an identifier padded with U+FEFF (a format character) or U+001C (a control character without the property) does not parse (n52/n53). (2) A 0x-address (the prefix 0x or 0X, then 40 hex digits in either case) compares lowercased, its prefix included, so an EIP-55 checksum variant, the all-lowercase form and 0X with upper-case digits are one address (n106; p56 accepts an outside attestor written 0X with upper-case digits). (3) Otherwise the identifier must be a scheme-qualified identifier in ASCII: a letter, then letters, digits, `+`, `.` or `-`, then one colon, then one or more printable non-space ASCII characters, letters in either case. Every percent-encoded triplet (either hex case) that encodes an unreserved character (A-Z a-z 0-9 `-` `.` `_` `~`) is decoded, in one left-to-right pass that is never repeated (RFC 3986 sections 6.2.2.2 and 2.4; n48/n49/n54/p32/p34); if any `%` remains, the identifier does not parse (n50/n55/n56). If it contains `?` (a query component), or its path, from the colon to the first `?` or `#`, has a segment that is exactly `.` or `..` (a dot-segment, RFC 3986 section 3.3), it does not parse (n59/n60/n61/n67/n70; neither class has an accepting twin, and p36, dots within segments, is the near-miss that accepts beside the dot-segments). The result is lowercased, the scheme included (n45/n58/p31), and every trailing `/`, `.` and `#` is removed (n31/n46/n47/p31); if a `#` remains (a fragment with content), it does not parse (n62; p31's trailing `#` alone is the near-miss that accepts); and it must still match the grammar with a lowercase scheme and a non-empty path (n51). (4) Anything else does not parse (n14). (5) Two identifiers name the same party when they are equal after normalization, or when both name the same 0x-address: a 0x-address names itself, and a scheme-qualified identifier whose final colon-separated component is a 0x-address (a CAIP-10 account such as eip155:8453:0x..., a did:pkh such as did:pkh:eip155:1:0x...) names that address, whatever the scheme (did:ethr:0x..., ethereum:0x..., acct:0x... as well), on either side and whatever the chain reference (n63/n64/p37 for CAIP-10 and did:pkh; n65/n66/n69/p38 for other schemes, acct: included). An identifier that does not parse after normalization fails the claim closed: it is never counted outside the parties. Not folded, and pinned by no vector: scheme-specific equivalences beyond these (RFC 3986 section 6.2.3, such as a default port) and names that resolve to an address (an ENS name, a did:web); two such identifiers compare as distinct. Digests compare after the same whitespace strip, lowercased",
   "witnessed_inclusion": "witness material (a cosigned checkpoint, inclusion proofs) presented beside a chain set is permitted and NOT load-bearing for completeness: it evidences existence and the log's consistency, never no-omission; a set with a gap rejects on the gap regardless of how many parties cosigned the log (p24/n34). Completeness requires a non-party attestation over the sequence itself, made at issuance",
   "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",
   "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a string that is not empty after the whitespace strip of identifier_normalization (a result with no transaction member commits to no settlement: n104/p54; a record with no settlement result commits to no settlement: n105/p55); `network` when settlement_result.network is such a string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation \u2014 position is the independence axis, decided before scope is",
+  "boundary_binding": "a boundary event changes a stream's verification parameters (a witness, a signature suite, a canonical form) inside the stream, and must bind the prefix it extends and its own position in that prefix's continuation. `boundary_event` must be a JSON object; its members are the record's own (defined_members), and the suite reads `prefixDigest`, `position` and `attestedPrefixLength`. `prefix` must be a non-empty array, and `prefixDigest` must equal keccak256(utf8(canonical(prefix))), the digest of the prefix as written, across a suite transition too: p18 accepts, and so does p20, a transition; n29, the successor suite's digest of the same bytes, rejects, and so does n96, a prefix with no canonical form. `position` must be an integer equal to the number of entries in `prefix`: n25 carries none and n168 carries 2 for a three-entry prefix, and both reject. `attestedPrefixLength`, the number of prefix entries the event's attestation reaches, may be absent; when the member is present, whatever its value, it must be an integer token from 0 to the number of entries in `prefix`, inclusive, whether or not coverage is claimed. 0 with no coverage claimed accepts (p63, an attestation that reaches nothing and claims nothing), and so does the prefix's own length (p18, p20; p64 on a two-entry prefix); -1 (n154), a length past the prefix (n153, one past, beside coverage; n155, 99; n159, 3 for a two-entry prefix) and a value that is not an integer token (n156, the token 0.0; n157, false; n158, null) reject. `covered_through`, the position through which coverage is claimed, may be absent, and a null reads as absent; when it is present it must be a non-negative integer, the event must carry `attestedPrefixLength` (n167 carries none and rejects), and the coverage may not exceed it: n26 claims coverage through 3 over an empty attestation and n166 over an attestation that reaches 2, and both reject. Each of these rejects with boundary_reject. No vector pins a `boundary_event` that is not an object, a `prefix` that is empty or not an array, an unparseable `prefixDigest`, a `position` that is not an integer, a null `covered_through`, or a `covered_through` that is negative or not an integer",
   "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
   "defined_members": {
-    "rule": "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. Each member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `s\u0435q` written with U+0435 is not `seq` (n127), `\uff42\uff59` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128), and `covered_through ` with a trailing space is not `covered_through` (n149); no vector pins any other near-spelling. Each kind and each closed object has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and in each closed object inside `input`, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first attestation). A closed object inside `input` that is not a JSON object has no members to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: in a record that claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the criterion does not read it. Every other object is open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; the crypto profiles (crypto/MANIFEST.json, crypto/EIP712_MANIFEST.json) do not decide what a verifier does with a member they do not define. Each engine pins the lists in its code, and its run fails if `closed` differs from them",
+    "rule": "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. Each member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `s\u0435q` written with U+0435 is not `seq` (n127), `\uff42\uff59` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128), and `covered_through ` with a trailing space is not `covered_through` (n149); no vector pins any other near-spelling. Each kind and each closed object has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and in each closed object inside `input`, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first attestation). A closed object inside `input` that is not a JSON object has no members to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: in a record that claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the criterion does not read it. Every other object is open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; each crypto profile states its own (`defined_fields` in crypto/MANIFEST.json and in crypto/EIP712_MANIFEST.json, v0.5.9), where a field it does not define rejects as malformed_input. Each engine pins the lists in its code, and its run fails if `closed` differs from them",
     "closed": {
       "digest_recompute": {
         "input": [
@@ -2421,6 +2423,222 @@
       "origin": {
         "class": "synthetic",
         "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p63-boundary-empty-attestation-no-coverage.json",
+      "kind": "boundary_binding",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "an input of @robertolocatelli81-dev's differential in issue #9 (2026-09-29, against 0eda303) on which his verifier and verify.py returned different results: n26's input with `covered_through` removed, written here"
+      }
+    },
+    {
+      "file": "n153-boundary-attested-length-past-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "an input of @robertolocatelli81-dev's differential in issue #9 (2026-09-29, against 0eda303) on which his verifier and verify.py returned different results: p20's input with `attestedPrefixLength` 4; p20 is @navigatorbuilds's suite-transition fixture from PR #6 (commit 2f4e967); written here"
+      }
+    },
+    {
+      "file": "n154-boundary-attested-length-negative.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n155-boundary-attested-length-far-past-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n156-boundary-attested-length-fraction-token.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n157-boundary-attested-length-boolean.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n158-boundary-attested-length-null.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n159-boundary-attested-length-past-shorter-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p64-boundary-attested-length-equals-shorter-prefix.json",
+      "kind": "boundary_binding",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n166-boundary-coverage-past-attestation.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n167-boundary-coverage-without-attested-length.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n168-boundary-position-not-prefix-end.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "boundary_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n160-chain-set-head-digest-not-final-record.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "continuity_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n161-chain-set-first-prev-not-null.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "continuity_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p65-chain-set-complete-no-links.json",
+      "kind": "chain_set",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n162-chain-set-prev-break-no-links.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "continuity_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n163-offer-binding-receipt-without-offer-digest.json",
+      "kind": "offer_binding",
+      "expect": "reject",
+      "reason": "binding_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p66-digest-integer-negative-bound.json",
+      "kind": "digest_recompute",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n164-digest-integer-past-negative-bound.json",
+      "kind": "digest_recompute",
+      "expect": "reject",
+      "reason": "number_domain_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n165-chain-set-head-digest-absent.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "completeness_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "an input of @robertolocatelli81-dev's differential in issue #9 (2026-09-29, against 0eda303) on which his verifier and verify.py returned different results: p6's input with `head.digest` removed, written here"
       }
     }
   ]

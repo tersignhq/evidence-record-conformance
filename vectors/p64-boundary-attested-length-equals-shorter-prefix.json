@@ -1,0 +1,25 @@
+{
+  "id": "p64-boundary-attested-length-equals-shorter-prefix",
+  "kind": "boundary_binding",
+  "expect": "valid",
+  "description": "Accepting twin of n159: the same two-entry prefix with `attestedPrefixLength` 2, the prefix's own length, and no coverage claimed. The bound is inclusive and is the presented prefix's length, so the record accepts. An engine that bounds the length below the prefix's length, or by the position of a longer prefix, fails this vector.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x8af196ead1998fb092ff20f479f9ae3585844bd161ce62496d9b2e3ab812cf76",
+      "position": 2,
+      "attestedPrefixLength": 2
+    }
+  }
+}

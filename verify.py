@@ -43,8 +43,9 @@ adversarial vector for its known failure class:
   boundary_binding      a boundary event that changes a stream's verification parameters
                         must bind the prefix it extends AND its own position in that
                         prefix's continuation — naming the prefix alone is satisfiable by
-                        two conflicting continuations at once; and coverage claimed over
-                        an empty attested prefix is a downgrade, not a pass
+                        two conflicting continuations at once; coverage claimed over
+                        an empty attested prefix is a downgrade, not a pass; and an attested
+                        prefix length, wherever present, is an integer in [0, len(prefix)]
 
 DEFINED MEMBERS (v0.5.8, issue #17): every kind's `input` is a closed object, and so are the
 objects DEFINED_MEMBERS lists for that kind (the chain `head` and each `records` entry, and each
@@ -697,6 +698,18 @@ def check_boundary_binding(inp):
         return "reject", "boundary_reject", "boundary event binds the prefix it extends but not its own position in the continuation — a later append claiming an earlier point is indistinguishable from an original"
     if position != len(prefix):
         return "reject", "boundary_reject", f"boundary event claims position {position}, the presented prefix ends at {len(prefix)}"
+
+    # v0.5.9 (issue #9): an attested prefix length is read wherever the member is present, with
+    # or without coverage claimed, and it is an integer token from 0 to the presented prefix's
+    # length. Until v0.5.9 it was read only beside `covered_through`, so -1, 99 or a length past
+    # the prefix passed whenever no coverage was claimed, and a length past the prefix passed
+    # beside any coverage up to it. 0 with no coverage claimed is an attestation that reaches
+    # nothing and claims nothing, and stays valid (p63). Key PRESENCE, so a null rejects (n158).
+    if "attestedPrefixLength" in event:
+        attested = event["attestedPrefixLength"]
+        if not isinstance(attested, int) or isinstance(attested, bool) or not 0 <= attested <= len(prefix):
+            return "reject", "boundary_reject", (f"attestedPrefixLength {attested!r} is not an integer from 0 to "
+                                                 f"the presented prefix's length, {len(prefix)}")
 
     # The downgrade: coverage claimed over an empty attested prefix. A verifier that reports
     # success here has checked nothing and said so in the same breath.

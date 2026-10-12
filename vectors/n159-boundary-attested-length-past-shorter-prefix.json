@@ -1,0 +1,26 @@
+{
+  "id": "n159-boundary-attested-length-past-shorter-prefix",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "A boundary event over a two-entry prefix (p18's first two entries), binding its digest and position 2, with `attestedPrefixLength` 3 and no coverage claimed. 3 is one past this prefix, though it is the length of every other boundary prefix in the suite, so the record rejects with boundary_reject. The bound is the presented prefix's length, not a fixed number: an engine that bounds the length by 3 accepts this vector. p64 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x8af196ead1998fb092ff20f479f9ae3585844bd161ce62496d9b2e3ab812cf76",
+      "position": 2,
+      "attestedPrefixLength": 3
+    }
+  }
+}

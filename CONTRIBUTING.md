@@ -36,6 +36,7 @@ python3 crypto/verify_crypto.py && python3 crypto/verify_crypto.py --mutants
 python3 crypto/verify_eip712.py && python3 crypto/verify_eip712.py --mutants
 npm i viem && node tools/cross_check_ts.mjs
 python3 tools/differential.py
+python3 tools/mutate_members.py && python3 tools/mutate_rules.py
 sh tools/regen_check.sh    # in a scratch clone: it moves each vector directory aside and regenerates it
 ```
 

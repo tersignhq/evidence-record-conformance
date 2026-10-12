@@ -1,0 +1,29 @@
+{
+  "id": "p65-chain-set-complete-no-links",
+  "kind": "chain_set",
+  "expect": "valid",
+  "description": "p6's set with no per-record links. A link is checked where a record presents one, and none is required; where none is presented, continuity rests on the prev pointers alone. The set is complete, continuous and its head digest is the final record's, so it accepts. Accepting twin of n162; an engine that requires links rejects it.",
+  "input": {
+    "head": {
+      "seq": 3,
+      "digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd"
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null
+      },
+      {
+        "seq": 2,
+        "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4"
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29"
+      }
+    ]
+  }
+}

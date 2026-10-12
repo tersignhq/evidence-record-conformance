@@ -1,0 +1,33 @@
+{
+  "id": "n160-chain-set-head-digest-not-final-record",
+  "kind": "chain_set",
+  "expect": "reject",
+  "reason": "continuity_reject",
+  "description": "p6's complete, continuous set with `head.digest` naming the second record's artifact digest instead of the third's. head.digest must equal the final record's artifact digest, so the record rejects with continuity_reject. Every record and link is p6's, so an engine that never compares the head's digest with the final record accepts this vector. p6 is the accepting twin.",
+  "input": {
+    "head": {
+      "seq": 3,
+      "digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29"
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null,
+        "link": "0xf34b26b3f8a9ab82f55baa26c92201624f09195ec0074fcc2af3e58c61b13079"
+      },
+      {
+        "seq": 2,
+        "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "link": "0x24504b4a1fb4eedda727a2c08e05826d7b441d127457cbe9c16245d8a5eb9694"
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "link": "0x657fcd8b25c7e8f9fa0b2f50b7f18e67781d9837014605e2ae6668ac95804f15"
+      }
+    ]
+  }
+}

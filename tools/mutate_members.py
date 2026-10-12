@@ -185,7 +185,8 @@ def run_ts(root):
     return p.returncode, fails
 
 
-def main():
+def run(py_table, ts_table, only=()):
+    """Apply each mutant in a scratch copy and require its named vectors to fail; exit status."""
     d, root = scratch()
     try:
         controls = [("py", run_py(root)), ("ts", run_ts(root))]
@@ -194,12 +195,12 @@ def main():
         if any(rc or fails for _, (rc, fails) in controls):
             return 1
         total = killed = 0
-        for table, fname, runner in ((PY, "verify.py", run_py), (TS, "tools/cross_check_ts.mjs", run_ts)):
+        for table, fname, runner in ((py_table, "verify.py", run_py), (ts_table, "tools/cross_check_ts.mjs", run_ts)):
             path = os.path.join(root, fname)
             with open(path, encoding="utf-8") as f:
                 orig = f.read()
             for name, (old, new, killers) in table.items():
-                if ONLY and name not in ONLY:
+                if only and name not in only:
                     continue
                 total += 1
                 if orig.count(old) != 1:
@@ -224,6 +225,10 @@ def main():
         return 0 if total and killed == total and not any(rc or fails for _, (rc, fails) in after) else 1
     finally:
         shutil.rmtree(d)
+
+
+def main():
+    return run(PY, TS, ONLY)
 
 
 if __name__ == "__main__":

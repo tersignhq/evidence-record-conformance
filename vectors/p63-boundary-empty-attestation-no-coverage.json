@@ -1,0 +1,29 @@
+{
+  "id": "p63-boundary-empty-attestation-no-coverage",
+  "kind": "boundary_binding",
+  "expect": "valid",
+  "description": "n26's input without `covered_through`. The event binds the prefix it extends and its own position, its attestation reaches none of the prefix (`attestedPrefixLength: 0`), and no coverage is claimed. An attestation that reaches nothing and claims nothing is a valid state; what n26 rejects is coverage claimed over it. This is the first of the two inputs on which @robertolocatelli81-dev's differential (#9) found his verifier and verify.py returning different verdicts; boundary_binding in MANIFEST.json now decides it. An engine that rejects an attested length of 0 whatever is claimed fails this vector. It is the accepting twin of n154, n156, n157 and n158, each the same bytes with another value of `attestedPrefixLength`.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": 0
+    }
+  }
+}

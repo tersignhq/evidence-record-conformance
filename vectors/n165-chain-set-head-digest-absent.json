@@ -1,0 +1,32 @@
+{
+  "id": "n165-chain-set-head-digest-absent",
+  "kind": "chain_set",
+  "expect": "reject",
+  "reason": "completeness_reject",
+  "description": "p6's input with `digest` removed from `head`. A head with no parseable digest commits to no final record, and chain_set rejects it with completeness_reject, its reason for a head it cannot read, before any record is read. It is one of the two inputs (p6's and p28's, each without its head digest) on which @robertolocatelli81-dev's differential (#9) found his verifier naming continuity_reject where verify.py names completeness_reject; MANIFEST.json's chain_set now states the reason. An engine that reads the head's digest only when it compares it with the final record names continuity_reject. p6 is the accepting twin.",
+  "input": {
+    "head": {
+      "seq": 3
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null,
+        "link": "0xf34b26b3f8a9ab82f55baa26c92201624f09195ec0074fcc2af3e58c61b13079"
+      },
+      {
+        "seq": 2,
+        "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "link": "0x24504b4a1fb4eedda727a2c08e05826d7b441d127457cbe9c16245d8a5eb9694"
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "link": "0x657fcd8b25c7e8f9fa0b2f50b7f18e67781d9837014605e2ae6668ac95804f15"
+      }
+    ]
+  }
+}

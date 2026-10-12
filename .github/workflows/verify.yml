@@ -56,6 +56,8 @@ jobs:
         run: python3 tools/differential.py
       - name: Defined-members mutants (each one-site broken engine must fail its named vectors)
         run: python3 tools/mutate_members.py
+      - name: v0.5.9 rule mutants (boundary_binding, chain_set, offer_binding, number domain)
+        run: python3 tools/mutate_rules.py
   regeneration-arch:
     # Every generator must regenerate every committed vector byte-for-byte on more than one CPU. aarch64 runs on a native
     # GitHub-hosted arm64 runner (real hardware, not emulation); x86_64 on ubuntu-latest. The generators are stdlib-only and

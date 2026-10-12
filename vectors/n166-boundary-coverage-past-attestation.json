@@ -1,0 +1,31 @@
+{
+  "id": "n166-boundary-coverage-past-attestation",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p18's input with `attestedPrefixLength` 2 beside coverage claimed through 3. Coverage claimed past what the attestation reaches rejects with boundary_reject, as coverage over an empty attestation does (n26); n26 pins only the empty case, so an engine that rejects coverage only over an empty attestation accepts this vector. p18 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": 2
+    },
+    "covered_through": 3
+  }
+}

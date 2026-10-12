@@ -2912,6 +2912,206 @@ for _v in defined_member_vectors:
             sys.exit(f"defined members: {_v['id']}'s criterion alone reads {_crit}, expected {_crit_want}")
 vectors += defined_member_vectors
 
+# ------------------------------------------------------------------ v0.5.9 (issue #9)
+# @robertolocatelli81-dev's clean-room run (#9, 2026-09-29, against 0eda303) compared his verifier
+# with verify.py on 524 generated inputs. Two inputs split the verdicts, both boundary_binding: n26's
+# input without `covered_through` (p63) and p20's with `attestedPrefixLength` 4 (n153). The rule now
+# reads the attested length wherever it is present (MANIFEST `boundary_binding`); n153-n159 read
+# `valid` on v0.5.8's engines. Two more split only the reason, p6's and p28's with `head.digest`
+# removed; n165 is p6's. His ablations also named five rules no vector reached alone (n160-n164, each with an
+# accepting twin). Every vector below rejects or accepts on the clause its description names; the
+# generation gate checks the verdict and reason under verify.py.
+_N26 = _input_of("n26-coverage-claimed-over-empty-attestation")
+_P63_INPUT = {k: v for k, v in _N26.items() if k != "covered_through"}
+
+
+def _p63_with(value):
+    inp = copy.deepcopy(_P63_INPUT)
+    inp["boundary_event"]["attestedPrefixLength"] = value
+    return inp
+
+
+def _p18_event(**edits):
+    inp = _input_of("p18-boundary-binds-prefix-and-position")
+    for k, v in edits.items():
+        if v is _DROP:
+            del inp["boundary_event"][k]
+        else:
+            inp["boundary_event"][k] = v
+    return inp
+
+
+_DROP = object()
+SHORT_PREFIX = BOUNDARY_PREFIX[:2]
+
+
+def _short_prefix_input(attested):
+    return {"prefix": copy.deepcopy(SHORT_PREFIX),
+            "boundary_event": {"event": "witness_ref_introduced", "ruleVersion": "witness-ref-v1",
+                               "prefixDigest": digest_of(SHORT_PREFIX), "position": 2,
+                               "attestedPrefixLength": attested}}
+
+
+# A record outside p6's set: the predecessor n161 and n162 name, which the set does not carry.
+OUTSIDE_RECORD = {"demo": 0, "note": "synthetic chain-set record"}
+OUTSIDE_PREDECESSOR = digest_of(OUTSIDE_RECORD)
+assert OUTSIDE_PREDECESSOR not in d
+_P6 = "p6-chain-set-complete"
+
+
+def _p6_without_links():
+    inp = _input_of(_P6)
+    for r in inp["records"]:
+        del r["link"]
+    return inp
+
+
+def _p6_with(edit):
+    inp = _input_of(_P6)
+    edit(inp)
+    return inp
+
+
+NEG_BOUND_PAYLOAD = {"n": -(2**53)}
+# The digest an engine computes if it serializes -2^53 anyway (keccak256 over the canonical text).
+NEG_BOUND_WOULD_BE_DIGEST = _keccak_hex(b'{"n":-9007199254740992}')
+
+_BD = "boundary_binding"
+_BR = "boundary_reject"
+v059_vectors = [
+    # ---- (a) boundary_binding: the attested prefix length, wherever it is present
+    {
+        "id": "p63-boundary-empty-attestation-no-coverage",
+        "kind": _BD, "expect": "valid",
+        "description": "n26's input without `covered_through`. The event binds the prefix it extends and its own position, its attestation reaches none of the prefix (`attestedPrefixLength: 0`), and no coverage is claimed. An attestation that reaches nothing and claims nothing is a valid state; what n26 rejects is coverage claimed over it. This is the first of the two inputs on which @robertolocatelli81-dev's differential (#9) found his verifier and verify.py returning different verdicts; boundary_binding in MANIFEST.json now decides it. An engine that rejects an attested length of 0 whatever is claimed fails this vector. It is the accepting twin of n154, n156, n157 and n158, each the same bytes with another value of `attestedPrefixLength`.",
+        "input": copy.deepcopy(_P63_INPUT),
+    },
+    {
+        "id": "n153-boundary-attested-length-past-prefix",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p20's input with `attestedPrefixLength` 4, one past the three-entry prefix the event extends, beside coverage claimed through 3. An attestation cannot reach entries the prefix does not have, so the record rejects with boundary_reject. Until v0.5.9 the length was compared only with the coverage claimed (3 is not past 4), and this input read valid. It is the second input on which @robertolocatelli81-dev's differential (#9) found the two verifiers returning different verdicts. p20 is the accepting twin.",
+        "input": (lambda inp: (inp["boundary_event"].__setitem__("attestedPrefixLength", 4), inp)[1])(
+            _input_of("p20-suite-transition-preserves-prefix")),
+    },
+    {
+        "id": "n154-boundary-attested-length-negative",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p63's input with `attestedPrefixLength` -1, and no coverage claimed. The length is read whenever the member is present, and -1 is below 0, so the record rejects with boundary_reject. An engine that reads the length only when coverage is claimed accepts this vector, as v0.5.8's engines did. p63 is the accepting twin.",
+        "input": _p63_with(-1),
+    },
+    {
+        "id": "n155-boundary-attested-length-far-past-prefix",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p18's input with `attestedPrefixLength` 99 beside coverage claimed through 3: the attestation claims to reach 99 entries of a three-entry prefix, and the record rejects with boundary_reject. An engine that checks only that the coverage claimed does not exceed the attested length accepts this vector, as v0.5.8's engines did. p18 is the accepting twin.",
+        "input": _p18_event(attestedPrefixLength=99),
+    },
+    {
+        "id": "n156-boundary-attested-length-fraction-token",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p63's input with `attestedPrefixLength` written as the token 0.0. An attested length is an integer token, and a token with a fraction part is not one even where its value is an integer (the token class, as n38 pins it for a sequence number), so the record rejects with boundary_reject. An engine that compares values, 0.0 with 0, accepts this vector; so does one whose JSON loader reads 0.0 as the integer 0. p63 is the accepting twin.",
+        "input": _p63_with(0.0),
+    },
+    {
+        "id": "n157-boundary-attested-length-boolean",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p63's input with `attestedPrefixLength` false. A boolean is not an integer token, and the record rejects with boundary_reject. In Python a bool is an int (False == 0), and JavaScript's comparison operators read false as 0, so an engine that tests the range without the type accepts this vector. p63 is the accepting twin.",
+        "input": _p63_with(False),
+    },
+    {
+        "id": "n158-boundary-attested-length-null",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p63's input with `attestedPrefixLength` null. The member is present, so it is read, and null is not an integer: the record rejects with boundary_reject. An engine that tests the value against null or undefined instead of testing whether the member is present reads it as absent and accepts this vector. p63 is the accepting twin.",
+        "input": _p63_with(None),
+    },
+    {
+        "id": "n159-boundary-attested-length-past-shorter-prefix",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "A boundary event over a two-entry prefix (p18's first two entries), binding its digest and position 2, with `attestedPrefixLength` 3 and no coverage claimed. 3 is one past this prefix, though it is the length of every other boundary prefix in the suite, so the record rejects with boundary_reject. The bound is the presented prefix's length, not a fixed number: an engine that bounds the length by 3 accepts this vector. p64 is the accepting twin.",
+        "input": _short_prefix_input(3),
+    },
+    {
+        "id": "p64-boundary-attested-length-equals-shorter-prefix",
+        "kind": _BD, "expect": "valid",
+        "description": "Accepting twin of n159: the same two-entry prefix with `attestedPrefixLength` 2, the prefix's own length, and no coverage claimed. The bound is inclusive and is the presented prefix's length, so the record accepts. An engine that bounds the length below the prefix's length, or by the position of a longer prefix, fails this vector.",
+        "input": _short_prefix_input(2),
+    },
+    {
+        "id": "n166-boundary-coverage-past-attestation",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p18's input with `attestedPrefixLength` 2 beside coverage claimed through 3. Coverage claimed past what the attestation reaches rejects with boundary_reject, as coverage over an empty attestation does (n26); n26 pins only the empty case, so an engine that rejects coverage only over an empty attestation accepts this vector. p18 is the accepting twin.",
+        "input": _p18_event(attestedPrefixLength=2),
+    },
+    {
+        "id": "n167-boundary-coverage-without-attested-length",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p18's input without `attestedPrefixLength`, coverage still claimed through 3. Coverage that names no attested length has not been checked against one, and the record rejects with boundary_reject. n25, which also carries no attested length, rejects earlier, on its missing position, so no earlier vector reached this clause. An engine that reads a missing length as the whole prefix accepts this vector. p18 is the accepting twin.",
+        "input": _p18_event(attestedPrefixLength=_DROP),
+    },
+    {
+        "id": "n168-boundary-position-not-prefix-end",
+        "kind": _BD, "expect": "reject", "reason": _BR,
+        "description": "p18's input with `position` 2 while the prefix the event binds ends at 3: an event that names the prefix truthfully and claims an earlier point in its continuation. `position` must equal the number of entries in the prefix, so the record rejects with boundary_reject. n25 carries no position at all; this vector pins the value. An engine that checks only that a position is present accepts it. p18 is the accepting twin.",
+        "input": _p18_event(position=2),
+    },
+    # ---- (b) five rules #9's ablations found no vector reaching alone
+    {
+        "id": "n160-chain-set-head-digest-not-final-record",
+        "kind": "chain_set", "expect": "reject", "reason": "continuity_reject",
+        "description": "p6's complete, continuous set with `head.digest` naming the second record's artifact digest instead of the third's. head.digest must equal the final record's artifact digest, so the record rejects with continuity_reject. Every record and link is p6's, so an engine that never compares the head's digest with the final record accepts this vector. p6 is the accepting twin.",
+        "input": _p6_with(lambda inp: inp["head"].__setitem__("digest", d[1])),
+    },
+    {
+        "id": "n161-chain-set-first-prev-not-null",
+        "kind": "chain_set", "expect": "reject", "reason": "continuity_reject",
+        "description": "p6's set with its first record naming a predecessor, the digest of a record the set does not carry. The first record's prev_digest is null (genesis), so the record rejects with continuity_reject: a set that continues a chain it does not present is not that chain from its start, however its records are numbered. The links are p6's, computed from the genesis predecessor, so they still recompute; an engine that checks predecessors only from the second record on accepts this vector. p6 is the accepting twin.",
+        "input": _p6_with(lambda inp: inp["records"][0].__setitem__("prev_digest", OUTSIDE_PREDECESSOR)),
+    },
+    {
+        "id": "p65-chain-set-complete-no-links",
+        "kind": "chain_set", "expect": "valid",
+        "description": "p6's set with no per-record links. A link is checked where a record presents one, and none is required; where none is presented, continuity rests on the prev pointers alone. The set is complete, continuous and its head digest is the final record's, so it accepts. Accepting twin of n162; an engine that requires links rejects it.",
+        "input": _p6_without_links(),
+    },
+    {
+        "id": "n162-chain-set-prev-break-no-links",
+        "kind": "chain_set", "expect": "reject", "reason": "continuity_reject",
+        "description": "p65's set, which presents no links, with its second record naming as predecessor a record the set does not carry. Each record's prev_digest must be the previous record's artifact digest whether or not links are presented, so the record rejects with continuity_reject. An engine that checks continuity only through the links accepts this vector. p65 is the accepting twin.",
+        "input": (lambda inp: (inp["records"][1].__setitem__("prev_digest", OUTSIDE_PREDECESSOR), inp)[1])(_p6_without_links()),
+    },
+    {
+        "id": "n163-offer-binding-receipt-without-offer-digest",
+        "kind": "offer_binding", "expect": "reject", "reason": "binding_reject",
+        "description": "p60's input with `offerDigest` removed from the receipt, which keeps `issuedAt`. A receipt that commits to no offer digest binds no terms, so the offer presented beside it cannot be shown to be the one paid, and the record rejects with binding_reject. n19 carries a digest that does not match; no earlier vector carries a receipt with none, so an engine that skips the comparison when a receipt carries no digest accepts this vector. p60 is the accepting twin.",
+        "input": _with("p60-receipt-open", lambda inp: inp["receipt"].pop("offerDigest")),
+    },
+    {
+        "id": "p66-digest-integer-negative-bound",
+        "kind": "digest_recompute", "expect": "valid",
+        "description": "-(2^53-1), the most negative I-JSON-interoperable integer: inside the domain, digested identically by every RFC 8785 implementation. Accepting twin of n164, as p12 is of n11; a verifier that refuses the bound itself fails this vector.",
+        "input": {"payload": {"n": -(2**53 - 1)}, "expected_digest": digest_of({"n": -(2**53 - 1)})},
+    },
+    {
+        "id": "n164-digest-integer-past-negative-bound",
+        "kind": "digest_recompute", "expect": "reject", "reason": "number_domain_reject",
+        "description": "-2^53, one past the I-JSON interoperable range on the negative side; the range is symmetric (|n| <= 2^53-1). The expected digest is the one an engine computes if it serializes the number anyway, so an engine that bounds only positive integers accepts this vector. The negative twin of n11; p66 is the accepting twin.",
+        "input": {"payload": NEG_BOUND_PAYLOAD, "expected_digest": NEG_BOUND_WOULD_BE_DIGEST},
+    },
+    # ---- (c) an unreadable head digest: chain_set's reason, stated
+    {
+        "id": "n165-chain-set-head-digest-absent",
+        "kind": "chain_set", "expect": "reject", "reason": "completeness_reject",
+        "description": "p6's input with `digest` removed from `head`. A head with no parseable digest commits to no final record, and chain_set rejects it with completeness_reject, its reason for a head it cannot read, before any record is read. It is one of the two inputs (p6's and p28's, each without its head digest) on which @robertolocatelli81-dev's differential (#9) found his verifier naming continuity_reject where verify.py names completeness_reject; MANIFEST.json's chain_set now states the reason. An engine that reads the head's digest only when it compares it with the final record names continuity_reject. p6 is the accepting twin.",
+        "input": _p6_with(lambda inp: inp["head"].pop("digest")),
+    },
+]
+
+# Generation gate: each verdict and reason under verify.py's CHECKS (member check, then criterion).
+for _v in v059_vectors:
+    _got = tuple(CHECKS[_v["kind"]](_v["input"])[:2])
+    if _got != (_v["expect"], _v.get("reason")):
+        sys.exit(f"v0.5.9: {_v['id']} reads {_got}, expected {(_v['expect'], _v.get('reason'))}")
+vectors += v059_vectors
+
 # ------------------------------------------------------------------ per-vector provenance
 # v0.5.3. MANIFEST-only metadata: every vector file stays byte-identical. Each manifest entry
 # names its `author` and its `origin`.
@@ -2940,6 +3140,8 @@ _ON_0RKZ = "built on @0rkz's PayPerByte fixture (PR #7, issue #3); written here,
 _R4 = "@Rul1an's reproduction in issue #4 (2026-08-08), written here"
 _R1 = "@Rul1an's report in issue #1 (2026-09-30), issuecomment-5908429130"
 _R17 = "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`"
+_D9 = ("an input of @robertolocatelli81-dev's differential in issue #9 (2026-09-29, against 0eda303) on which his "
+       "verifier and verify.py returned different results")
 
 PROVENANCE = {
     "p1-live-genesis-receipt": (TERSIGN, "live-ledger", f"the ledger's genesis receipt and its counter-signature, {_LIVE_ENDPOINTS}"),
@@ -3155,6 +3357,29 @@ PROVENANCE = {
     "n152-unknown-member-in-commitment-record-before-criterion": _SYN,
     "p61-chain-commitment-not-read-contents": _SYN,
     "p62-attestation-not-an-object-no-claim": _SYN,
+    # v0.5.9 — the three inputs of @robertolocatelli81-dev's differential (#9) that split the two
+    # verifiers are contributed (n153 also carries PR #6's suite-transition fixture, through p20);
+    # every other vector's distinguishing value was constructed here.
+    "p63-boundary-empty-attestation-no-coverage": (TERSIGN, "contributed", f"{_D9}: n26's input with `covered_through` removed, written here"),
+    "n153-boundary-attested-length-past-prefix": (TERSIGN, "contributed", f"{_D9}: p20's input with `attestedPrefixLength` 4; p20 is @navigatorbuilds's suite-transition fixture from PR #6 (commit 2f4e967); written here"),
+    "n154-boundary-attested-length-negative": _SYN,
+    "n155-boundary-attested-length-far-past-prefix": _SYN,
+    "n156-boundary-attested-length-fraction-token": _SYN,
+    "n157-boundary-attested-length-boolean": _SYN,
+    "n158-boundary-attested-length-null": _SYN,
+    "n159-boundary-attested-length-past-shorter-prefix": _SYN,
+    "p64-boundary-attested-length-equals-shorter-prefix": _SYN,
+    "n166-boundary-coverage-past-attestation": _SYN,
+    "n167-boundary-coverage-without-attested-length": _SYN,
+    "n168-boundary-position-not-prefix-end": _SYN,
+    "n160-chain-set-head-digest-not-final-record": _SYN,
+    "n161-chain-set-first-prev-not-null": _SYN,
+    "p65-chain-set-complete-no-links": _SYN,
+    "n162-chain-set-prev-break-no-links": _SYN,
+    "n163-offer-binding-receipt-without-offer-digest": _SYN,
+    "p66-digest-integer-negative-bound": _SYN,
+    "n164-digest-integer-past-negative-bound": _SYN,
+    "n165-chain-set-head-digest-absent": (TERSIGN, "contributed", f"{_D9}: p6's input with `head.digest` removed, written here"),
 }
 
 # Values from the live ledger, and from the contributed fixtures Tersign-written vectors reuse
@@ -3271,28 +3496,31 @@ DEFINED_MEMBERS_RULE = (
     "decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result "
     "and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added "
     "through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; "
-    "the crypto profiles (crypto/MANIFEST.json, crypto/EIP712_MANIFEST.json) do not decide what a verifier does with a member "
-    "they do not define. Each engine pins the lists in its code, and its run fails if `closed` differs from them"
+    "each crypto profile states its own (`defined_fields` in crypto/MANIFEST.json and in crypto/EIP712_MANIFEST.json, v0.5.9), "
+    "where a field it does not define rejects as malformed_input. Each engine pins the lists in its code, and its run fails if "
+    "`closed` differs from them"
 )
 
 manifest = {
     "suite": "evidence-record-conformance",
-    "version": "0.5.8",
+    "version": "0.5.9",
     "layer": "evidence-record",
     "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core — a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
-    "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON number TOKENS rejected (number_domain_reject) — the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
+    "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1: p12/n11 at the positive bound, p66/n164 at the negative); non-integer JSON number TOKENS rejected (number_domain_reject) — the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
     "content_address": "keccak256(utf8(canonical(payload)))",
     "chain_link": "keccak256(artifact_digest || prev_digest || seq_uint64_be) — wire form of a genesis predecessor is null; 32 zero bytes is the hashing-time substitution for null. seq is an integer TOKEN in [1, 2^53-1], and seq_uint64_be is that integer as 8 big-endian bytes. The lower bound is the first number chain_set gives a record (it numbers records 1..head.seq); chain_link does not relate a null prev_digest to seq, and no vector pins that relation. 2^53-1 is the I-JSON integer bound (p12/n11), past which two JSON engines can read one token as different integers. A seq of 0 (n75), a seq past 2^53-1 (n76), or a seq that is not an integer token (a fraction form, n77; an exponent form, n97; a string, n87; a boolean, n88; null, n89) rejects with continuity_reject; p4 accepts the lower bound and p43 the upper",
-    "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present exactly once (a second record at an occupied seq rejects: n39); where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8)",
+    "chain_set": "records chain raw artifact digests via prev pointers (genesis prev = null); head.digest equals the final record's artifact digest; completeness = every seq 1..head.seq present exactly once (a second record at an occupied seq rejects: n39); where a record presents a link, it must recompute as keccak256(artifact || prev || seq_be8). In order: `head` must be an object whose `seq` is an integer token of at least 1 and whose `digest` parses as a 32-byte hex digest after the whitespace strip of identifier_normalization, lowercased, and `records` must be an array of objects, each with an integer-token `seq`. Each of these failures rejects with completeness_reject, chain_set's reason for a head or a sequence it cannot read, before any record's digests are read: a head.seq written as the token 3.0 rejects with completeness_reject (n38), not with number_domain_reject, which canonicalization names for a number token inside a digested payload, and a head with no digest rejects with completeness_reject (n165), not with continuity_reject. A head.seq above 100000, this suite's profile bound, and a record seq that is not an integer token reject the same way; no vector pins either. Completeness is decided next (n4, n39), then continuity, record by record in seq order, each failure continuity_reject: the record's artifact_digest and prev_digest must parse; the first record's prev_digest must be null or 32 zero bytes, its hashing-time form (n161 names a predecessor the set does not carry and rejects); each later record's prev_digest must equal the previous record's artifact_digest, whether or not the records present links (n162 breaks it in a set with no links and rejects; p65 is that set unbroken and accepts); a presented link must recompute (n17); and, after the last record, head.digest must equal the final record's artifact_digest (n160 names the second record's and rejects; p6 accepts). No vector pins an unparseable artifact_digest, prev_digest or link, or a first prev_digest written as 32 zero bytes",
     "chain_commitment": "acc_0 = keccak256(utf8('tersign-chain-commitment-v1')); acc_n = keccak256(acc_{n-1} || link_n) over the recomputed links of a chain_set-valid set; head.acc must equal acc_{head.seq}. Production stamps keccak256(utf8(canonical({acc, head, schema:'tersign-chain-commitment-v1', seq}))); a prefix that passes the structural chain_set predicate but was not the one the commitment was built over rejects here",
     "anchor_relation": "anchored_digest = sha256(subject_digest_bytes)",
     "phase_claim": "the economic-phase vocabulary is closed: funding, delivery, settlement, refund, reversal, each compared as an exact string (each accepts presented as itself: p47, p7, p48, p49, p50). A record verifies as evidence of the phase it carries and of no other phase, later or earlier: `record` must be an object (n79) carrying `economic_phase` (n78); that phase must be in the vocabulary, since a token outside it is not interpretable and verifies as no phase, its own spelling included (n80, n18), and so does a vocabulary word in another letter case (n91); `presented_as` is read against the same vocabulary, so a word in another letter case there is no phase either (n99), and no vector pins any other near-spelling on either side, such as a word padded with whitespace; and `presented_as` must be present (n100) and equal the record's phase. A vector pins three of the twenty ordered pairs of distinct words: a funding record presented as delivery (n6), a delivery record presented as funding (n90), and a refund record presented as reversal (n101), so refund and reversal are two phases; no vector pins the other seventeen, settlement's included. Every reject is phase_reject; p7 accepts",
-    "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))); a receipt that commits to no offer digest cannot bind terms and fails closed",
+    "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))) (p15 accepts; n19, a substituted offer, rejects); a receipt that commits to no offer digest cannot bind terms and fails closed (n163, p60's receipt without its offerDigest, rejects; p60 accepts). Each of these rejects with binding_reject",
     "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for any protocol; producer truth and decision semantics remain out of scope",
+    "independence_claim": "`claimed` is read against a closed vocabulary of exact strings, letter case included. Absent, null, or one of the silence tokens \"\", none and issuer_attested, it claims nothing, and the record is valid: the criterion does not read its parties or attestations (p9; p62 carries a string in place of an attestation and accepts), though defined_members still checks each attestation object (n147). independent is the claim. An array of strings is a claim set: its silence tokens are dropped, a set with nothing left claims nothing (p11), and a set whose every remaining member is independent is the claim (p10). Every other value fails closed with independence_reject, so a token the verifier does not know is never read as no claim: an unrecognized token, a stronger property included (n8, effect_corroborated, attested only by parties), and a claim set holding a member outside the vocabulary beside a silence token, which rejects even with an attestor outside the parties (n9; p11 is its twin). A record that claims independence is then evaluated: `parties` must be a non-empty array, `attestations` a non-empty array (n15 carries none), each attestation a JSON object carrying `by` (n16 carries a string in its place), every party and every `by` must parse under identifier_normalization (n14), and at least one attestor must be outside the parties (n7 rejects; p8 accepts). `record_commits` and `covers` are then read as commitment_derivation states. Each of these rejects with independence_reject. No vector pins an absent or null `claimed`, the silence tokens \"\" and issuer_attested as a single string, independent in another letter case, a `claimed` that is neither a string nor an array of strings, an empty `parties` or `attestations` array, a party that does not parse, or an attestation object without `by`",
     "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate). Every identifier, whether in `parties` or an attestation's `by`, is normalized by one rule and compared only after it; the rule folds toward SAME PARTY, and an identifier it cannot decide does not parse. (1) Strip leading and trailing characters with the Unicode White_Space property, U+0009-U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000-U+200A, U+2028, U+2029, U+202F, U+205F and U+3000, and no others (n13/p33); a character without the property is not stripped, so an identifier padded with U+FEFF (a format character) or U+001C (a control character without the property) does not parse (n52/n53). (2) A 0x-address (the prefix 0x or 0X, then 40 hex digits in either case) compares lowercased, its prefix included, so an EIP-55 checksum variant, the all-lowercase form and 0X with upper-case digits are one address (n106; p56 accepts an outside attestor written 0X with upper-case digits). (3) Otherwise the identifier must be a scheme-qualified identifier in ASCII: a letter, then letters, digits, `+`, `.` or `-`, then one colon, then one or more printable non-space ASCII characters, letters in either case. Every percent-encoded triplet (either hex case) that encodes an unreserved character (A-Z a-z 0-9 `-` `.` `_` `~`) is decoded, in one left-to-right pass that is never repeated (RFC 3986 sections 6.2.2.2 and 2.4; n48/n49/n54/p32/p34); if any `%` remains, the identifier does not parse (n50/n55/n56). If it contains `?` (a query component), or its path, from the colon to the first `?` or `#`, has a segment that is exactly `.` or `..` (a dot-segment, RFC 3986 section 3.3), it does not parse (n59/n60/n61/n67/n70; neither class has an accepting twin, and p36, dots within segments, is the near-miss that accepts beside the dot-segments). The result is lowercased, the scheme included (n45/n58/p31), and every trailing `/`, `.` and `#` is removed (n31/n46/n47/p31); if a `#` remains (a fragment with content), it does not parse (n62; p31's trailing `#` alone is the near-miss that accepts); and it must still match the grammar with a lowercase scheme and a non-empty path (n51). (4) Anything else does not parse (n14). (5) Two identifiers name the same party when they are equal after normalization, or when both name the same 0x-address: a 0x-address names itself, and a scheme-qualified identifier whose final colon-separated component is a 0x-address (a CAIP-10 account such as eip155:8453:0x..., a did:pkh such as did:pkh:eip155:1:0x...) names that address, whatever the scheme (did:ethr:0x..., ethereum:0x..., acct:0x... as well), on either side and whatever the chain reference (n63/n64/p37 for CAIP-10 and did:pkh; n65/n66/n69/p38 for other schemes, acct: included). An identifier that does not parse after normalization fails the claim closed: it is never counted outside the parties. Not folded, and pinned by no vector: scheme-specific equivalences beyond these (RFC 3986 section 6.2.3, such as a default port) and names that resolve to an address (an ENS name, a did:web); two such identifiers compare as distinct. Digests compare after the same whitespace strip, lowercased",
     "witnessed_inclusion": "witness material (a cosigned checkpoint, inclusion proofs) presented beside a chain set is permitted and NOT load-bearing for completeness: it evidences existence and the log's consistency, never no-omission; a set with a gap rejects on the gap regardless of how many parties cosigned the log (p24/n34). Completeness requires a non-party attestation over the sequence itself, made at issuance",
     "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",
     "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a string that is not empty after the whitespace strip of identifier_normalization (a result with no transaction member commits to no settlement: n104/p54; a record with no settlement result commits to no settlement: n105/p55); `network` when settlement_result.network is such a string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation — position is the independence axis, decided before scope is",
+    "boundary_binding": "a boundary event changes a stream's verification parameters (a witness, a signature suite, a canonical form) inside the stream, and must bind the prefix it extends and its own position in that prefix's continuation. `boundary_event` must be a JSON object; its members are the record's own (defined_members), and the suite reads `prefixDigest`, `position` and `attestedPrefixLength`. `prefix` must be a non-empty array, and `prefixDigest` must equal keccak256(utf8(canonical(prefix))), the digest of the prefix as written, across a suite transition too: p18 accepts, and so does p20, a transition; n29, the successor suite's digest of the same bytes, rejects, and so does n96, a prefix with no canonical form. `position` must be an integer equal to the number of entries in `prefix`: n25 carries none and n168 carries 2 for a three-entry prefix, and both reject. `attestedPrefixLength`, the number of prefix entries the event's attestation reaches, may be absent; when the member is present, whatever its value, it must be an integer token from 0 to the number of entries in `prefix`, inclusive, whether or not coverage is claimed. 0 with no coverage claimed accepts (p63, an attestation that reaches nothing and claims nothing), and so does the prefix's own length (p18, p20; p64 on a two-entry prefix); -1 (n154), a length past the prefix (n153, one past, beside coverage; n155, 99; n159, 3 for a two-entry prefix) and a value that is not an integer token (n156, the token 0.0; n157, false; n158, null) reject. `covered_through`, the position through which coverage is claimed, may be absent, and a null reads as absent; when it is present it must be a non-negative integer, the event must carry `attestedPrefixLength` (n167 carries none and rejects), and the coverage may not exceed it: n26 claims coverage through 3 over an empty attestation and n166 over an attestation that reaches 2, and both reject. Each of these rejects with boundary_reject. No vector pins a `boundary_event` that is not an object, a `prefix` that is empty or not an array, an unparseable `prefixDigest`, a `position` that is not an integer, a null `covered_through`, or a `covered_through` that is negative or not an integer",
     "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
     "defined_members": {"rule": DEFINED_MEMBERS_RULE, "closed": DEFINED_MEMBERS_SPEC},
     "vector_provenance": "every entry names `author`, the GitHub account that authored the commit adding the vector (git log --diff-filter=A -- vectors/<file>), and `origin` = {class, source}. origin.class is closed: synthetic (inputs constructed in tools/gen_vectors.py); live-ledger (a record from the live ledger, unaltered, with a provenance block in the vector); live-ledger-derived (a live-ledger value reused or altered); contributed (an outside contributor's PR, commit, fixture or published reproduction, named in origin.source, including vectors written here on such material). Among vectors written here, the class follows the value that distinguishes the vector: contributed where it is the contributor's (p39 and n78, @Rul1an's inputs; n24, his reproduction; n48, @stillmarcus24's attestor) and synthetic where the suite constructed it, beside a contributed vector or not (n42, n41's input with its second name escaped; n71, p39's payload under an escaping encoder's digest; n74, whose NFC digest equals p39's); a vector that carries a contributed fixture with a value of its own is contributed whoever altered it (n33, n95). Precedence: a vector that carries a live-ledger value is live-ledger or live-ledger-derived whoever wrote it, an outside pull request included, and names in origin.source any contributor whose input it is (n75); contributed applies only where the vector carries no live-ledger value. The live ledger's signer address used as sample data is not a live-ledger value (n9, n22-n24). Generation fails if a vector has no entry, if its live-ledger class (or its lack of one) disagrees with the live-ledger values and provenance block in its own bytes, or if it carries one of the contributed fixtures the generator recognizes in a vector's bytes (@0rkz's PayPerByte delivery digest, PR #5's decision-evidence objects, PR #6's suite-transition rule version) without crediting the contributor; a contributed input with no value of its own (a reproduction or probe written here) is declared, not derived; authorship is not decided at generation: it is checkable against git history with the command above. Credit for reporting a failure class is recorded in CONTRIBUTORS.md. Metadata only: neither engine reads it",

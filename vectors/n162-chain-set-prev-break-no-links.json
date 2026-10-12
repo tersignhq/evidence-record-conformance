@@ -1,0 +1,30 @@
+{
+  "id": "n162-chain-set-prev-break-no-links",
+  "kind": "chain_set",
+  "expect": "reject",
+  "reason": "continuity_reject",
+  "description": "p65's set, which presents no links, with its second record naming as predecessor a record the set does not carry. Each record's prev_digest must be the previous record's artifact digest whether or not links are presented, so the record rejects with continuity_reject. An engine that checks continuity only through the links accepts this vector. p65 is the accepting twin.",
+  "input": {
+    "head": {
+      "seq": 3,
+      "digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd"
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null
+      },
+      {
+        "seq": 2,
+        "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "prev_digest": "0x77859d86505189d17dc8a21600ffb6fcb9c3f21824615ef2e1e186053e658c35"
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29"
+      }
+    ]
+  }
+}

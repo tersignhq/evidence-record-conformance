@@ -1,0 +1,33 @@
+{
+  "id": "n153-boundary-attested-length-past-prefix",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p20's input with `attestedPrefixLength` 4, one past the three-entry prefix the event extends, beside coverage claimed through 3. An attestation cannot reach entries the prefix does not have, so the record rejects with boundary_reject. Until v0.5.9 the length was compared only with the coverage claimed (3 is not past 4), and this input read valid. It is the second input on which @robertolocatelli81-dev's differential (#9) found the two verifiers returning different verdicts. p20 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "digest_suite_transition",
+      "ruleVersion": "suite-transition-v1",
+      "fromSuite": "keccak256-jcs",
+      "toSuite": "sha3-256-jcs",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": 4
+    },
+    "covered_through": 3
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "n167-boundary-coverage-without-attested-length",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p18's input without `attestedPrefixLength`, coverage still claimed through 3. Coverage that names no attested length has not been checked against one, and the record rejects with boundary_reject. n25, which also carries no attested length, rejects earlier, on its missing position, so no earlier vector reached this clause. An engine that reads a missing length as the whole prefix accepts this vector. p18 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3
+    },
+    "covered_through": 3
+  }
+}

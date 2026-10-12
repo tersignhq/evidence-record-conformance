@@ -462,6 +462,13 @@ const CRITERIA = {
     if (!Number.isInteger(position)) return ["reject", "boundary_reject"];
     if (position !== prefix.length) return ["reject", "boundary_reject"];
 
+    // v0.5.9 (issue #9) — mirrors verify.py: attestedPrefixLength, wherever the member is present
+    // (key presence, so null rejects), is an integer token from 0 to the presented prefix's length.
+    if ("attestedPrefixLength" in event) {
+      const attested = event.attestedPrefixLength;
+      if (!Number.isInteger(attested) || attested < 0 || attested > prefix.length) return ["reject", "boundary_reject"];
+    }
+
     const covered = inp.covered_through;
     if (covered !== null && covered !== undefined) {
       if (!Number.isInteger(covered) || covered < 0) return ["reject", "boundary_reject"];

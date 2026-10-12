@@ -1,0 +1,13 @@
+{
+  "id": "n164-digest-integer-past-negative-bound",
+  "kind": "digest_recompute",
+  "expect": "reject",
+  "reason": "number_domain_reject",
+  "description": "-2^53, one past the I-JSON interoperable range on the negative side; the range is symmetric (|n| <= 2^53-1). The expected digest is the one an engine computes if it serializes the number anyway, so an engine that bounds only positive integers accepts this vector. The negative twin of n11; p66 is the accepting twin.",
+  "input": {
+    "payload": {
+      "n": -9007199254740992
+    },
+    "expected_digest": "0x42835dc0227bd233cbd0a537ba39a5b099c48339b729fdf46762e90566999e37"
+  }
+}
