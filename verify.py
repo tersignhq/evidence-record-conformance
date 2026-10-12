@@ -953,7 +953,7 @@ def check_defined_members(kind, inp):
     other value (n123-n125). Names compare as exact strings — no case folding, no trimming, no
     Unicode normalization, no confusable mapping (n126-n128, n149) — against the list for THIS
     kind and THIS object (n129, n130). Decided before the criterion, in every kind and inside the
-    closed objects too (n133-n145)."""
+    closed objects too (n133-n145, n150-n152)."""
     if not isinstance(inp, dict):
         return None
     for path, obj, names in _closed_objects(kind, inp):

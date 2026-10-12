@@ -26,8 +26,9 @@ digest_recompute, payload_text and the objects the binding and boundary criteria
 duplicate names that differ only in how a surrogate pair is written, one half raw and the other
 escaped; since v0.5.8 defined members on every input — an undefined member at the top level
 under each value class, the names every JavaScript object inherits, letter-case, fullwidth and
-trailing-space variants of each name, and, in each object one level down (the first object of an
-array), an undefined member and a variant of one of its names, closed, not read or open), run
+trailing-space variants of each name, and, one level down, an undefined member and a variant of
+the first name in each object, and an undefined member and `constructor` in the first object of
+each array, closed, not read or open), run
 through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
 Any divergence exits non-zero and prints the offending input.
@@ -428,10 +429,10 @@ def _member_mutations(kind, inp):
     """v0.5.8 (issue #17): defined members. On every input: an undefined member at the top level
     under each value class (a number, null, the empty string, object and array, false, zero);
     the names every JavaScript object inherits, `__proto__` included; a letter-case, a fullwidth
-    and a trailing-space variant of each name the input carries, with the same value; and, in
-    each object the input carries one level down (the first object of an array), an undefined
-    member and a variant of one of its names, whether that object is closed, permitted and not
-    read, or open."""
+    and a trailing-space variant of each name the input carries, with the same value; and, one
+    level down, an undefined member and a variant of the first name in each object the input
+    carries, and an undefined member and `constructor` in the first object of each array,
+    whether that object is closed, permitted and not read, or open."""
     out = []
     if not isinstance(inp, dict):
         return out

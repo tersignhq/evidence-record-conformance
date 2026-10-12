@@ -25,7 +25,7 @@ def ids(lo, hi, prefix="n"):
     return [f"{prefix}{i}" for i in range(lo, hi + 1)]
 
 
-ALL_REJECTS = ids(107, 149)
+ALL_REJECTS = ids(107, 152)
 ORDER = {"chain_set": "n133", "digest_recompute": "n134", "canonical_bytes": "n135", "chain_link": "n136",
          "chain_commitment": "n137", "anchor_relation": "n138", "phase_claim": "n139",
          "independence_claim": "n140", "offer_binding": "n141", "decision_evidence_binding": "n142",
@@ -50,9 +50,9 @@ PY = {
     "top-level-only": ("        if path == \"input\":\n            yield path, inp, names\n            continue\n",
                        "        if path == \"input\":\n            yield path, inp, names\n        continue\n",
                        ["n118", "n119", "n120", "n121", "n122", "n127", "n128", "n130", "n144", "n145",
-                        "n146", "n147", "n148"]),
+                        "n146", "n147", "n148", "n150", "n151", "n152"]),
     "no-array-entries": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "enumerate(entries[:0])"),
-                         ["n119", "n121", "n122", "n127", "n128", "n145", "n146", "n147", "n148"]),
+                         ["n119", "n121", "n122", "n127", "n128", "n145", "n146", "n147", "n148", "n150", "n152"]),
     "first-entry-only": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "enumerate(entries[:1])"),
                          ["n119", "n121", "n122", "n128"]),
     "last-entry-only": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "list(enumerate(entries))[-1:]"),
@@ -86,11 +86,11 @@ PY = {
     "one-list-for-all": (PY_NAMES,
                          "if name not in frozenset().union(*(s for t in DEFINED_MEMBERS.values() for s in t.values()))]",
                          ["n129", "n130"]),
-    "criterion-first": (PY_COMPOSE, PY_CRITERION_FIRST, ids(133, 145)),
+    "criterion-first": (PY_COMPOSE, PY_CRITERION_FIRST, ids(133, 145) + ids(150, 152)),
     "nested-after-criterion": (PY_COMPOSE,
                                "        if isinstance(inp, dict) and any(n not in DEFINED_MEMBERS[kind]['input'] for n in inp):\n"
                                "            return check_defined_members(kind, inp)\n" + PY_CRITERION_FIRST,
-                               ["n144", "n145"]),
+                               ["n144", "n145", "n150", "n151", "n152"]),
     "close-not-read-chain-set": (
         "    \"chain_set\": {\"input\": _CHAIN_INPUT, \"input.head\": frozenset({\"seq\", \"digest\"}),\n",
         "    \"chain_set\": {\"input\": _CHAIN_INPUT, \"input.witness\": frozenset({\"checkpoint\", \"inclusion\"}), "
@@ -142,7 +142,7 @@ TS = {
                               ["n132"]),
     "ts-criterion-first": (TS_COMPOSE,
                            "[kind, (inp) => ((r) => (r[0] !== \"valid\" ? r : checkDefinedMembers(kind, inp) ?? r))(criterion(inp))]",
-                           ids(133, 145)),
+                           ids(133, 145) + ids(150, 152)),
     "ts-first-entry-only": (TS_ENTRIES, TS_ENTRIES.replace("entries.filter(isObject)", "entries.filter(isObject).slice(0, 1)"),
                             ["n119", "n121", "n122", "n128"]),
     "ts-last-entry-only": (TS_ENTRIES, TS_ENTRIES.replace("entries.filter(isObject)", "entries.filter(isObject).slice(-1)"),

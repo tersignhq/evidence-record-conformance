@@ -2592,7 +2592,7 @@ vectors = [
 # defines added to its input, and no sentence said what a verifier does with one. Ruling: such a
 # member rejects (`defined_members` in MANIFEST.json, unknown_member_reject). Every vector below
 # is another vector's input with one change; the vector it was taken from is its accepting twin
-# (for n133-n145, the reject whose reason it overrides; n148's twin is p62, p9's input with a
+# (for n133-n145 and n150-n152, the reject whose reason it overrides; n148's twin is p62, p9's input with a
 # string attestation first, and p61's is p57). Earlier vector files are unchanged.
 PROBE = "x_unknown_2026"   # the member and value of the probe published in issue #17
 UNDEFINED = "x_undefined"  # the member the suite adds where the probe did not reach
@@ -2871,11 +2871,33 @@ defined_member_vectors += [
     },
 ]
 
+# ---- the order rule inside the other closed objects (n144 pins a chain_set `head`, n145 an attestation)
+defined_member_vectors += [
+    {
+        "id": "n150-unknown-member-in-record-before-criterion",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": f"n4's input, which rejects with completeness_reject, with `{UNDEFINED}: 1` added to its first `records` entry. A member inside a closed object is decided before the criterion, as one at the top level is (n133), so the record rejects with unknown_member_reject. An engine that checks the objects inside `input` only after the criterion accepts reports n4's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n4"], _set_in(("records", 0), UNDEFINED, 1)),
+    },
+    {
+        "id": "n151-unknown-member-in-commitment-head-before-criterion",
+        "kind": "chain_commitment", "expect": "reject", "reason": _UM,
+        "description": f"n36's input, which rejects with continuity_reject, with `{UNDEFINED}: 1` added to `head`. A member inside a closed object is decided before the criterion, as one at the top level is (n137), so the record rejects with unknown_member_reject. An engine that checks the objects inside `input` only after the criterion accepts reports n36's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n36"], _set_in(("head",), UNDEFINED, 1)),
+    },
+    {
+        "id": "n152-unknown-member-in-commitment-record-before-criterion",
+        "kind": "chain_commitment", "expect": "reject", "reason": _UM,
+        "description": f"n36's input, which rejects with continuity_reject, with `{UNDEFINED}: 1` added to its first `records` entry. A member inside a closed object is decided before the criterion, as one at the top level is (n137), so the record rejects with unknown_member_reject. An engine that checks the objects inside `input` only after the criterion accepts reports n36's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n36"], _set_in(("records", 0), UNDEFINED, 1)),
+    },
+]
+
 # Generation gate: each new vector's verdict and reason under verify.py's CHECKS. For a vector
 # that pins the order, the criterion alone on the same input (no member check) reads the reason
 # of the rejecting vector it was taken from; for every other reject it reads valid, so a vector
 # that rejects for any reason other than the undefined member cannot land.
-_DECIDED_FIRST = {"n133": "n4", "n144": "n4", "n145": "n7",
+_DECIDED_FIRST = {"n133": "n4", "n144": "n4", "n145": "n7", "n150": "n4", "n151": "n36", "n152": "n36",
                   **{_id.split("-", 1)[0]: _b for _id, _k, _b in _ORDER}}
 for _v in defined_member_vectors:
     _got = CHECKS[_v["kind"]](_v["input"])[:2]
@@ -3128,6 +3150,9 @@ PROVENANCE = {
     "n147-unknown-member-in-attestation-no-claim": _SYN,
     "n148-unknown-member-after-non-object-entry": _SYN,
     "n149-member-name-trailing-space": _SYN,
+    "n150-unknown-member-in-record-before-criterion": _SYN,
+    "n151-unknown-member-in-commitment-head-before-criterion": _SYN,
+    "n152-unknown-member-in-commitment-record-before-criterion": _SYN,
     "p61-chain-commitment-not-read-contents": _SYN,
     "p62-attestation-not-an-object-no-claim": _SYN,
 }
@@ -3214,7 +3239,7 @@ DEFINED_MEMBERS_RULE = (
     "member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may "
     "be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at "
     "the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its "
-    "accepting twin, the same bytes without the member. Every object in `attestations` is closed, whoever the attestor, "
+    "accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, "
     "wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation "
     "by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. "
     "A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject "
@@ -3227,8 +3252,10 @@ DEFINED_MEMBERS_RULE = (
     "like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's "
     "prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input "
     "that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member "
-    "added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and n144 and n145 with the member "
-    "inside `head` (n4) and inside an attestation (n7). A closed object inside `input` that is not a JSON object has no members "
+    "added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and in each closed object inside "
+    "`input`, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first "
+    "record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first "
+    "attestation). A closed object inside `input` that is not a JSON object has no members "
     "to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose "
     "attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON "
     "object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite "
