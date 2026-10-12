@@ -2,7 +2,9 @@
 """Mutation run for the rules v0.5.9 pins (issue #9), stdlib only.
 
 The boundary_binding rule (`attestedPrefixLength` wherever it is present, coverage, position), and
-the chain_set, offer_binding and number-domain clauses #9's ablations found no vector reaching alone.
+five of the coverage gaps #9's audit listed (chain_set, offer_binding, the number domain), and the
+clauses the v0.5.9 review found no vector reaching alone (an absent attested length, a numeric string,
+a null `covered_through`, an unparseable head digest, a non-object attestation beside an outside one).
 Each mutant is a one-site change to verify.py or tools/cross_check_ts.mjs, applied in a scratch copy
 by tools/mutate_members.py's runner: it is KILLED when the engine's run exits non-zero AND every
 vector named for it fails; the unmutated copy must pass first and again at the end.
@@ -58,6 +60,21 @@ PY = {
                                         "        return \"valid\", None, \"no offer digest to compare\"\n" + PY_OFFER, ["n163"]),
     "positive-bound-only": (PY_BOUND, "        if value > 2**53 - 1:\n", ["n164"]),
     "negative-bound-exclusive": (PY_BOUND, "        if value > 2**53 - 1 or value <= -(2**53 - 1):\n", ["p66"]),
+    # ---- review round
+    "attested-required": (PY_PRESENT, "    if \"attestedPrefixLength\" not in event:\n"
+                                      "        return \"reject\", \"boundary_reject\", \"no attested length\"\n" + PY_PRESENT, ["p67"]),
+    "attested-string-coerced": ("        attested = event[\"attestedPrefixLength\"]\n",
+                                "        attested = event[\"attestedPrefixLength\"]\n"
+                                "        if isinstance(attested, str) and attested.isdigit():\n            attested = int(attested)\n",
+                                ["n170"]),
+    "coverage-null-as-absent": ("    if \"covered_through\" in inp:\n        covered = inp[\"covered_through\"]\n",
+                                "    covered = inp.get(\"covered_through\")\n    if covered is not None:\n", ["n171"]),
+    "head-digest-present-only": ("    if head_digest is None:\n        return \"reject\", \"completeness_reject\", "
+                                 "\"head digest is not a parseable 32-byte hex digest\"\n",
+                                 "    if \"digest\" not in head:\n        return \"reject\", \"completeness_reject\", \"no head digest\"\n",
+                                 ["n169"]),
+    "attestation-non-object-skipped": ("        if not isinstance(a, dict) or \"by\" not in a:\n",
+                                       "        if not isinstance(a, dict):\n            continue\n        if \"by\" not in a:\n", ["n172"]),
 }
 
 TS_ATTESTED = "      if (!Number.isInteger(attested) || attested < 0 || attested > prefix.length) return [\"reject\", \"boundary_reject\"];\n"
@@ -85,6 +102,20 @@ TS = {
                                                      "&& !(\"offerDigest\" in inp.receipt)) return [\"valid\", null];\n" + TS_OFFER,
                                            ["n163"]),
     "ts-positive-bound-only": ("    if (!Number.isSafeInteger(v)) throw", "    if (v > Number.MAX_SAFE_INTEGER) throw", ["n164"]),
+    # ---- review round
+    "ts-attested-required": (TS_PRESENT, "    if (!(\"attestedPrefixLength\" in event)) return [\"reject\", \"boundary_reject\"];\n" + TS_PRESENT,
+                             ["p67"]),
+    "ts-attested-string-coerced": (TS_ATTESTED, TS_ATTESTED.replace(
+        "if (!Number.isInteger(attested)",
+        "if (!Number.isInteger(typeof attested === \"string\" && /^[0-9]+$/.test(attested) ? Number(attested) : attested)"), ["n170"]),
+    "ts-coverage-null-as-absent": ("    if (\"covered_through\" in inp) {\n      const covered = inp.covered_through;\n",
+                                   "    const covered = inp.covered_through;\n    if (covered !== null && covered !== undefined) {\n", ["n171"]),
+    "ts-head-digest-present-only": ("    if (headDigest === null) return [\"reject\", \"completeness_reject\"];\n",
+                                    "    if (!(\"digest\" in head)) return [\"reject\", \"completeness_reject\"];\n", ["n169"]),
+    "ts-attestation-non-object-skipped": (
+        "      if (typeof a !== \"object\" || a === null || Array.isArray(a) || !(\"by\" in a)) return [\"reject\", \"independence_reject\"];\n",
+        "      if (typeof a !== \"object\" || a === null || Array.isArray(a)) continue;\n"
+        "      if (!(\"by\" in a)) return [\"reject\", \"independence_reject\"];\n", ["n172"]),
 }
 
 

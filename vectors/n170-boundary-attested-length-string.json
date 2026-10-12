@@ -1,0 +1,30 @@
+{
+  "id": "n170-boundary-attested-length-string",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p63's input with `attestedPrefixLength` written as the string \"0\". A string is not an integer token, whatever it spells, so the record rejects with boundary_reject. An engine that converts a numeric string to an integer before the range check accepts this vector. p63 is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": "0"
+    }
+  }
+}

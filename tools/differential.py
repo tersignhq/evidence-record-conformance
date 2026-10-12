@@ -32,7 +32,9 @@ each array, closed, not read or open; since v0.5.9 (#9) `attestedPrefixLength` u
 values beside four coverage forms and absent, `covered_through` and `position` at their
 fork-prone shapes, the chain head's digest absent, null, malformed, a number, empty, zero bytes
 and the first record's, a first record naming a predecessor (outside, and as zero bytes), the
-links removed with the prevs intact and broken, and a receipt with no `offerDigest`), run
+links removed with the prevs intact and broken, and a receipt with no `offerDigest`; since the
+v0.5.9 review an `attestedPrefixLength` and a `position` of 5000 digits, past CPython's default
+4300-digit conversion limit, and a non-object attestation appended beside the others), run
 through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
 Any divergence exits non-zero and prints the offending input.
@@ -391,6 +393,10 @@ def mutations(kind, inp):
                 m = json.loads(json.dumps(inp))
                 m["attestations"][0]["by"] = by
                 out.append((f"attestor=alias-{tag}", kind, m))
+        if isinstance(inp.get("attestations"), list):
+            m = json.loads(json.dumps(inp))
+            m["attestations"].append("0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6")
+            out.append(("attestations+=non-object", kind, m))
         if isinstance(inp.get("parties"), list) and inp["parties"] and isinstance(inp["parties"][0], str):
             for tag, party in id_variants(inp["parties"][0]):
                 m = json.loads(json.dumps(inp))
@@ -451,7 +457,7 @@ def mutations(kind, inp):
         n = len(inp["prefix"]) if isinstance(inp.get("prefix"), list) else 3
         absent = object()
         for value in (-1, 0, 1, n - 1, n, n + 1, 99, 2**53, -(2**53), 0.0, float(n), "0", str(n),
-                      True, False, None, [n], {}):
+                      True, False, None, [n], {}, 10**5000, -(10**5000)):
             for cov_tag, cov in (("no-coverage", absent), ("coverage-0", 0), ("coverage-n", n),
                                  ("coverage-null", None)):
                 m = json.loads(json.dumps(inp))
@@ -471,7 +477,7 @@ def mutations(kind, inp):
             out.append((f"attestedPrefixLength-absent+{cov_tag}", kind, m))
         for cov in (-1, n + 1, float(n), str(n), True, [n]):
             with_key("covered_through", cov, f"covered_through={cov!r}")
-        for pos in (n - 1, n + 1, float(n), str(n), True, None):
+        for pos in (n - 1, n + 1, float(n), str(n), True, None, 10**5000):
             m = json.loads(json.dumps(inp))
             m["boundary_event"]["position"] = pos
             out.append((f"position={pos!r}", kind, m))

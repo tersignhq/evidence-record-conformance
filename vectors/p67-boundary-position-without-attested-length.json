@@ -1,0 +1,28 @@
+{
+  "id": "p67-boundary-position-without-attested-length",
+  "kind": "boundary_binding",
+  "expect": "valid",
+  "description": "n25's input with `position` 3, the number of entries in the prefix it extends, and nothing else added: the event carries no `attestedPrefixLength`, and no coverage is claimed. `attestedPrefixLength` may be absent, so the record accepts. @robertolocatelli81-dev's ablations (#9) noted that n25 also lacks `attestedPrefixLength` and `covered_through`, so it did not pin the position rule on its own; as n25's accepting twin, this vector does. An engine that requires an attested length fails it.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3
+    }
+  }
+}

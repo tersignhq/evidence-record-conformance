@@ -1,0 +1,31 @@
+{
+  "id": "n171-boundary-coverage-null",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "boundary_reject",
+  "description": "p63's input with `covered_through: null` added. The member is present, so it is read, and null is not a non-negative integer: the record rejects with boundary_reject, by the same key-presence rule as an `attestedPrefixLength` of null (n158). An engine that tests the value against null or undefined reads it as absent and accepts this vector. p63, which carries no `covered_through`, is the accepting twin.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": 0
+    },
+    "covered_through": null
+  }
+}

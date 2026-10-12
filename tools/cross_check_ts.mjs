@@ -469,8 +469,9 @@ const CRITERIA = {
       if (!Number.isInteger(attested) || attested < 0 || attested > prefix.length) return ["reject", "boundary_reject"];
     }
 
-    const covered = inp.covered_through;
-    if (covered !== null && covered !== undefined) {
+    // Key presence here too (v0.5.9 review), as in verify.py: a present null rejects (n171).
+    if ("covered_through" in inp) {
+      const covered = inp.covered_through;
       if (!Number.isInteger(covered) || covered < 0) return ["reject", "boundary_reject"];
       const attested = event.attestedPrefixLength;
       if (!Number.isInteger(attested)) return ["reject", "boundary_reject"];

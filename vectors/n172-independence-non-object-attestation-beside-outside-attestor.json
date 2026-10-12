@@ -1,0 +1,25 @@
+{
+  "id": "n172-independence-non-object-attestation-beside-outside-attestor",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "p8's input with a string appended to `attestations`: the ledger's address written where an attestation object belongs. Under an independence claim every attestation must be a JSON object carrying `by`, so the record rejects with independence_reject although p8's attestor outside the parties is still there. n16's only attestation is a string, so an engine that skips entries that are not objects still rejects n16, for want of an attestor outside the parties; it accepts this vector. p8 is the accepting twin.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger"
+      },
+      "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6"
+    ]
+  }
+}

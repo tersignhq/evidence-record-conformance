@@ -65,7 +65,7 @@ matches itself and nothing else, with no case folding, no whitespace trimming an
 | strings in the digest domain (UTF-8 of the canonical text, every code point outside RFC 8785's escape set as is, never normalized) | p39 (Latin-1 range), p40 (BMP), p41 (**astral**), p42 (**decomposed**, NFD), p45 (**U+2028 and U+2029**), p46 (**decomposed name**), p51 (**`<`, `>` and `&`**), p52 (**DEL and C1 controls**) | n71 **escaped before hashing**, n72 **Latin-1 bytes**, n73 **CESU-8**, n74 **NFC-normalized**, n85 **separators escaped**, n86 **name NFC-normalized**, n98 **HTML-escaped**, n102 **DEL and C1 escaped** (each the same payload under the digest a wrong encoder computes) | `recompute_mismatch` |
 | unpaired surrogates (no canonical form) | p44 (**a surrogate pair**, as a name and a value) | n81 **lone high surrogate in a value**, n82 **lone low surrogate in a name**, n83 / n84 **lone surrogate in the digest domain**, in a value and in a name (p14 is n84's twin; each of the four forked v0.5.4's engines), n92 **lone surrogate after a float token** (the shape is decided before the numbers) | `canonicalization_reject` |
 | chain link (artifact ∥ prev ∥ seq; seq an integer token in [1, 2^53−1]) | p4 (seq 1, the lower bound), p43 (2^53−1, the upper bound) | n3 wrong predecessor, n75 **seq 0**, n76 **seq 2^53**, n77 **float `seq` token**, n97 **exponent `seq` token** (`1e0`), n87 / n88 / n89 **`seq` a string, a boolean, null** | `continuity_reject` |
-| per-seller set continuity + completeness | p6 (with per-record links), p65 (**no links**: continuity on the prev pointers alone) | n4 **silently omitted record**, n17 **renumbered omission** (stale link), n38 **float `seq` token** (p6's set with `head.seq` written `3.0` — `JSON.parse` collapses it to `3`; a sequence number is an integer token), n165 **head with no digest** (`completeness_reject`), n160 **head digest not the final record's**, n161 **first record names a predecessor**, n162 **prev break in a set with no links** | `completeness_reject`, `continuity_reject` |
+| per-seller set continuity + completeness | p6 (with per-record links), p65 (**no links**: continuity on the prev pointers alone) | n4 **silently omitted record**, n17 **renumbered omission** (stale link), n38 **float `seq` token** (p6's set with `head.seq` written `3.0` — `JSON.parse` collapses it to `3`; a sequence number is an integer token), n165 **head with no digest** and n169 **head digest that does not parse** (`completeness_reject`), n160 **head digest not the final record's**, n161 **first record names a predecessor**, n162 **prev break in a set with no links** | `completeness_reject`, `continuity_reject` |
 | witnessed inclusion vs completeness | p24 (**witnessed complete set**) | n34 **witnessed inclusion is not completeness** | `completeness_reject` |
 | chain commitment (accumulator over counter-signed links) | p26, p27 (live) | n36 **substituted prefix**, n37 **last-link-only accumulator** | `continuity_reject` |
 | duplicate sequence number (equivocation) | p28 (issuer-only, **distinct seqs**), p29 (**committed prefix**) | n39 **two records at one seq** (issuer-only), n40 **equivocating record at a committed position** | `completeness_reject`, `continuity_reject` |
@@ -73,9 +73,9 @@ matches itself and nothing else, with no case folding, no whitespace trimming an
 | economic-phase separation | p7, p47–p50 (**each vocabulary word as itself**) | n6 funding-as-delivery, n90 **delivery-as-funding** (an earlier phase), n18 **unrecognized phase**, n78 **no `economic_phase`**, n79 **record not an object**, n80 **unrecognized phase presented as itself** (the vocabulary clause on its own), n91 **phase in another letter case**, n99 **`presented_as` in another letter case**, n100 **no `presented_as`**, n101 **refund-as-reversal** (no vector pins another pair of words) | `phase_reject` |
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15, p60 | n19 **offer substitution** (same resource/network, different amount/payTo), n94 **lone surrogate in the offer**, n163 **receipt with no `offerDigest`** (p60's receipt without it) | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution**, n95 **lone surrogate in the evidence** | `binding_reject` |
-| boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written), p63 (**an empty attestation claiming no coverage**, #9), p64 (**attested length equal to a two-entry prefix**) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates), n96 **lone surrogate in the prefix**, n168 **position short of the prefix's end**, n166 **coverage past a non-empty attestation**, n167 **coverage with no attested length**, and the attested length wherever present (v0.5.9): n153 **one past the prefix** (#9), n155 **99**, n159 **past a two-entry prefix**, n154 **−1**, n156 **the token `0.0`**, n157 **`false`**, n158 **`null`** | `boundary_reject` |
+| boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written), p63 (**an empty attestation claiming no coverage**, #9), p64 (**attested length equal to a two-entry prefix**), p67 (**no attested length**, n25's twin) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates), n96 **lone surrogate in the prefix**, n168 **position short of the prefix's end**, n166 **coverage past a non-empty attestation**, n167 **coverage with no attested length**, and the attested length wherever present (v0.5.9): n153 **one past the prefix** (#9), n155 **99**, n159 **past a two-entry prefix**, n154 **−1**, n156 **the token `0.0`**, n157 **`false`**, n158 **`null`**, n170 **the string `"0"`**, and n171 **`covered_through: null`** | `boundary_reject` |
 | defined members (every kind's `input`, and the closed objects inside it, define exact names) | for n107–n132 and n146–n149, the vector each input was taken from (n133–n145 and n150–n152 are taken from rejecting vectors and have no accepting twin); p57 (`witness` and `attestations` in **chain_commitment**), p58 / p61 (an undefined member **inside** `witness` and the attestation beside a chain set, not read, in chain_set and in chain_commitment), p59 / p60 (a member the suite does not name in a **settlement result** and in a **receipt**, which are open), p62 (a **string attestation** in a record that claims no independence) | n107–n117 **an undefined member at the top level**, one per kind (the member from #17), n118–n122 **inside each closed object**, n123–n125 **null, empty string, empty object**, n126 **letter case**, n127 **Cyrillic homoglyph**, n128 **fullwidth form**, n149 **trailing space**, n129 / n130 **a member another kind defines** (`payload_text` in digest_recompute; `acc` in a chain_set head), n131 **`constructor`**, n132 **`__proto__`**, n133 / n134–n143 **decided before the criterion**, in every kind, n144 / n150 / n151 / n152 / n145 **inside each closed object, before the criterion**, n146 **a party's attestation**, n147 **an attestation under no claim**, n148 **after an entry that is not an object** | `unknown_member_reject` |
-| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present), p54 (**settlement result naming a transaction**, n104's twin), p55 (**delivery scope over a record with no settlement result**, n105's twin), p56 (**an outside attestor written `0X` with upper-case digits**, n106's twin) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one), n104 **settlement result with no `transaction` member** (n21 pins the empty string), n105 **settlement claimed over a delivery-only record**, n106 **a party's address in another letter case** (an EIP-55 checksum form against lowercase, and `0X` with upper-case digits) | `independence_reject` |
+| independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present), p54 (**settlement result naming a transaction**, n104's twin), p55 (**delivery scope over a record with no settlement result**, n105's twin), p56 (**an outside attestor written `0X` with upper-case digits**, n106's twin) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n172 **non-object attestation beside an outside attestor**, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one), n104 **settlement result with no `transaction` member** (n21 pins the empty string), n105 **settlement claimed over a delivery-only record**, n106 **a party's address in another letter case** (an EIP-55 checksum form against lowercase, and `0X` with upper-case digits) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
 
@@ -184,7 +184,8 @@ them or by rejecting them for another reason.
 | a number outside the vector domain (I-JSON integers) read as a number | n10, n11, n35, n103 | `number_domain_reject` |
 | duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
 | a member the suite does not define read as absent | n107–n152 | `unknown_member_reject` |
-| an attested prefix length read only beside claimed coverage | n154, n156–n159 | `boundary_reject` |
+| an attested prefix length read only beside claimed coverage | n154, n156–n159, n170 | `boundary_reject` |
+| a boundary member read by value, so a present `null` reads as absent | n158, n171 | `boundary_reject` |
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
 
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
@@ -192,9 +193,10 @@ them or by rejecting them for another reason.
 **From the clean-room run in [#9](https://github.com/tersignhq/evidence-record-conformance/issues/9)
 (2026-09-29, against `0eda303`).** Its differential compared that verifier with `verify.py` on 524
 generated inputs. Two inputs split the verdicts, both `boundary_binding`, a kind `MANIFEST.json` had no
-sentence for; two more split only the reason, each a chain head with no digest. Its ablations named five rules that no vector reached on
-its own. v0.5.9 writes `boundary_binding` and `independence_claim` as `MANIFEST.json` keys, states
-`chain_set`'s reasons, and adds twenty vectors.
+sentence for; two more split only the reason, p6's and p28's inputs with the chain head's digest
+removed. Its audit listed eleven coverage gaps, rules whose own ablation flipped no vector or that no
+vector carried. v0.5.9 writes `boundary_binding` and `independence_claim` as `MANIFEST.json` keys,
+states `chain_set`'s reasons, and adds twenty-five vectors.
 
 - **The attested prefix length, wherever it is present.** `attestedPrefixLength` was read only beside
   `covered_through`, so -1, 99 or a length past the prefix passed when no coverage was claimed, and a
@@ -202,44 +204,63 @@ its own. v0.5.9 writes `boundary_binding` and `independence_claim` as `MANIFEST.
   presented prefix's length whenever the member is present. The two differential inputs are pinned:
   `p63` (n26's input without `covered_through`: an empty attestation that claims no coverage) accepts,
   and `n153` (p20's input with `attestedPrefixLength` 4, one past the prefix) rejects. So do `n154` (-1),
-  `n155` (99), `n156` (the token `0.0`), `n157` (`false`), `n158` (`null`) and `n159` (3 for a two-entry
-  prefix, which `p64` accepts at 2). `n166` (coverage past a non-empty attestation), `n167` (coverage with
-  no attested length) and `n168` (a position short of the prefix's end) pin three clauses of the new
-  key that no earlier vector reached alone.
-- **Five rules, one vector each.** `n160` (`head.digest` names the second record, not the final one),
-  `n161` (the first record names a predecessor), `n162` (a prev break in a set with no links; `p65` is that
-  set unbroken), `n163` (a receipt with no `offerDigest`; `p60` is its twin) and `n164` (−2^53, past the
-  negative bound; `p66` accepts −(2^53−1)).
+  `n155` (99), `n156` (the token `0.0`), `n157` (`false`), `n158` (`null`), `n170` (the string `"0"`) and
+  `n159` (3 for a two-entry prefix, which `p64` accepts at 2). `n166` (coverage past a non-empty
+  attestation), `n167` (coverage with no attested length) and `n168` (a position short of the prefix's
+  end) pin three clauses of the new key that no earlier vector reached alone. The member may be absent:
+  `p67`, n25's input with its position and nothing else, accepts, so n25 now rejects on its missing
+  position alone, which #9's ablation of `position` found no vector showing.
+- **Coverage by key presence.** `covered_through` is read whenever the member is present, as
+  `attestedPrefixLength` is, so a present `null` rejects (`n171`). v0.5.8's engines read it as absent,
+  and no earlier vector carried one.
+- **Five of those gaps, one vector each.** `n160` (`head.digest` names the second record, not the final
+  one), `n161` (the first record names a predecessor), `n162` (a prev break in a set with no links; `p65`
+  is that set unbroken), `n163` (a receipt with no `offerDigest`; `p60` is its twin) and `n164` (−2^53,
+  past the negative bound; `p66` accepts −(2^53−1)).
 - **An unreadable head.** `n165` is p6's input with `head.digest` removed, one of the two inputs on which
   the verifiers named different reasons: `completeness_reject`, chain_set's reason for a head or a sequence it
-  cannot read, decided before any record is read. `chain_set` now says so, and says that n38's `3.0`
-  head sequence number rejects with the same reason, not with `number_domain_reject`.
+  cannot read, decided before any record is read. `n169` pins the same reason for a head digest that is
+  present and does not parse (0x and 62 hex digits). `chain_set` now says so, and says that n38's `3.0`
+  head sequence number rejects with the same reason, not with `number_domain_reject`. It also states
+  that a `prev_digest` of 32 zero bytes reads as null wherever it sits, so a later record that names one
+  rejects; no vector pins that.
 - **The independence claim.** `independence_claim` in `MANIFEST.json` states the closed claim vocabulary,
   the claim set, and the shape a claimed record must have, with n8 (an unrecognized token), n9 (a claim-set
   member outside the vocabulary) and n16 (an attestation that is not an object) as rules rather than only
-  descriptions, and names the clauses no vector pins.
+  descriptions, and names the clauses no vector pins. `n172` appends a string to p8's attestations, beside
+  its attestor outside the parties, and rejects: an engine that skips entries that are not objects
+  passes n16 and fails n172.
+- **Integer tokens of any length.** CPython's `json` refuses to convert an integer token longer than 4300
+  digits by default, so `verify.py` reported an input carrying one as malformed where the TypeScript
+  engine rejects it on the criterion. `verify.py` now reads such a token as the integer it is, and both
+  engines name the same reason (an `attestedPrefixLength` of 5000 digits: `boundary_reject`). No vector
+  carries such a token; the differential compares the two engines on one.
 - **Closed crypto inputs.** The counter-signature profile read the fields it knew and ignored the rest:
   `verify_crypto.py` read cp1 with `x_unknown_2026: 1` added as `valid`. An input key outside its six fields
-  now rejects as `malformed_input` in step 1 (`cn36`; `cn37` before a malformed signature; `cn38` with a
-  `null` value). The EIP-712 profile already rejected an undefined payload field and envelope key without
-  a vector to pin it; `en34` and `en35` pin both. Each profile's manifest states the rule as
-  `defined_fields` (`crypto/README.md`).
+  now rejects as `malformed_input` in step 1 (`cn36`; `cn37` before a malformed signature; `cn39` before an
+  unsupported link version; `cn38` with a `null` value). The EIP-712 profile already rejected an undefined
+  payload field and envelope key without a vector to pin it; `en34` and `en35` pin both, `en36` and `en37`
+  before a malformed signature, and `en38` and `en39` with a `null` value. Each profile's manifest states
+  the rule as `defined_fields` (`crypto/README.md`).
 
-**Measured.** On v0.5.8's engines, `n153`–`n159` read `valid`; the other thirteen new structural vectors
-read as v0.5.9 expects, `cn36` and `cn38` read `valid`, `cn37` reads `malformed_signature`, and `en34` and
-`en35` read `malformed_input`. Every earlier vector file is byte-identical and reads as before in both
-engines. `tools/mutate_rules.py`, which CI runs, applies 33 one-site mutants (21 to `verify.py`, 12 to
-`tools/cross_check_ts.mjs`): the attested length unbounded above or below, bounded by 3, by the length
-plus one or exclusively, starting at 1, with booleans or integral floats read as integers, read by value
-sentinel or only beside coverage; coverage past the attestation or with no attested length; a position
-checked for presence only; the head digest never compared or read only at the end; predecessors checked
-from the second record on or only beside links; links required; a receipt with no digest accepted; and
+**Measured.** On v0.5.8's engines, `n153`–`n159`, `n170` and `n171` read `valid`; the other sixteen new
+structural vectors read as v0.5.9 expects, `cn36` and `cn38` read `valid`, `cn37` reads
+`malformed_signature`, `cn39` reads `unsupported_link_version`, and `en34`–`en39` read `malformed_input`.
+Every earlier vector file is byte-identical and reads as before in both engines. `tools/mutate_rules.py`,
+which CI runs, applies 43 one-site mutants (26 to `verify.py`, 17 to `tools/cross_check_ts.mjs`): the
+attested length unbounded above or below, bounded by 3, by the length plus one or exclusively, starting
+at 1, with booleans, integral floats or numeric strings read as integers, required, read by value
+sentinel or only beside coverage; coverage past the attestation, with no attested length, or read as
+absent when null; a position checked for presence only; the head digest never compared, read only at
+the end, or checked only for presence; predecessors checked from the second record on or only beside
+links; links required; attestations that are not objects skipped; a receipt with no digest accepted; and
 the integer bound checked on one side or the negative bound made exclusive. No pre-0.5.9 vector fails
-any of them except p18 and p20 under the exclusive bound and p27 under `links required`. The differential battery adds the attested length under
-eighteen values beside four coverage forms, coverage and position shapes, the head digest's shapes, a
-named first predecessor, links removed, and a receipt without its digest: 0 divergences over 18,667 cases,
-and 500 against v0.5.8's TypeScript engine. `verify_crypto.py --mutants` runs 26 mutants and
-`verify_eip712.py --mutants` 17. The kinds stay at 11 and the reject-reason closure at 11.
+any of them except p18 and p20 under the exclusive bound and p27 under `links required`. The
+differential battery adds the attested length under twenty values beside four coverage forms, coverage
+and position shapes, a position of 5000 digits, the head digest's shapes, a named first predecessor,
+links removed, a receipt without its digest, and a string appended to the attestations: 0 divergences
+over 19,469 cases, and 744 against v0.5.8's TypeScript engine. `verify_crypto.py --mutants` runs 27
+mutants and `verify_eip712.py --mutants` 21. The kinds stay at 11 and the reject-reason closure at 11.
 
 ## Defined members (v0.5.8)
 
@@ -564,12 +585,12 @@ or live record.
 
 | `origin.class` | vectors | material |
 |---|---|---|
-| `synthetic` | 186 | inputs constructed in `tools/gen_vectors.py` |
+| `synthetic` | 191 | inputs constructed in `tools/gen_vectors.py` |
 | `live-ledger` | 3 (p1, p5, p27) | a record from the live ledger, unaltered, with a `provenance` block in the vector |
 | `live-ledger-derived` | 12 (p4, n1, n3, n5, n75, n77, n87, n88, n89, n97, n112, n138) | a value from those records, reused or altered |
 | `contributed` | 33 | an outside contributor's PR, commit, fixture or published reproduction |
 
-Of the 234 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
+Of the 239 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
 @mohammedmessaoudene-cmd p19/n27/n28, @navigatorbuilds p20/n29, @0rkz p22/n32). Ten more, also
 `contributed`, were written here on outside material, and their origin names its author: p23/n33 on
 @0rkz's PayPerByte fixture, n95 on p19's decision-evidence object from PR #5, n22/n23/n24 from
@@ -786,7 +807,7 @@ profile on every push and pull request, on x86_64, on aarch64 hardware and on s3
 (`tools/regen_check.sh`). Regeneration shows that the generators are deterministic, not that the
 vectors are correct.
 
-v0.5.6 adds six vectors, v0.5.8 forty-nine and v0.5.9 twenty; at this release no outside implementation has run them. To report a run,
+v0.5.6 adds six vectors, v0.5.8 forty-nine and v0.5.9 twenty-five; at this release no outside implementation has run them. To report a run,
 publish each vector's verdict and, for a reject, its reason, as a JSON array with one object per
 vector in `MANIFEST.json`:
 

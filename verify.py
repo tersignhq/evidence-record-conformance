@@ -77,6 +77,15 @@ from keccak import keccak256  # vendored; self-checked at import against measure
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# A JSON integer token of any length is an integer. CPython 3.11+ (and the 3.10.7/3.9.14 security
+# releases) refuses to convert one longer than 4300 digits by default, so this verifier's loader
+# raised on such a token and reported the input malformed, where the TypeScript engine reads it as
+# a number past the domain and lets the criterion reject it (an `attestedPrefixLength` of 5000
+# digits: boundary_reject; v0.5.9 review). The limit is lifted for this process, so the loader reads
+# the token as the integer it is. No vector carries one; tools/differential.py compares both engines.
+if hasattr(sys, "set_int_max_str_digits"):
+    sys.set_int_max_str_digits(0)
+
 
 # ---------------------------------------------------------------- canonical form (JCS)
 class NotIJSONText(ValueError):
@@ -713,8 +722,10 @@ def check_boundary_binding(inp):
 
     # The downgrade: coverage claimed over an empty attested prefix. A verifier that reports
     # success here has checked nothing and said so in the same breath.
-    covered = inp.get("covered_through")
-    if covered is not None:
+    # Key PRESENCE here too (v0.5.9 review), so a present `covered_through: null` is a value, not
+    # absence, and rejects (n171): the same rule as for `attestedPrefixLength` (n158).
+    if "covered_through" in inp:
+        covered = inp["covered_through"]
         if not isinstance(covered, int) or isinstance(covered, bool) or covered < 0:
             return "reject", "boundary_reject", "claimed coverage is not an evaluable position"
         attested = event.get("attestedPrefixLength")
