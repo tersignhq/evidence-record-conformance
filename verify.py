@@ -80,7 +80,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # A JSON integer token of any length is an integer. CPython 3.11+ (and the 3.10.7/3.9.14 security
 # releases) refuses to convert one longer than 4300 digits by default, so this verifier's loader
 # raised on such a token and reported the input malformed, where the TypeScript engine reads it as
-# a number past the domain and lets the criterion reject it (an `attestedPrefixLength` of 5000
+# a number past the domain and lets the criterion reject it (an `attestedPrefixLength` of 5001
 # digits: boundary_reject; v0.5.9 review). The limit is lifted for this process, so the loader reads
 # the token as the integer it is. No vector carries one; tools/differential.py compares both engines.
 if hasattr(sys, "set_int_max_str_digits"):

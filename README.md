@@ -191,10 +191,12 @@ them or by rejecting them for another reason.
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
 
 **From the clean-room run in [#9](https://github.com/tersignhq/evidence-record-conformance/issues/9)
-(2026-09-29, against `0eda303`).** Its differential compared that verifier with `verify.py` on 524
-generated inputs. Two inputs split the verdicts, both `boundary_binding`, a kind `MANIFEST.json` had no
-sentence for; two more split only the reason, p6's and p28's inputs with the chain head's digest
-removed. Its audit listed eleven coverage gaps, rules whose own ablation flipped no vector or that no
+(2026-09-29, against `0eda303`).** Its differential ran 524 generated variants of the 69 vectors
+through that verifier and `verify.py`, which agreed on accept or non-accept for 512. Of the twelve that
+split, two change the input, both `boundary_binding`, a kind `MANIFEST.json` had no sentence for
+(`verify.py` read both valid), and ten change only metadata, the file-level `kind` upper-cased; two
+more split only the reason, on an unparseable `head.digest` (`completeness_reject` vs
+`continuity_reject`). Its audit listed eleven coverage gaps, rules whose own ablation flipped no vector or that no
 vector carried. v0.5.9 writes `boundary_binding` and `independence_claim` as `MANIFEST.json` keys,
 states `chain_set`'s reasons, and adds twenty-five vectors.
 
@@ -233,7 +235,7 @@ states `chain_set`'s reasons, and adds twenty-five vectors.
 - **Integer tokens of any length.** CPython's `json` refuses to convert an integer token longer than 4300
   digits by default, so `verify.py` reported an input carrying one as malformed where the TypeScript
   engine rejects it on the criterion. `verify.py` now reads such a token as the integer it is, and both
-  engines name the same reason (an `attestedPrefixLength` of 5000 digits: `boundary_reject`). No vector
+  engines name the same reason (an `attestedPrefixLength` of 5001 digits: `boundary_reject`). No vector
   carries such a token; the differential compares the two engines on one.
 - **Closed crypto inputs.** The counter-signature profile read the fields it knew and ignored the rest:
   `verify_crypto.py` read cp1 with `x_unknown_2026: 1` added as `valid`. An input key outside its six fields
@@ -257,7 +259,7 @@ links; links required; attestations that are not objects skipped; a receipt with
 the integer bound checked on one side or the negative bound made exclusive. No pre-0.5.9 vector fails
 any of them except p18 and p20 under the exclusive bound and p27 under `links required`. The
 differential battery adds the attested length under twenty values beside four coverage forms, coverage
-and position shapes, a position of 5000 digits, the head digest's shapes, a named first predecessor,
+and position shapes, a position of 5001 digits, the head digest's shapes, a named first predecessor,
 links removed, a receipt without its digest, and a string appended to the attestations: 0 divergences
 over 19,469 cases, and 744 against v0.5.8's TypeScript engine. `verify_crypto.py --mutants` runs 27
 mutants and `verify_eip712.py --mutants` 21. The kinds stay at 11 and the reject-reason closure at 11.
@@ -610,7 +612,7 @@ object from PR #5 and is `contributed`, and n138 carries n5's live anchored dige
 where the suite constructed it, the vector is `synthetic`, beside a contributed vector or not: n42
 (n41's input with its second name escaped), n71 (p39's payload under an escaping encoder's digest)
 and n74 (whose NFC digest equals p39's). A vector that carries a contributed fixture with a value
-of its own is `contributed` whoever altered it (n33, n95). Eighteen vectors carry the live ledger's
+of its own is `contributed` whoever altered it (n33, n95). Nineteen vectors carry the live ledger's
 signer address as sample data, and their `origin.source` says so. Both engines read it only as an
 attestor outside the parties, so any other well-formed address outside a vector's parties gives the
 same verdicts.
@@ -807,7 +809,7 @@ profile on every push and pull request, on x86_64, on aarch64 hardware and on s3
 (`tools/regen_check.sh`). Regeneration shows that the generators are deterministic, not that the
 vectors are correct.
 
-v0.5.6 adds six vectors, v0.5.8 forty-nine and v0.5.9 twenty-five; at this release no outside implementation has run them. To report a run,
+v0.5.6 adds six vectors, v0.5.8 fifty-two and v0.5.9 twenty-five; no outside run of them has been reported here. To report a run,
 publish each vector's verdict and, for a reject, its reason, as a JSON array with one object per
 vector in `MANIFEST.json`:
 

@@ -33,7 +33,7 @@ values beside four coverage forms and absent, `covered_through` and `position` a
 fork-prone shapes, the chain head's digest absent, null, malformed, a number, empty, zero bytes
 and the first record's, a first record naming a predecessor (outside, and as zero bytes), the
 links removed with the prevs intact and broken, and a receipt with no `offerDigest`; since the
-v0.5.9 review an `attestedPrefixLength` and a `position` of 5000 digits, past CPython's default
+v0.5.9 review an `attestedPrefixLength` and a `position` of 5001 digits, past CPython's default
 4300-digit conversion limit, and a non-object attestation appended beside the others), run
 through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.

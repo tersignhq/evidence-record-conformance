@@ -249,10 +249,12 @@ coverage gaps also listed an *earlier* phase presented: v0.5.5's `n90` presents 
 as funding, the reverse of `n6`; it was written here.
 
 **The differential and the ablations** — from the same run in
-[#9](https://github.com/tersignhq/evidence-record-conformance/issues/9). His verifier and
-`verify.py`, compared on 524 generated inputs, returned different verdicts on two, both
-`boundary_binding`, a kind the manifest had no sentence for, and different reasons on two more, p6's and p28's
-inputs with the chain head's digest removed. v0.5.9 writes the kind's rule into `MANIFEST.json` and pins the two
+[#9](https://github.com/tersignhq/evidence-record-conformance/issues/9). His differential ran 524
+generated variants of the 69 vectors through his verifier and `verify.py`, which agreed on accept or
+non-accept for 512. Of the twelve that split, two change the input, both `boundary_binding`, a kind
+the manifest had no sentence for, and ten change only metadata, the file-level `kind` upper-cased;
+two more split only the reason, on an unparseable `head.digest` (`completeness_reject` vs
+`continuity_reject`). v0.5.9 writes the kind's rule into `MANIFEST.json` and pins the two
 verdict inputs and one of the reason inputs: `p63` (an empty attestation that claims no coverage,
 valid), `n153` (an attested prefix length past the prefix, `boundary_reject`) and `n165` (p6's head
 with no digest, `completeness_reject`, now stated in `chain_set`); the three are classed

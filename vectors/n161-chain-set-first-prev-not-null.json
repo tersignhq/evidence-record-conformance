@@ -3,7 +3,7 @@
   "kind": "chain_set",
   "expect": "reject",
   "reason": "continuity_reject",
-  "description": "p6's set with its first record naming a predecessor, the digest of a record the set does not carry. The first record's prev_digest is null (genesis), so the record rejects with continuity_reject: a set that continues a chain it does not present is not that chain from its start, however its records are numbered. The links are p6's, computed from the genesis predecessor, so they still recompute; an engine that checks predecessors only from the second record on accepts this vector. p6 is the accepting twin.",
+  "description": "p6's set with its first record naming a predecessor, the digest of a record the set does not carry. The first record's prev_digest must be null (genesis), so the record rejects with continuity_reject: a set that continues a chain it does not present is not that chain from its start, however its records are numbered. The links are p6's, computed from the genesis predecessor, so they still recompute; an engine that checks predecessors only from the second record on accepts this vector. p6 is the accepting twin.",
   "input": {
     "head": {
       "seq": 3,
