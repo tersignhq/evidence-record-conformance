@@ -1,0 +1,16 @@
+{
+  "id": "n135-unknown-member-before-criterion-canonical-bytes",
+  "kind": "canonical_bytes",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n2's input, which rejects with canonicalization_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not canonicalization_reject; n133 pins the same order in chain_set. An engine that runs canonical_bytes's criterion first reports n2's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "payload": {
+      "10": "a",
+      "2": "b",
+      "1": "c"
+    },
+    "claimed_canonical": "{\"1\":\"c\",\"2\":\"b\",\"10\":\"a\"}",
+    "x_undefined": 1
+  }
+}

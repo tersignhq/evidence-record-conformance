@@ -1,0 +1,24 @@
+{
+  "id": "p62-attestation-not-an-object-no-claim",
+  "kind": "independence_claim",
+  "expect": "valid",
+  "description": "p9's input with the string `not an attestation` inserted as its first attestation. A closed object that is not a JSON object has no members to read, so the member check passes it, and the kind's criterion decides the record as before: p9 claims no independence, and the criterion does not read the attestations of a record that claims none, so it accepts as p9 does. n16 carries a string attestation under a claim, which rejects with independence_reject. n148 is this input with a member added to its last attestation. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "none",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      "not an attestation",
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "payee"
+      }
+    ]
+  }
+}

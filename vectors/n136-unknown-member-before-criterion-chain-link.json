@@ -1,0 +1,14 @@
+{
+  "id": "n136-unknown-member-before-criterion-chain-link",
+  "kind": "chain_link",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n76's input, which rejects with continuity_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not continuity_reject; n133 pins the same order in chain_set. An engine that runs chain_link's criterion first reports n76's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+    "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+    "seq": 9007199254740992,
+    "expected_link": "0x07bc3c60b4f6ad8e175305c4c65c1c41fa7bcef416c488a92d94339881d70c4a",
+    "x_undefined": 1
+  }
+}

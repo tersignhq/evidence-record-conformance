@@ -1,0 +1,29 @@
+{
+  "id": "n143-unknown-member-before-criterion-boundary-binding",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n25's input, which rejects with boundary_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not boundary_reject; n133 pins the same order in chain_set. An engine that runs boundary_binding's criterion first reports n25's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086"
+    },
+    "x_undefined": 1
+  }
+}

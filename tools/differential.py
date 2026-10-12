@@ -26,8 +26,9 @@ digest_recompute, payload_text and the objects the binding and boundary criteria
 duplicate names that differ only in how a surrogate pair is written, one half raw and the other
 escaped; since v0.5.8 defined members on every input — an undefined member at the top level
 under each value class, the names every JavaScript object inherits, letter-case, fullwidth and
-trailing-space variants of each name, and an undefined member one level down in every object,
-closed, not read or open), run through BOTH engines,
+trailing-space variants of each name, and, in each object one level down (the first object of an
+array), an undefined member and a variant of one of its names, closed, not read or open), run
+through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
 Any divergence exits non-zero and prints the offending input.
 

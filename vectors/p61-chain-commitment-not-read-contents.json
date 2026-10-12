@@ -1,0 +1,63 @@
+{
+  "id": "p61-chain-commitment-not-read-contents",
+  "kind": "chain_commitment",
+  "expect": "valid",
+  "description": "p57's input with `x_undefined: 1` added to its `witness` and to its attestation. In chain_commitment, as in chain_set (p58), `witness` and `attestations` are permitted and not read, and their contents are not examined, so the record accepts as p57 does. An engine that closes the witness or the attestations in chain_commitment rejects this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "head": {
+      "seq": 3,
+      "digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+      "acc": "0xae28e0e8b22b15cd27de2390efbe4e3c206decbfe5cede4751b85410f6648f4f"
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null,
+        "link": "0xf34b26b3f8a9ab82f55baa26c92201624f09195ec0074fcc2af3e58c61b13079"
+      },
+      {
+        "seq": 2,
+        "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "link": "0x24504b4a1fb4eedda727a2c08e05826d7b441d127457cbe9c16245d8a5eb9694"
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+        "link": "0x657fcd8b25c7e8f9fa0b2f50b7f18e67781d9837014605e2ae6668ac95804f15"
+      }
+    ],
+    "witness": {
+      "checkpoint": {
+        "origin": "example.org/log",
+        "tree_size": 7574,
+        "cosignatures": 7,
+        "quorum": 4
+      },
+      "inclusion": [
+        {
+          "seq": 1,
+          "leaf_index": 7011
+        },
+        {
+          "seq": 2,
+          "leaf_index": 7012
+        },
+        {
+          "seq": 3,
+          "leaf_index": 7013
+        }
+      ],
+      "x_undefined": 1
+    },
+    "attestations": [
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "issuer",
+        "x_undefined": 1
+      }
+    ]
+  }
+}

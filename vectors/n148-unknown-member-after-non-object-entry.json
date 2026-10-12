@@ -1,0 +1,26 @@
+{
+  "id": "n148-unknown-member-after-non-object-entry",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p62's input with `x_undefined: 1` added to its last attestation. p62's first attestation is a string, which has no members to read; the entries after it are closed objects and are still checked, so the record rejects with unknown_member_reject. p62 is the accepting twin. An engine that stops checking at the first entry that is not an object accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "none",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      "not an attestation",
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "payee",
+        "x_undefined": 1
+      }
+    ]
+  }
+}

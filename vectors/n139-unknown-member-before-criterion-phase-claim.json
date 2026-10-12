@@ -1,0 +1,16 @@
+{
+  "id": "n139-unknown-member-before-criterion-phase-claim",
+  "kind": "phase_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n6's input, which rejects with phase_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not phase_reject; n133 pins the same order in chain_set. An engine that runs phase_claim's criterion first reports n6's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "record": {
+      "economic_phase": "funding",
+      "amount": "10",
+      "asset": "USDC"
+    },
+    "presented_as": "delivery",
+    "x_undefined": 1
+  }
+}

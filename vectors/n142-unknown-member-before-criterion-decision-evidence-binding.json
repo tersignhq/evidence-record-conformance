@@ -1,0 +1,52 @@
+{
+  "id": "n142-unknown-member-before-criterion-decision-evidence-binding",
+  "kind": "decision_evidence_binding",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n27's input, which rejects with binding_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not binding_reject; n133 pins the same order in chain_set. An engine that runs decision_evidence_binding's criterion first reports n27's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "record": {
+      "outcome": "allowed"
+    },
+    "decision_evidence": {
+      "requested": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "hostAllowed": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "5"
+        }
+      },
+      "effective": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "5"
+        }
+      },
+      "delta": {
+        "removed": {},
+        "reducedBudgets": {
+          "nodes": {
+            "requested": "10",
+            "effective": "5"
+          }
+        }
+      },
+      "policy": {
+        "id": "host-default",
+        "version": "2"
+      }
+    },
+    "x_undefined": 1
+  }
+}

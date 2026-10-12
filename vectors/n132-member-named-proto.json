@@ -3,7 +3,7 @@
   "kind": "independence_claim",
   "expect": "reject",
   "reason": "unknown_member_reject",
-  "description": "p9's input with `__proto__: 1` added. JSON.parse keeps it as a member of the object; an engine or loader that copies the input by assignment (`out[name] = value`) sets the copy's prototype instead, the member disappears, and that engine accepts. The suite does not define the name, and the record rejects with unknown_member_reject. p9 is the accepting twin. Rests on `defined_members` in MANIFEST.json.",
+  "description": "p9's input with `__proto__: 1` added. JSON.parse keeps it as a member of the object. An engine or loader that copies the input by assignment (`out[name] = value`) calls the `__proto__` setter instead of creating a member, and the setter ignores a value that is not an object, such as this 1: the copy has no such member, and that engine accepts. The suite does not define the name, and the record rejects with unknown_member_reject. p9 is the accepting twin. Rests on `defined_members` in MANIFEST.json.",
   "input": {
     "claimed": "none",
     "parties": [

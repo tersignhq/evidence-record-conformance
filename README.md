@@ -74,7 +74,7 @@ matches itself and nothing else, with no case folding, no whitespace trimming an
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15 | n19 **offer substitution** (same resource/network, different amount/payTo), n94 **lone surrogate in the offer** | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution**, n95 **lone surrogate in the evidence** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates), n96 **lone surrogate in the prefix** | `boundary_reject` |
-| defined members (every kind's `input`, and the closed objects inside it, define exact names) | the vector each reject's input was taken from; p57 (`witness` and `attestations` in **chain_commitment**), p58 (an undefined member **inside** `witness` and a chain set's attestation, not read), p59 / p60 (a member the suite does not name in a **settlement result** and in a **receipt**, which are open) | n107–n117 **an undefined member at the top level**, one per kind (the member from #17), n118–n122 **inside each closed object**, n123–n125 **null, empty string, empty object**, n126 **letter case**, n127 **Cyrillic homoglyph**, n128 **fullwidth form**, n129 / n130 **a member another kind defines** (`payload_text` in digest_recompute; `acc` in a chain_set head), n131 **`constructor`**, n132 **`__proto__`**, n133 **decided before the criterion** | `unknown_member_reject` |
+| defined members (every kind's `input`, and the closed objects inside it, define exact names) | the vector each reject's input was taken from; p57 (`witness` and `attestations` in **chain_commitment**), p58 / p61 (an undefined member **inside** `witness` and the attestation beside a chain set, not read, in chain_set and in chain_commitment), p59 / p60 (a member the suite does not name in a **settlement result** and in a **receipt**, which are open), p62 (a **string attestation** in a record that claims no independence) | n107–n117 **an undefined member at the top level**, one per kind (the member from #17), n118–n122 **inside each closed object**, n123–n125 **null, empty string, empty object**, n126 **letter case**, n127 **Cyrillic homoglyph**, n128 **fullwidth form**, n149 **trailing space**, n129 / n130 **a member another kind defines** (`payload_text` in digest_recompute; `acc` in a chain_set head), n131 **`constructor`**, n132 **`__proto__`**, n133 / n134–n143 **decided before the criterion**, in every kind, n144 / n145 **inside `head` and an attestation, before the criterion**, n146 **a party's attestation**, n147 **an attestation under no claim**, n148 **after an entry that is not an object** | `unknown_member_reject` |
 | independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present), p54 (**settlement result naming a transaction**, n104's twin), p55 (**delivery scope over a record with no settlement result**, n105's twin), p56 (**an outside attestor written `0X` with upper-case digits**, n106's twin) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one), n104 **settlement result with no `transaction` member** (n21 pins the empty string), n105 **settlement claimed over a delivery-only record**, n106 **a party's address in another letter case** (an EIP-55 checksum form against lowercase, and `0X` with upper-case digits) | `independence_reject` |
 
 Two design rules, both enforced by the run itself:
@@ -183,42 +183,61 @@ them or by rejecting them for another reason.
 | a settlement claim over a record that names no settlement transaction | n21, n104, n105 | `independence_reject` |
 | a number outside the vector domain (I-JSON integers) read as a number | n10, n11, n35, n103 | `number_domain_reject` |
 | duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
-| a member the suite does not define read as absent | n107–n133 | `unknown_member_reject` |
+| a member the suite does not define read as absent | n107–n149 | `unknown_member_reject` |
 
 ## Defined members (v0.5.8)
 
 **Reported in [#17](https://github.com/tersignhq/evidence-record-conformance/issues/17)
 (2026-10-11, against `9be9eec`).** All 56 `valid` vectors stayed valid with a member no file of
 the suite defines, `x_unknown_2026: 1`, added to their `input`, and no sentence or vector said what
-a verifier does with such a member. The rule is now written: **a member the suite does not define
-makes the record invalid**, with a new reason code, `unknown_member_reject`. `defined_members` in
-`MANIFEST.json` lists, for each kind, every closed object and the exact names it defines. Both
-engines pin the same lists in code, and each run fails if the manifest's lists differ from them.
+a verifier does with such a member. The rule is now written for the eleven kinds of `MANIFEST.json`:
+**a member the suite does not define makes the record invalid**, with a new reason code,
+`unknown_member_reject`. `defined_members` in `MANIFEST.json` lists, for each kind, every closed
+object and the names it defines; each member must carry one of them, and a listed name may be
+absent. Both engines pin the same lists in code, and each run fails if the manifest's lists differ
+from them. The crypto profiles are outside this rule: neither decides what a verifier does with a
+field it does not define (`crypto/README.md`).
 
 - **Closed objects.** `input` in every kind; `head` and each object in `records` in chain_set and
   chain_commitment; each object in `attestations` in independence_claim. n107–n117 add the member
   from #17 at the top level of one accepting vector's input per kind, and n118–n122 add a member
   inside each closed object. The vector each input was taken from is its accepting twin: the same
   bytes without the member.
+- **Every attestation.** n122 and n128 put the member in the attestation by the attestor outside
+  the parties, n146 in the one by a party, and n147 in an attestation of a record that claims no
+  independence, whose attestations the criterion does not read. An engine that checks only the
+  last attestation, skips the first, checks only outside attestors or checks only under a claim
+  accepts one of them.
 - **By name, whatever the value.** n123 (`null`), n124 (`""`) and n125 (`{}`) reject like any other
   value. An engine that tests the value instead of the name's presence, or skips falsy values,
   accepts them.
 - **Exact names.** n126 adds `Presented_as` beside `presented_as`, n127 `sеq` written with a
-  Cyrillic е (U+0435) beside `seq`, and n128 a fullwidth `ｂｙ`, which NFKC folds to `by`, beside
-  `by`. Names are never case-folded, normalized or mapped through confusables.
+  Cyrillic е (U+0435) beside `seq`, n128 a fullwidth `ｂｙ`, which NFKC folds to `by`, beside `by`,
+  and n149 `covered_through ` with a trailing space beside `covered_through`. Names are never
+  case-folded, trimmed, normalized or mapped through confusables.
 - **One list per kind and per object.** n129 puts `payload_text`, a canonical_bytes member, in a
   digest_recompute input; n130 is p26's input read as chain_set, whose `head` does not define
   `acc`. An engine with one list for every kind accepts both.
 - **Names every JavaScript object inherits.** n131 (`constructor`) and n132 (`__proto__`). An engine
-  that looks a name up in a plain object finds `constructor` on every object; a loader that copies
-  an input by assignment makes `__proto__` the copy's prototype and loses the member.
-- **Before the criterion.** n133 is n4's input, which rejects with `completeness_reject`, with a
-  member added; it rejects with `unknown_member_reject`.
-- **Status kept.** Members already permitted and not read stay so, and their contents are not
-  examined: `witness` and `attestations` beside a chain set (p24, p28; p57 carries both in
-  chain_commitment, and p58 an undefined member inside each), an attestation's `role`, and
-  `deliverable_signer` and `payTo` (p22, p23). `record_commits` is listed because its presence is
-  itself the independence reject (n22–n24).
+  that looks a name up in a plain object finds `constructor` on every object. A loader that copies
+  an input by assignment calls the `__proto__` setter instead of creating a member, and the setter
+  ignores n132's value, 1, which is not an object, so the copy has no such member.
+- **Before the criterion, in every kind.** n133 (chain_set) and n134–n143 (the other ten kinds) are
+  each a rejecting vector's input with a member added at its top level; each rejects with
+  `unknown_member_reject`, not the reason of the vector it was taken from. n144 and n145 do the same
+  inside n4's `head` and inside n7's first attestation.
+- **A closed object that is not a JSON object.** It has no members to read, and the kind's criterion
+  decides it as before: n16 rejects a string attestation under a claim, and p62, p9's input with a
+  string first among its attestations, accepts because a record that claims nothing is not read for
+  them. The entries after it are still checked: n148 is p62 with a member in its last attestation.
+  An `input` that is not a JSON object is outside the suite; no vector carries one.
+- **Permitted and not read.** Such members are listed, and their contents are not examined. `witness` and `attestations` beside
+  a chain set kept the status earlier versions gave them (p24, p28); p57 carries both in
+  chain_commitment, and p58 (chain_set) and p61 (chain_commitment) an undefined member inside each.
+  An attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23),
+  which the criterion does not read, get the status from this version on. `record_commits` is
+  listed because commitment_derivation defines it: in a record that claims independence its
+  presence is the independence reject (n22–n24), and in one that claims none it is not read.
 - **Open objects.** The objects digested whole (`payload`, `offer`, `decision_evidence`, each
   `prefix` entry) and the objects whose members are another protocol's or the record's own
   (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result`,
@@ -228,21 +247,28 @@ engines pin the same lists in code, and each run fails if the manifest's lists d
 No extension member is defined. If one is ever needed, it comes through a versioned field, not by
 reading a member the lists do not name.
 
-**Not pinned.** Near-spellings other than letter case, the one homoglyph and the one compatibility
-form (a name padded with whitespace, for instance), and undefined names other than those the
-vectors carry. The differential battery compares the two engines on more: an undefined member under
-seven value classes, six names JavaScript objects inherit, letter-case, fullwidth and
-trailing-space variants of every name in every input, and an undefined member one level down in
-every object, closed, not read or open.
+**Not pinned.** Near-spellings other than letter case, the one homoglyph, the one compatibility
+form and the one trailing space, and undefined names other than those the vectors carry. The
+differential battery compares the two engines on more: an undefined member under seven value
+classes, six names JavaScript objects inherit, letter-case, fullwidth and trailing-space variants
+of every name in every input, and, in each object one level down (the first object of an array),
+an undefined member and a variant of one of its names, whether that object is closed, not read or
+open.
 
-Measured on v0.5.7's engines: n107–n132 and p57–p60 read `valid` in both, and n133 reads n4's
-`completeness_reject` in both. Each new rule was checked by a mutant, a one-site change to an
-engine that the named vectors kill: no member check, `input` alone, no array entries, the first
-entry only, case-insensitive names, NFKC names, a confusable skeleton, null or falsy values
-skipped, one list for every kind, the criterion first, `witness` and `attestations` closed in
-chain_set, left out of chain_commitment, `settlement_result` or `receipt` closed, and each kind's
-`input` left open (verify.py); no member check, a plain-object lookup table and a copy by
-assignment (`tools/cross_check_ts.mjs`).
+Measured on v0.5.7's engines, which agree on all 49 new vectors: n107–n132, n146–n149 and
+p57–p62 read `valid`, and n133–n145 read the reason of the vector each was taken from.
+`tools/mutate_members.py`, which CI runs, applies 58 one-site mutants to the two engines in a
+scratch copy and requires each run to fail on the vectors named for that mutant. In `verify.py`
+(48): no member check; `input` alone; no array entries; the first or the last entry only; the first
+entry skipped; attestations checked last only, from the second on, for outside attestors only, or
+only under a claim; a scan that stops at an entry that is not an object; case-insensitive, NFKC,
+confusable-mapped or trimmed names; null or falsy values skipped; one list for every kind; the
+criterion first, in every kind at once and in each kind alone; the objects inside `input` checked
+after the criterion; `witness` and `attestations` closed in chain_set, and left out of or closed in
+chain_commitment; `settlement_result` or `receipt` closed; and each kind's `input` left open. In
+`tools/cross_check_ts.mjs` (10): no member check; a plain-object lookup table; a copy by
+assignment; the criterion first; the first or the last entry only; a scan that stops at an entry
+that is not an object; and case-insensitive, NFKC or trimmed names.
 
 Every pre-0.5.8 vector file is byte-identical and reads as before in both engines; what a verifier
 that ran v0.5.7 may see move is any input carrying a member outside the lists, which now rejects.
@@ -481,12 +507,12 @@ or live record.
 
 | `origin.class` | vectors | material |
 |---|---|---|
-| `synthetic` | 150 | inputs constructed in `tools/gen_vectors.py` |
+| `synthetic` | 166 | inputs constructed in `tools/gen_vectors.py` |
 | `live-ledger` | 3 (p1, p5, p27) | a record from the live ledger, unaltered, with a `provenance` block in the vector |
-| `live-ledger-derived` | 11 (p4, n1, n3, n5, n75, n77, n87, n88, n89, n97, n112) | a value from those records, reused or altered |
-| `contributed` | 29 | an outside contributor's PR, commit, fixture or published reproduction |
+| `live-ledger-derived` | 12 (p4, n1, n3, n5, n75, n77, n87, n88, n89, n97, n112, n138) | a value from those records, reused or altered |
+| `contributed` | 30 | an outside contributor's PR, commit, fixture or published reproduction |
 
-Of the 193 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
+Of the 211 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
 @mohammedmessaoudene-cmd p19/n27/n28, @navigatorbuilds p20/n29, @0rkz p22/n32). Ten more, also
 `contributed`, were written here on outside material, and their origin names its author: p23/n33 on
 @0rkz's PayPerByte fixture, n95 on p19's decision-evidence object from PR #5, n22/n23/n24 from
@@ -496,11 +522,14 @@ in issue #1, carries p4's live-ledger digest, so it is classed `live-ledger-deri
 names him. Ten more, v0.5.8's top-level vectors, carry the member and value of
 @robertolocatelli81-dev's probe in issue #17 and are `contributed` (n107–n111, n113–n117; n116 is
 also built on p19's object from PR #5); n112 carries the same member on p5's live anchor, so it
-is `live-ledger-derived` and its source names the probe. Among vectors written here, the class follows the value that distinguishes the vector:
+is `live-ledger-derived` and its source names the probe. Two of v0.5.8's order vectors take
+their class from the rejecting vector each was taken from: n142 carries n27's decision-evidence
+object from PR #5 and is `contributed`, and n138 carries n5's live anchored digest and is
+`live-ledger-derived`. Among vectors written here, the class follows the value that distinguishes the vector:
 where the suite constructed it, the vector is `synthetic`, beside a contributed vector or not: n42
 (n41's input with its second name escaped), n71 (p39's payload under an escaping encoder's digest)
 and n74 (whose NFC digest equals p39's). A vector that carries a contributed fixture with a value
-of its own is `contributed` whoever altered it (n33, n95). Seventeen vectors carry the live ledger's
+of its own is `contributed` whoever altered it (n33, n95). Eighteen vectors carry the live ledger's
 signer address as sample data, and their `origin.source` says so. Both engines read it only as an
 attestor outside the parties, so any other well-formed address outside a vector's parties gives the
 same verdicts.
@@ -697,7 +726,7 @@ profile on every push and pull request, on x86_64, on aarch64 hardware and on s3
 (`tools/regen_check.sh`). Regeneration shows that the generators are deterministic, not that the
 vectors are correct.
 
-v0.5.6 adds six vectors and v0.5.8 thirty-one; at this release no outside implementation has run them. To report a run,
+v0.5.6 adds six vectors and v0.5.8 forty-nine; at this release no outside implementation has run them. To report a run,
 publish each vector's verdict and, for a reject, its reason, as a JSON array with one object per
 vector in `MANIFEST.json`:
 

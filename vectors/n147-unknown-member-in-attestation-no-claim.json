@@ -1,0 +1,25 @@
+{
+  "id": "n147-unknown-member-in-attestation-no-claim",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p9's input, which claims no independence, with `x_undefined: 1` added to its first attestation. The criterion does not read the attestations of a record that claims nothing, but each one is a closed object all the same, so the record rejects with unknown_member_reject. p9 is the accepting twin. An engine that checks the attestations only when independence is claimed accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "none",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer",
+        "x_undefined": 1
+      },
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "payee"
+      }
+    ]
+  }
+}

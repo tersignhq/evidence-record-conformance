@@ -1,0 +1,12 @@
+{
+  "id": "n138-unknown-member-before-criterion-anchor-relation",
+  "kind": "anchor_relation",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n5's input, which rejects with existence_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not existence_reject; n133 pins the same order in chain_set. An engine that runs anchor_relation's criterion first reports n5's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "subject_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+    "anchored_digest": "0xcf48bed1712f5b7df2a309fb52cb2b3d51ab1a04730e3b115cd3db79c96c9b1a",
+    "x_undefined": 1
+  }
+}

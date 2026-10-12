@@ -1,0 +1,25 @@
+{
+  "id": "n145-unknown-member-in-attestation-before-criterion",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n7's input, which rejects with independence_reject (attested only by parties to the transaction), with `x_undefined: 1` added to its first attestation. A member inside an attestation is decided before the criterion, so the record rejects with unknown_member_reject. An engine that checks the attestations only after the criterion accepts reports n7's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer",
+        "x_undefined": 1
+      },
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "payee"
+      }
+    ]
+  }
+}

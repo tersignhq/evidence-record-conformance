@@ -898,8 +898,8 @@ def check_independence_claim(inp):
 # chain_commitment) and each object in `attestations` (independence_claim) are closed too.
 # Members permitted and not read are listed and their contents are not examined: `witness` and
 # `attestations` beside a chain set, an attestation's `role`, `deliverable_signer` and `payTo`.
-# `record_commits` is listed because the suite defines it: its presence is the independence
-# reject (n22-n24). Every other object is open: digested whole (payload, offer,
+# `record_commits` is listed because the suite defines it: in a record that claims independence
+# its presence is the independence reject (n22-n24). Every other object is open: digested whole (payload, offer,
 # decision_evidence, each prefix entry), or another protocol's or the record's own (a phase or
 # decision `record`, `receipt`, `settlement_result`, `boundary_event`).
 # Pinned in code, as the reject-reason closure is; main() fails if MANIFEST.json says otherwise.
@@ -928,8 +928,9 @@ DEFINED_MEMBERS = {
 
 
 def _closed_objects(kind, inp):
-    """(path, object, defined names) for `input` and every closed object inside it. A closed
-    object that is not a JSON object has no members to read; the kind's criterion decides it."""
+    """(path, object, defined names) for `input` and every closed object inside it, every array
+    entry included, whoever its attestor and whatever the claim (n146-n148). A closed object that
+    is not a JSON object has no members to read; the kind's criterion decides it (n16, p62)."""
     for path, names in DEFINED_MEMBERS[kind].items():
         if path == "input":
             yield path, inp, names
@@ -949,9 +950,10 @@ def check_defined_members(kind, inp):
     """unknown_member_reject for a member a closed object does not define, else None.
 
     A member counts by its NAME: a null, an empty string or an empty object rejects like any
-    other value (n123-n125). Names compare as exact strings — no case folding, no Unicode
-    normalization, no confusable mapping (n126-n128) — against the list for THIS kind and THIS
-    object (n129, n130). Decided before the criterion (n133)."""
+    other value (n123-n125). Names compare as exact strings — no case folding, no trimming, no
+    Unicode normalization, no confusable mapping (n126-n128, n149) — against the list for THIS
+    kind and THIS object (n129, n130). Decided before the criterion, in every kind and inside the
+    closed objects too (n133-n145)."""
     if not isinstance(inp, dict):
         return None
     for path, obj, names in _closed_objects(kind, inp):

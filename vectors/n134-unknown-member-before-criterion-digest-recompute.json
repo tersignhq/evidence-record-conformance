@@ -1,0 +1,14 @@
+{
+  "id": "n134-unknown-member-before-criterion-digest-recompute",
+  "kind": "digest_recompute",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n72's input, which rejects with recompute_mismatch, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not recompute_mismatch; n133 pins the same order in chain_set. An engine that runs digest_recompute's criterion first reports n72's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "payload": {
+      "a": "\u4e2d\u6587"
+    },
+    "expected_digest": "0x8aba3cbf3d3eb38236db75c957df0e0c2835122609312f0c5d22cf59c5725f6e",
+    "x_undefined": 1
+  }
+}

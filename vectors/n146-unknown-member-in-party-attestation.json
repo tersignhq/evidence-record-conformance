@@ -1,0 +1,25 @@
+{
+  "id": "n146-unknown-member-in-party-attestation",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p8's input with `x_undefined: 1` added to its first attestation, the one by a party to the transaction (n122 adds it to the attestation by the attestor outside the parties). Every object in `attestations` is closed, whoever the attestor and wherever the entry sits, so the record rejects with unknown_member_reject. p8 is the accepting twin. An engine that checks only the last attestation, skips the first, or checks only attestors outside the parties accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer",
+        "x_undefined": 1
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger"
+      }
+    ]
+  }
+}

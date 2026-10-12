@@ -2591,8 +2591,9 @@ vectors = [
 # Issue #17 (2026-10-11): every `valid` vector stayed valid with a member no file of the suite
 # defines added to its input, and no sentence said what a verifier does with one. Ruling: such a
 # member rejects (`defined_members` in MANIFEST.json, unknown_member_reject). Every vector below
-# is an earlier vector's input with one change; the vector it was taken from is its accepting
-# twin (or, for n133, the reject whose reason it overrides). Earlier vector files are unchanged.
+# is another vector's input with one change; the vector it was taken from is its accepting twin
+# (for n133-n145, the reject whose reason it overrides; n148's twin is p62, p9's input with a
+# string attestation first, and p61's is p57). Earlier vector files are unchanged.
 PROBE = "x_unknown_2026"   # the member and value of the probe published in issue #17
 UNDEFINED = "x_undefined"  # the member the suite adds where the probe did not reach
 
@@ -2742,7 +2743,7 @@ defined_member_vectors += [
     {
         "id": "n132-member-named-proto",
         "kind": "independence_claim", "expect": "reject", "reason": _UM,
-        "description": "p9's input with `__proto__: 1` added. JSON.parse keeps it as a member of the object; an engine or loader that copies the input by assignment (`out[name] = value`) sets the copy's prototype instead, the member disappears, and that engine accepts. The suite does not define the name, and the record rejects with unknown_member_reject. p9 is the accepting twin. " + _RULE,
+        "description": "p9's input with `__proto__: 1` added. JSON.parse keeps it as a member of the object. An engine or loader that copies the input by assignment (`out[name] = value`) calls the `__proto__` setter instead of creating a member, and the setter ignores a value that is not an object, such as this 1: the copy has no such member, and that engine accepts. The suite does not define the name, and the record rejects with unknown_member_reject. p9 is the accepting twin. " + _RULE,
         "input": _with(_BASE_IDS["p9"], _set("__proto__", 1)),
     },
     # ---- decided before the criterion
@@ -2783,18 +2784,110 @@ defined_member_vectors += [
     },
 ]
 
-# Generation gate: each new vector's verdict and reason under verify.py's CHECKS and, for every
-# reject but n133, the criterion alone on the same input (no member check) reads valid — so a
-# vector that rejects for any reason other than the undefined member cannot land.
+# ---- the order rule in every kind, and inside closed objects. Each input is a rejecting
+# vector's with one member added; the criterion alone still reads that vector's reason.
+_ORDER = [  # (id, kind, rejecting vector the input was taken from)
+    ("n134-unknown-member-before-criterion-digest-recompute", "digest_recompute", "n72"),
+    ("n135-unknown-member-before-criterion-canonical-bytes", "canonical_bytes", "n2"),
+    ("n136-unknown-member-before-criterion-chain-link", "chain_link", "n76"),
+    ("n137-unknown-member-before-criterion-chain-commitment", "chain_commitment", "n36"),
+    ("n138-unknown-member-before-criterion-anchor-relation", "anchor_relation", "n5"),
+    ("n139-unknown-member-before-criterion-phase-claim", "phase_claim", "n6"),
+    ("n140-unknown-member-before-criterion-independence-claim", "independence_claim", "n7"),
+    ("n141-unknown-member-before-criterion-offer-binding", "offer_binding", "n19"),
+    ("n142-unknown-member-before-criterion-decision-evidence-binding", "decision_evidence_binding", "n27"),
+    ("n143-unknown-member-before-criterion-boundary-binding", "boundary_binding", "n25"),
+]
+_REASON_OF = {v["id"].split("-", 1)[0]: v.get("reason") for v in vectors}
+for _id, _kind, _base in _ORDER:
+    defined_member_vectors.append({
+        "id": _id, "kind": _kind, "expect": "reject", "reason": _UM,
+        "description": f"{_base}'s input, which rejects with {_REASON_OF[_base]}, with `{UNDEFINED}: 1` added at its top level. The member check is decided before the kind's criterion in every kind, so the record rejects with unknown_member_reject, not {_REASON_OF[_base]}; n133 pins the same order in chain_set. An engine that runs {_kind}'s criterion first reports {_base}'s reason. {_RULE}",
+        "input": _with(_BASE_IDS[_base], _set(UNDEFINED, 1)),
+    })
+
+
+def _not_an_attestation_first(inp):
+    inp["attestations"].insert(0, "not an attestation")
+
+
+def _p57_with(edit):
+    inp = copy.deepcopy(next(v["input"] for v in defined_member_vectors if v["id"].startswith("p57-")))
+    edit(inp)
+    return inp
+
+
+defined_member_vectors += [
+    {
+        "id": "n144-unknown-member-in-head-before-criterion",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": f"n4's input, which rejects with completeness_reject, with `{UNDEFINED}: 1` added to `head`. A member inside a closed object is decided before the criterion, as one at the top level is (n133), so the record rejects with unknown_member_reject. An engine that checks the objects inside `input` only after the criterion accepts reports n4's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n4"], _set_in(("head",), UNDEFINED, 1)),
+    },
+    {
+        "id": "n145-unknown-member-in-attestation-before-criterion",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": f"n7's input, which rejects with independence_reject (attested only by parties to the transaction), with `{UNDEFINED}: 1` added to its first attestation. A member inside an attestation is decided before the criterion, so the record rejects with unknown_member_reject. An engine that checks the attestations only after the criterion accepts reports n7's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n7"], _set_in(("attestations", 0), UNDEFINED, 1)),
+    },
+    {
+        "id": "n146-unknown-member-in-party-attestation",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": f"p8's input with `{UNDEFINED}: 1` added to its first attestation, the one by a party to the transaction (n122 adds it to the attestation by the attestor outside the parties). Every object in `attestations` is closed, whoever the attestor and wherever the entry sits, so the record rejects with unknown_member_reject. p8 is the accepting twin. An engine that checks only the last attestation, skips the first, or checks only attestors outside the parties accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p8"], _set_in(("attestations", 0), UNDEFINED, 1)),
+    },
+    {
+        "id": "n147-unknown-member-in-attestation-no-claim",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": f"p9's input, which claims no independence, with `{UNDEFINED}: 1` added to its first attestation. The criterion does not read the attestations of a record that claims nothing, but each one is a closed object all the same, so the record rejects with unknown_member_reject. p9 is the accepting twin. An engine that checks the attestations only when independence is claimed accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p9"], _set_in(("attestations", 0), UNDEFINED, 1)),
+    },
+    {
+        "id": "n148-unknown-member-after-non-object-entry",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": f"p62's input with `{UNDEFINED}: 1` added to its last attestation. p62's first attestation is a string, which has no members to read; the entries after it are closed objects and are still checked, so the record rejects with unknown_member_reject. p62 is the accepting twin. An engine that stops checking at the first entry that is not an object accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p9"], lambda inp: (
+            _not_an_attestation_first(inp), inp["attestations"][-1].__setitem__(UNDEFINED, 1))),
+    },
+    {
+        "id": "n149-member-name-trailing-space",
+        "kind": "boundary_binding", "expect": "reject", "reason": _UM,
+        "description": "p18's input with `covered_through ` (a trailing U+0020) added beside `covered_through`, with the same value. Names compare as exact strings and are never trimmed, so the padded name is one boundary_binding does not define and the record rejects with unknown_member_reject. p18 is the accepting twin. An engine that strips whitespace from names before comparing them accepts this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p18"], lambda inp: inp.__setitem__("covered_through ", inp["covered_through"])),
+    },
+    {
+        "id": "p61-chain-commitment-not-read-contents",
+        "kind": "chain_commitment", "expect": "valid",
+        "description": f"p57's input with `{UNDEFINED}: 1` added to its `witness` and to its attestation. In chain_commitment, as in chain_set (p58), `witness` and `attestations` are permitted and not read, and their contents are not examined, so the record accepts as p57 does. An engine that closes the witness or the attestations in chain_commitment rejects this vector. " + _RULE,
+        "input": _p57_with(lambda inp: (
+            inp["witness"].__setitem__(UNDEFINED, 1),
+            [a.__setitem__(UNDEFINED, 1) for a in inp["attestations"]])),
+    },
+    {
+        "id": "p62-attestation-not-an-object-no-claim",
+        "kind": "independence_claim", "expect": "valid",
+        "description": "p9's input with the string `not an attestation` inserted as its first attestation. A closed object that is not a JSON object has no members to read, so the member check passes it, and the kind's criterion decides the record as before: p9 claims no independence, and the criterion does not read the attestations of a record that claims none, so it accepts as p9 does. n16 carries a string attestation under a claim, which rejects with independence_reject. n148 is this input with a member added to its last attestation. " + _RULE,
+        "input": _with(_BASE_IDS["p9"], _not_an_attestation_first),
+    },
+]
+
+# Generation gate: each new vector's verdict and reason under verify.py's CHECKS. For a vector
+# that pins the order, the criterion alone on the same input (no member check) reads the reason
+# of the rejecting vector it was taken from; for every other reject it reads valid, so a vector
+# that rejects for any reason other than the undefined member cannot land.
+_DECIDED_FIRST = {"n133": "n4", "n144": "n4", "n145": "n7",
+                  **{_id.split("-", 1)[0]: _b for _id, _k, _b in _ORDER}}
 for _v in defined_member_vectors:
     _got = CHECKS[_v["kind"]](_v["input"])[:2]
     _want = (_v["expect"], _v.get("reason"))
     if _got != _want:
         sys.exit(f"defined members: {_v['id']} reads {_got}, expected {_want}")
-    if _v["expect"] == "reject" and not _v["id"].startswith("n133-"):
-        _crit = CRITERIA[_v["kind"]](_v["input"])[0]
-        if _crit != "valid":
-            sys.exit(f"defined members: {_v['id']}'s criterion alone reads {_crit}; only the member may reject it")
+    if _v["expect"] == "reject":
+        _b = _DECIDED_FIRST.get(_v["id"].split("-", 1)[0])
+        _crit = tuple(CRITERIA[_v["kind"]](_v["input"])[:2])
+        _crit_want = ("reject", _REASON_OF[_b]) if _b else ("valid", None)
+        if _crit != _crit_want:
+            sys.exit(f"defined members: {_v['id']}'s criterion alone reads {_crit}, expected {_crit_want}")
 vectors += defined_member_vectors
 
 # ------------------------------------------------------------------ per-vector provenance
@@ -3024,6 +3117,19 @@ PROVENANCE = {
     "p58-chain-set-not-read-contents": _SYN,
     "p59-settlement-result-open": _SYN,
     "p60-receipt-open": _SYN,
+    # The order vectors take their class from the rejecting vector each was taken from: n138 carries
+    # p5's live anchored digest (n5), and n142 carries PR #5's decision-evidence object (n27).
+    **{_id: _SYN for _id, _kind, _base in _ORDER if _base not in ("n5", "n27")},
+    "n138-unknown-member-before-criterion-anchor-relation": (TERSIGN, "live-ledger-derived", "n5's input (p5's anchored digest paired with a synthetic subject it does not bind) with a member added, written here"),
+    "n142-unknown-member-before-criterion-decision-evidence-binding": (TERSIGN, "contributed", "n27's input, @mohammedmessaoudene-cmd's decision-evidence object from PR #5 (commits c23a985 and 2f6bef0), with a member added; written here"),
+    "n144-unknown-member-in-head-before-criterion": _SYN,
+    "n145-unknown-member-in-attestation-before-criterion": _SYN,
+    "n146-unknown-member-in-party-attestation": _SYN,
+    "n147-unknown-member-in-attestation-no-claim": _SYN,
+    "n148-unknown-member-after-non-object-entry": _SYN,
+    "n149-member-name-trailing-space": _SYN,
+    "p61-chain-commitment-not-read-contents": _SYN,
+    "p62-attestation-not-an-object-no-claim": _SYN,
 }
 
 # Values from the live ledger, and from the contributed fixtures Tersign-written vectors reuse
@@ -3104,31 +3210,42 @@ if DEFINED_MEMBERS_SPEC != defined_members_table():
     sys.exit("defined members: the spec lists in tools/gen_vectors.py differ from verify.py's DEFINED_MEMBERS")
 DEFINED_MEMBERS_RULE = (
     "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each "
-    "object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. A closed "
-    "object's members are exactly the names `closed` lists for that kind and that object; a member with any other name makes "
-    "the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside "
-    "each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the "
-    "member. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) "
-    "reject like any other value. Names compare as exact strings, with no case folding, no Unicode normalization and no "
-    "confusable mapping: `Presented_as` is not `presented_as` (n126), `sеq` written with U+0435 is not `seq` (n127), and "
-    "`ｂｙ` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128). Each kind and each closed object has its "
-    "own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` "
-    "in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any "
-    "other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. "
-    "The member check is decided before the kind's criterion, so an input that also fails the criterion rejects with "
-    "unknown_member_reject (n133, n4's input with a member added). A closed object that is not a JSON object has no members "
-    "to read, and the kind's criterion decides it as before (n16). The lists include the members the suite permits and does "
-    "not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in "
-    "chain_set and in chain_commitment (p24, p28, p57; p58 carries an undefined member inside each and accepts), an "
-    "attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed "
-    "because commitment_derivation defines it: its presence rejects with independence_reject (n22-n24). Every other object is "
-    "open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a "
-    "member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member "
-    "the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named "
-    "members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and "
-    "`boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No "
-    "extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member "
-    "these lists do not name. Each engine pins the lists in its code, and its run fails if `closed` differs from them"
+    "object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. Each "
+    "member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may "
+    "be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at "
+    "the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its "
+    "accepting twin, the same bytes without the member. Every object in `attestations` is closed, whoever the attestor, "
+    "wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation "
+    "by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. "
+    "A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject "
+    "like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode "
+    "normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `sеq` written with U+0435 is not "
+    "`seq` (n127), `ｂｙ` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128), and `covered_through ` with a "
+    "trailing space is not `covered_through` (n149); no vector pins any other near-spelling. Each kind and each closed object "
+    "has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and "
+    "`acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member "
+    "like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's "
+    "prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input "
+    "that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member "
+    "added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and n144 and n145 with the member "
+    "inside `head` (n4) and inside an attestation (n7). A closed object inside `input` that is not a JSON object has no members "
+    "to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose "
+    "attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON "
+    "object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite "
+    "permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a "
+    "chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an "
+    "undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in "
+    "independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: in a record that "
+    "claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the "
+    "criterion does not read it. Every other object is open: its members are the record's own or another protocol's "
+    "(field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open "
+    "objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each "
+    "entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in "
+    "decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result "
+    "and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added "
+    "through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; "
+    "the crypto profiles (crypto/MANIFEST.json, crypto/EIP712_MANIFEST.json) do not decide what a verifier does with a member "
+    "they do not define. Each engine pins the lists in its code, and its run fails if `closed` differs from them"
 )
 
 manifest = {

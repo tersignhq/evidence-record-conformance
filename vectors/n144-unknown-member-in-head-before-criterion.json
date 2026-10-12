@@ -1,0 +1,26 @@
+{
+  "id": "n144-unknown-member-in-head-before-criterion",
+  "kind": "chain_set",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n4's input, which rejects with completeness_reject, with `x_undefined: 1` added to `head`. A member inside a closed object is decided before the criterion, as one at the top level is (n133), so the record rejects with unknown_member_reject. An engine that checks the objects inside `input` only after the criterion accepts reports n4's reason. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "head": {
+      "seq": 3,
+      "digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+      "x_undefined": 1
+    },
+    "records": [
+      {
+        "seq": 1,
+        "artifact_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+        "prev_digest": null
+      },
+      {
+        "seq": 3,
+        "artifact_digest": "0xdb17ed57683dea4c9ff668a1e769503e933fcc4e133ea0a823f7ddfc7b6106cd",
+        "prev_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29"
+      }
+    ]
+  }
+}
