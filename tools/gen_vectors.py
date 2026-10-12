@@ -6,6 +6,7 @@ live ledger, cross-checkable against the public endpoints named in their `proven
 blocks (the genesis record body at /v1/genesis; the anchor records at /v1/anchors/{id};
 the genesis chain walked backwards through /v1/receipts/{digest}/verify)."""
 
+import copy
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from verify import canonical, digest_of, chain_link_digest, chain_acc_step, ACC_GENESIS, check_chain_set  # noqa: E402
+from verify import CHECKS, CRITERIA, defined_members_table  # noqa: E402
 from keccak import keccak256  # noqa: E402  (vendored, self-checked at import)
 
 V = os.path.join(ROOT, "vectors")
@@ -2585,6 +2587,216 @@ vectors = [
     },
 ]
 
+# ------------------------------------------------------------------ defined members (v0.5.8)
+# Issue #17 (2026-10-11): every `valid` vector stayed valid with a member no file of the suite
+# defines added to its input, and no sentence said what a verifier does with one. Ruling: such a
+# member rejects (`defined_members` in MANIFEST.json, unknown_member_reject). Every vector below
+# is an earlier vector's input with one change; the vector it was taken from is its accepting
+# twin (or, for n133, the reject whose reason it overrides). Earlier vector files are unchanged.
+PROBE = "x_unknown_2026"   # the member and value of the probe published in issue #17
+UNDEFINED = "x_undefined"  # the member the suite adds where the probe did not reach
+
+
+def _input_of(vid):
+    for v in vectors:
+        if v["id"] == vid:
+            return copy.deepcopy(v["input"])
+    sys.exit(f"defined members: no vector {vid}")
+
+
+def _with(vid, edit):
+    inp = _input_of(vid)
+    edit(inp)
+    return inp
+
+
+def _set(key, value):
+    def edit(inp):
+        inp[key] = value
+    return edit
+
+
+def _set_in(path, key, value):
+    """path is ("head",) or ("records", 1): one object one level down."""
+    def edit(inp):
+        obj = inp[path[0]] if len(path) == 1 else inp[path[0]][path[1]]
+        obj[key] = value
+    return edit
+
+
+_TOP_LEVEL = [  # (id, kind, accepting twin)
+    ("n107-unknown-member-digest-recompute", "digest_recompute", "p3"),
+    ("n108-unknown-member-canonical-bytes", "canonical_bytes", "p2"),
+    ("n109-unknown-member-chain-link", "chain_link", "p43"),
+    ("n110-unknown-member-chain-set", "chain_set", "p6"),
+    ("n111-unknown-member-chain-commitment", "chain_commitment", "p26"),
+    ("n112-unknown-member-anchor-relation", "anchor_relation", "p5"),
+    ("n113-unknown-member-phase-claim", "phase_claim", "p7"),
+    ("n114-unknown-member-independence-claim", "independence_claim", "p8"),
+    ("n115-unknown-member-offer-binding", "offer_binding", "p15"),
+    ("n116-unknown-member-decision-evidence-binding", "decision_evidence_binding", "p19"),
+    ("n117-unknown-member-boundary-binding", "boundary_binding", "p18"),
+]
+_BASE_IDS = {v["id"].split("-", 1)[0]: v["id"] for v in vectors}
+_UM = "unknown_member_reject"
+_RULE = "Rests on `defined_members` in MANIFEST.json."
+
+defined_member_vectors = []
+for _id, _kind, _twin in _TOP_LEVEL:
+    defined_member_vectors.append({
+        "id": _id, "kind": _kind, "expect": "reject", "reason": _UM,
+        "description": f"{_twin}'s input with one member added at its top level, `{PROBE}: 1`, a name {_kind} does not define, so the record rejects with unknown_member_reject. {_twin} is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. {_RULE}",
+        "input": _with(_BASE_IDS[_twin], _set(PROBE, 1)),
+    })
+
+defined_member_vectors += [
+    # ---- inside each closed object
+    {
+        "id": "n118-unknown-member-in-chain-set-head",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": f"p6's input with `{UNDEFINED}: 1` added to `head`. `head` is a closed object in chain_set, defining `seq` and `digest`, so the record rejects with unknown_member_reject. p6 is the accepting twin. An engine that closes `input` and nothing inside it accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p6"], _set_in(("head",), UNDEFINED, 1)),
+    },
+    {
+        "id": "n119-unknown-member-in-chain-set-record",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": f"p6's input with `{UNDEFINED}: 1` added to its second `records` entry. Each object in `records` is closed in chain_set, defining `seq`, `artifact_digest`, `prev_digest` and `link`, so the record rejects with unknown_member_reject. p6 is the accepting twin. An engine that checks only the first entry, or none, accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p6"], _set_in(("records", 1), UNDEFINED, 1)),
+    },
+    {
+        "id": "n120-unknown-member-in-chain-commitment-head",
+        "kind": "chain_commitment", "expect": "reject", "reason": _UM,
+        "description": f"p26's input with `{UNDEFINED}: 1` added to `head`. `head` is a closed object in chain_commitment, defining `seq`, `digest` and `acc`, so the record rejects with unknown_member_reject. p26 is the accepting twin. {_RULE}",
+        "input": _with(_BASE_IDS["p26"], _set_in(("head",), UNDEFINED, 1)),
+    },
+    {
+        "id": "n121-unknown-member-in-chain-commitment-record",
+        "kind": "chain_commitment", "expect": "reject", "reason": _UM,
+        "description": f"p26's input with `{UNDEFINED}: 1` added to its last `records` entry. Each object in `records` is closed in chain_commitment, as in chain_set, so the record rejects with unknown_member_reject. p26 is the accepting twin. {_RULE}",
+        "input": _with(_BASE_IDS["p26"], _set_in(("records", 2), UNDEFINED, 1)),
+    },
+    {
+        "id": "n122-unknown-member-in-attestation",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": f"p8's input with `{UNDEFINED}: 1` added to the attestation by the attestor outside the parties. Each object in `attestations` is closed in independence_claim, defining `by` and `role`, so the record rejects with unknown_member_reject. p8 is the accepting twin. An engine that ignores members it does not read inside an attestation accepts a claim without evaluating what such a member states. {_RULE}",
+        "input": _with(_BASE_IDS["p8"], _set_in(("attestations", 1), UNDEFINED, 1)),
+    },
+    # ---- a member counts by its name, whatever its value
+    {
+        "id": "n123-unknown-member-null-value",
+        "kind": "chain_link", "expect": "reject", "reason": _UM,
+        "description": f"p43's input with `{UNDEFINED}: null` added. A member counts by its name, whatever its value, so a null rejects like any other value, with unknown_member_reject. p43 is the accepting twin. An engine that tests the value against null or undefined, instead of testing whether the name is present, accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p43"], _set(UNDEFINED, None)),
+    },
+    {
+        "id": "n124-unknown-member-empty-string-value",
+        "kind": "offer_binding", "expect": "reject", "reason": _UM,
+        "description": f"p15's input with `{UNDEFINED}: \"\"` added. An empty string is a value, and the member rejects with unknown_member_reject. p15 is the accepting twin. An engine that skips falsy values, in Python or in JavaScript, accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p15"], _set(UNDEFINED, "")),
+    },
+    {
+        "id": "n125-unknown-member-empty-object-value",
+        "kind": "boundary_binding", "expect": "reject", "reason": _UM,
+        "description": f"p18's input with `{UNDEFINED}: {{}}` added. An empty object is a value, and the member rejects with unknown_member_reject. p18 is the accepting twin. An engine that skips empty containers, as Python's truth test does, accepts this vector. {_RULE}",
+        "input": _with(_BASE_IDS["p18"], _set(UNDEFINED, {})),
+    },
+    # ---- names compare as exact strings
+    {
+        "id": "n126-member-name-letter-case",
+        "kind": "phase_claim", "expect": "reject", "reason": _UM,
+        "description": "p7's input with `Presented_as: \"delivery\"` added beside `presented_as: \"delivery\"`. Member names compare as exact strings, so `Presented_as` is a name phase_claim does not define and the record rejects with unknown_member_reject. p7 is the accepting twin. An engine that compares names without regard to letter case reads the two as one member and accepts this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p7"], _set("Presented_as", "delivery")),
+    },
+    {
+        "id": "n127-member-name-cyrillic-homoglyph",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": "p6's input with `sеq: 1` added to its first `records` entry, beside `seq: 1`; the name's second letter is U+0435 CYRILLIC SMALL LETTER IE, not U+0065. No Unicode normalization form folds the two letters and no confusable mapping is applied, so the name is not `seq` and the record rejects with unknown_member_reject. p6 is the accepting twin. An engine that compares names by a confusable skeleton accepts this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p6"], _set_in(("records", 0), "sеq", 1)),
+    },
+    {
+        "id": "n128-member-name-fullwidth-compatibility-form",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": "p8's input with `ｂｙ` (U+FF42 U+FF59, fullwidth b and y) added beside `by`, with the same value, to the attestation by the attestor outside the parties. NFKC folds the name to `by`, but names are never normalized, so it is a name an attestation does not define and the record rejects with unknown_member_reject. p8 is the accepting twin. An engine that normalizes names with NFKC or NFKD before comparing them accepts this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p8"], lambda inp: inp["attestations"][1].__setitem__("ｂｙ", inp["attestations"][1]["by"])),
+    },
+    # ---- each kind and each closed object has its own list
+    {
+        "id": "n129-member-of-another-kind",
+        "kind": "digest_recompute", "expect": "reject", "reason": _UM,
+        "description": "p3's input with `payload_text` added, holding the canonical text of p3's own payload. `payload_text` is defined for canonical_bytes and not for digest_recompute, so the record rejects with unknown_member_reject. p3 is the accepting twin. An engine that checks names against one list for every kind accepts this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p3"], lambda inp: inp.__setitem__("payload_text", canonical(inp["payload"]))),
+    },
+    {
+        "id": "n130-chain-commitment-head-read-as-chain-set",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": "p26's input, unchanged, under chain_set. Its `head` carries `acc`, which chain_commitment's head defines and chain_set's does not, so under chain_set the record rejects with unknown_member_reject; p26 accepts the same bytes under chain_commitment. An engine that checks a closed object against one list for every kind accepts this vector, since p26's set is otherwise complete. " + _RULE,
+        "input": _input_of(_BASE_IDS["p26"]),
+    },
+    # ---- a name every JavaScript object inherits is a member like any other
+    {
+        "id": "n131-member-named-constructor",
+        "kind": "canonical_bytes", "expect": "reject", "reason": _UM,
+        "description": "p2's input with `constructor: 1` added. Every JavaScript object inherits a property of that name, so an engine that looks names up in a plain object (`name in table`, `table[name]`) finds it and reads the member as defined. The suite does not define it, and the record rejects with unknown_member_reject. p2 is the accepting twin. " + _RULE,
+        "input": _with(_BASE_IDS["p2"], _set("constructor", 1)),
+    },
+    {
+        "id": "n132-member-named-proto",
+        "kind": "independence_claim", "expect": "reject", "reason": _UM,
+        "description": "p9's input with `__proto__: 1` added. JSON.parse keeps it as a member of the object; an engine or loader that copies the input by assignment (`out[name] = value`) sets the copy's prototype instead, the member disappears, and that engine accepts. The suite does not define the name, and the record rejects with unknown_member_reject. p9 is the accepting twin. " + _RULE,
+        "input": _with(_BASE_IDS["p9"], _set("__proto__", 1)),
+    },
+    # ---- decided before the criterion
+    {
+        "id": "n133-unknown-member-before-criterion",
+        "kind": "chain_set", "expect": "reject", "reason": _UM,
+        "description": f"n4's input, which rejects with completeness_reject, with `{UNDEFINED}: 1` added. The member check is decided before the kind's criterion, so the record rejects with unknown_member_reject, not completeness_reject. An engine that runs the criterion first reports n4's reason. {_RULE}",
+        "input": _with(_BASE_IDS["n4"], _set(UNDEFINED, 1)),
+    },
+    # ---- members permitted and not read keep that status; open objects stay open
+    {
+        "id": "p57-chain-commitment-witness-and-attestations",
+        "kind": "chain_commitment", "expect": "valid",
+        "description": "p26's input with p24's `witness` and p28's issuer `attestations` added. chain_commitment defines both as chain_set does, permitted and not read, so the record accepts as p26 does. An engine whose chain_commitment list leaves them out rejects this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p26"], lambda inp: inp.update(
+            witness=_input_of(_BASE_IDS["p24"])["witness"],
+            attestations=_input_of(_BASE_IDS["p28"])["attestations"])),
+    },
+    {
+        "id": "p58-chain-set-not-read-contents",
+        "kind": "chain_set", "expect": "valid",
+        "description": f"p24's input with `{UNDEFINED}: 1` added to its `witness`, and p28's issuer `attestations` added with `{UNDEFINED}: 1` in the attestation. In chain_set `witness` and `attestations` are permitted and not read, and their contents are not examined, so the record accepts as p24 does. An engine that closes every object, or closes an attestation in chain_set because independence_claim closes one, rejects this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p24"], lambda inp: (
+            inp["witness"].__setitem__(UNDEFINED, 1),
+            inp.__setitem__("attestations", [{**a, UNDEFINED: 1} for a in _input_of(_BASE_IDS["p28"])["attestations"]]))),
+    },
+    {
+        "id": "p59-settlement-result-open",
+        "kind": "independence_claim", "expect": "valid",
+        "description": "p17's input with `payer` added to `settlement_result`, holding the first party's address. A settlement result is another protocol's object: the suite reads `success`, `transaction` and `network` and does not define its other members, so the object is open and the record accepts as p17 does. An engine that closes `settlement_result` rejects this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p17"], lambda inp: inp["settlement_result"].__setitem__("payer", inp["parties"][0])),
+    },
+    {
+        "id": "p60-receipt-open",
+        "kind": "offer_binding", "expect": "valid",
+        "description": "p15's input with `issuedAt: 1735689600` added to `receipt`. The suite reads a receipt's `offerDigest` and does not define its other members, so the object is open and the record accepts as p15 does. An engine that closes `receipt` rejects this vector. " + _RULE,
+        "input": _with(_BASE_IDS["p15"], _set_in(("receipt",), "issuedAt", 1735689600)),
+    },
+]
+
+# Generation gate: each new vector's verdict and reason under verify.py's CHECKS and, for every
+# reject but n133, the criterion alone on the same input (no member check) reads valid — so a
+# vector that rejects for any reason other than the undefined member cannot land.
+for _v in defined_member_vectors:
+    _got = CHECKS[_v["kind"]](_v["input"])[:2]
+    _want = (_v["expect"], _v.get("reason"))
+    if _got != _want:
+        sys.exit(f"defined members: {_v['id']} reads {_got}, expected {_want}")
+    if _v["expect"] == "reject" and not _v["id"].startswith("n133-"):
+        _crit = CRITERIA[_v["kind"]](_v["input"])[0]
+        if _crit != "valid":
+            sys.exit(f"defined members: {_v['id']}'s criterion alone reads {_crit}; only the member may reject it")
+vectors += defined_member_vectors
+
 # ------------------------------------------------------------------ per-vector provenance
 # v0.5.3. MANIFEST-only metadata: every vector file stays byte-identical. Each manifest entry
 # names its `author` and its `origin`.
@@ -2612,6 +2824,7 @@ _PR7 = "PR #7, commit adb6bab (issue #3): PayPerByte fixture, values from a live
 _ON_0RKZ = "built on @0rkz's PayPerByte fixture (PR #7, issue #3); written here, commit a2b906d"
 _R4 = "@Rul1an's reproduction in issue #4 (2026-08-08), written here"
 _R1 = "@Rul1an's report in issue #1 (2026-09-30), issuecomment-5908429130"
+_R17 = "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`"
 
 PROVENANCE = {
     "p1-live-genesis-receipt": (TERSIGN, "live-ledger", f"the ledger's genesis receipt and its counter-signature, {_LIVE_ENDPOINTS}"),
@@ -2784,6 +2997,33 @@ PROVENANCE = {
     "p55-independence-scope-delivery-only": _SYN,
     "n106-independence-address-alias-letter-case": _SYN,
     "p56-independence-address-letter-case-outside-party": _SYN,
+    # v0.5.8 — defined members. The top-level vectors carry the probe published in issue #17
+    # (member and value verbatim), so they are contributed; n112's base is p5's live anchor, so
+    # it is live-ledger-derived and names the probe; n116's base is p19's PR #5 object.
+    **{_id: (TERSIGN, "contributed", f"{_R17}: the member added to {_twin}'s input, written here")
+       for _id, _kind, _twin in _TOP_LEVEL if _twin not in ("p5", "p19")},
+    "n112-unknown-member-anchor-relation": (TERSIGN, "live-ledger-derived", f"{_R17}: the member added to p5's input (the live anchor's subject and anchored digests), written here"),
+    "n116-unknown-member-decision-evidence-binding": (TERSIGN, "contributed", f"p19's decision-evidence object from @mohammedmessaoudene-cmd's PR #5 (commit c23a985), with the member of {_R17}; written here"),
+    "n118-unknown-member-in-chain-set-head": _SYN,
+    "n119-unknown-member-in-chain-set-record": _SYN,
+    "n120-unknown-member-in-chain-commitment-head": _SYN,
+    "n121-unknown-member-in-chain-commitment-record": _SYN,
+    "n122-unknown-member-in-attestation": _SYN,
+    "n123-unknown-member-null-value": _SYN,
+    "n124-unknown-member-empty-string-value": _SYN,
+    "n125-unknown-member-empty-object-value": _SYN,
+    "n126-member-name-letter-case": _SYN,
+    "n127-member-name-cyrillic-homoglyph": _SYN,
+    "n128-member-name-fullwidth-compatibility-form": _SYN,
+    "n129-member-of-another-kind": _SYN,
+    "n130-chain-commitment-head-read-as-chain-set": _SYN,
+    "n131-member-named-constructor": _SYN,
+    "n132-member-named-proto": _SYN,
+    "n133-unknown-member-before-criterion": _SYN,
+    "p57-chain-commitment-witness-and-attestations": _SYN,
+    "p58-chain-set-not-read-contents": _SYN,
+    "p59-settlement-result-open": _SYN,
+    "p60-receipt-open": _SYN,
 }
 
 # Values from the live ledger, and from the contributed fixtures Tersign-written vectors reuse
@@ -2838,9 +3078,62 @@ if set(PROVENANCE) != set(_ids):
     _provenance_fail(f"vectors without an entry: {sorted(set(_ids) - set(PROVENANCE))}; "
                      f"entries without a vector: {sorted(set(PROVENANCE) - set(_ids))}")
 
+# v0.5.8 — the defined-member lists, written here as the spec and compared with the lists
+# verify.py pins (and, at run time, with the lists tools/cross_check_ts.mjs pins): three copies,
+# so a change to any one of them without the others fails generation or a run.
+_CHAIN_INPUT = ["attestations", "head", "records", "witness"]
+_CHAIN_ROW = ["artifact_digest", "link", "prev_digest", "seq"]
+DEFINED_MEMBERS_SPEC = {
+    "digest_recompute": {"input": ["expected_digest", "payload"]},
+    "canonical_bytes": {"input": ["claimed_canonical", "payload", "payload_text"]},
+    "chain_link": {"input": ["artifact_digest", "expected_link", "prev_digest", "seq"]},
+    "chain_set": {"input": _CHAIN_INPUT, "input.head": ["digest", "seq"], "input.records[]": _CHAIN_ROW},
+    "chain_commitment": {"input": _CHAIN_INPUT, "input.head": ["acc", "digest", "seq"], "input.records[]": _CHAIN_ROW},
+    "anchor_relation": {"input": ["anchored_digest", "subject_digest"]},
+    "phase_claim": {"input": ["presented_as", "record"]},
+    "independence_claim": {
+        "input": ["attestations", "claimed", "covers", "deliverable_bytes", "deliverable_digest",
+                  "deliverable_signer", "parties", "payTo", "record_commits", "settlement_result"],
+        "input.attestations[]": ["by", "role"],
+    },
+    "offer_binding": {"input": ["offer", "receipt"]},
+    "decision_evidence_binding": {"input": ["decision_evidence", "record"]},
+    "boundary_binding": {"input": ["boundary_event", "covered_through", "prefix"]},
+}
+if DEFINED_MEMBERS_SPEC != defined_members_table():
+    sys.exit("defined members: the spec lists in tools/gen_vectors.py differ from verify.py's DEFINED_MEMBERS")
+DEFINED_MEMBERS_RULE = (
+    "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each "
+    "object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. A closed "
+    "object's members are exactly the names `closed` lists for that kind and that object; a member with any other name makes "
+    "the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside "
+    "each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the "
+    "member. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) "
+    "reject like any other value. Names compare as exact strings, with no case folding, no Unicode normalization and no "
+    "confusable mapping: `Presented_as` is not `presented_as` (n126), `sеq` written with U+0435 is not `seq` (n127), and "
+    "`ｂｙ` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128). Each kind and each closed object has its "
+    "own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` "
+    "in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any "
+    "other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. "
+    "The member check is decided before the kind's criterion, so an input that also fails the criterion rejects with "
+    "unknown_member_reject (n133, n4's input with a member added). A closed object that is not a JSON object has no members "
+    "to read, and the kind's criterion decides it as before (n16). The lists include the members the suite permits and does "
+    "not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in "
+    "chain_set and in chain_commitment (p24, p28, p57; p58 carries an undefined member inside each and accepts), an "
+    "attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed "
+    "because commitment_derivation defines it: its presence rejects with independence_reject (n22-n24). Every other object is "
+    "open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a "
+    "member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member "
+    "the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named "
+    "members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and "
+    "`boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No "
+    "extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member "
+    "these lists do not name. Each engine pins the lists in its code, and its run fails if `closed` differs from them"
+)
+
 manifest = {
     "suite": "evidence-record-conformance",
-    "version": "0.5.7",
+    "version": "0.5.8",
     "layer": "evidence-record",
     "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core — a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
     "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON number TOKENS rejected (number_domain_reject) — the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
@@ -2857,6 +3150,7 @@ manifest = {
     "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",
     "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a string that is not empty after the whitespace strip of identifier_normalization (a result with no transaction member commits to no settlement: n104/p54; a record with no settlement result commits to no settlement: n105/p55); `network` when settlement_result.network is such a string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation — position is the independence axis, decided before scope is",
     "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
+    "defined_members": {"rule": DEFINED_MEMBERS_RULE, "closed": DEFINED_MEMBERS_SPEC},
     "vector_provenance": "every entry names `author`, the GitHub account that authored the commit adding the vector (git log --diff-filter=A -- vectors/<file>), and `origin` = {class, source}. origin.class is closed: synthetic (inputs constructed in tools/gen_vectors.py); live-ledger (a record from the live ledger, unaltered, with a provenance block in the vector); live-ledger-derived (a live-ledger value reused or altered); contributed (an outside contributor's PR, commit, fixture or published reproduction, named in origin.source, including vectors written here on such material). Among vectors written here, the class follows the value that distinguishes the vector: contributed where it is the contributor's (p39 and n78, @Rul1an's inputs; n24, his reproduction; n48, @stillmarcus24's attestor) and synthetic where the suite constructed it, beside a contributed vector or not (n42, n41's input with its second name escaped; n71, p39's payload under an escaping encoder's digest; n74, whose NFC digest equals p39's); a vector that carries a contributed fixture with a value of its own is contributed whoever altered it (n33, n95). Precedence: a vector that carries a live-ledger value is live-ledger or live-ledger-derived whoever wrote it, an outside pull request included, and names in origin.source any contributor whose input it is (n75); contributed applies only where the vector carries no live-ledger value. The live ledger's signer address used as sample data is not a live-ledger value (n9, n22-n24). Generation fails if a vector has no entry, if its live-ledger class (or its lack of one) disagrees with the live-ledger values and provenance block in its own bytes, or if it carries one of the contributed fixtures the generator recognizes in a vector's bytes (@0rkz's PayPerByte delivery digest, PR #5's decision-evidence objects, PR #6's suite-transition rule version) without crediting the contributor; a contributed input with no value of its own (a reproduction or probe written here) is declared, not derived; authorship is not decided at generation: it is checkable against git history with the command above. Credit for reporting a failure class is recorded in CONTRIBUTORS.md. Metadata only: neither engine reads it",
     "vectors": [
         {"file": f"{v['id']}.json", "kind": v["kind"], "expect": v["expect"],

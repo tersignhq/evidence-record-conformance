@@ -1,0 +1,16 @@
+{
+  "id": "n129-member-of-another-kind",
+  "kind": "digest_recompute",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p3's input with `payload_text` added, holding the canonical text of p3's own payload. `payload_text` is defined for canonical_bytes and not for digest_recompute, so the record rejects with unknown_member_reject. p3 is the accepting twin. An engine that checks names against one list for every kind accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "payload": {
+      "10": "a",
+      "2": "b",
+      "1": "c"
+    },
+    "expected_digest": "0x426b770f81b8ad5e307bcfb767deb02f8d32cd340d81a946be88bb184857e81b",
+    "payload_text": "{\"1\":\"c\",\"10\":\"a\",\"2\":\"b\"}"
+  }
+}

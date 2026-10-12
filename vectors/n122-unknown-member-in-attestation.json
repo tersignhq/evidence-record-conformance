@@ -1,0 +1,25 @@
+{
+  "id": "n122-unknown-member-in-attestation",
+  "kind": "independence_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p8's input with `x_undefined: 1` added to the attestation by the attestor outside the parties. Each object in `attestations` is closed in independence_claim, defining `by` and `role`, so the record rejects with unknown_member_reject. p8 is the accepting twin. An engine that ignores members it does not read inside an attestation accepts a claim without evaluating what such a member states. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "payer"
+      },
+      {
+        "by": "0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6",
+        "role": "counter-signing ledger",
+        "x_undefined": 1
+      }
+    ]
+  }
+}

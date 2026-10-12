@@ -1,0 +1,15 @@
+{
+  "id": "n108-unknown-member-canonical-bytes",
+  "kind": "canonical_bytes",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p2's input with one member added at its top level, `x_unknown_2026: 1`, a name canonical_bytes does not define, so the record rejects with unknown_member_reject. p2 is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "payload": {
+      "b": "x",
+      "a": 1
+    },
+    "claimed_canonical": "{\"a\":1,\"b\":\"x\"}",
+    "x_unknown_2026": 1
+  }
+}

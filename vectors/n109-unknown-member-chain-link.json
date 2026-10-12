@@ -1,0 +1,14 @@
+{
+  "id": "n109-unknown-member-chain-link",
+  "kind": "chain_link",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p43's input with one member added at its top level, `x_unknown_2026: 1`, a name chain_link does not define, so the record rejects with unknown_member_reject. p43 is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+    "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+    "seq": 9007199254740991,
+    "expected_link": "0x53be811188c5bc2b8fe5a5dc49560d226b4ff796c682dd71125f021d2c86fcb3",
+    "x_unknown_2026": 1
+  }
+}

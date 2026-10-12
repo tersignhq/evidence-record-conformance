@@ -271,8 +271,59 @@ function checkStrings(node) {
   }
 }
 
+// ------------------------------------------------------------------- defined members
+// v0.5.8 (issue #17) — mirrors verify.py's DEFINED_MEMBERS: per kind, the closed objects and the
+// exact names each defines. A member with any other name rejects with unknown_member_reject,
+// whatever its value, before the criterion runs. Lists are Sets and names are an object's OWN
+// keys (Object.keys), never `name in obj` or a plain-object lookup: every object inherits
+// `constructor`, and `table[name]` finds it (n131). JSON.parse keeps `__proto__` as an own key
+// (n132); nothing here copies an input by assignment.
+const CHAIN_INPUT = ["attestations", "head", "records", "witness"];
+const CHAIN_ROW = ["artifact_digest", "link", "prev_digest", "seq"];
+const DEFINED_MEMBERS = {
+  digest_recompute: { input: ["expected_digest", "payload"] },
+  canonical_bytes: { input: ["claimed_canonical", "payload", "payload_text"] },
+  chain_link: { input: ["artifact_digest", "expected_link", "prev_digest", "seq"] },
+  chain_set: { input: CHAIN_INPUT, "input.head": ["digest", "seq"], "input.records[]": CHAIN_ROW },
+  chain_commitment: { input: CHAIN_INPUT, "input.head": ["acc", "digest", "seq"], "input.records[]": CHAIN_ROW },
+  anchor_relation: { input: ["anchored_digest", "subject_digest"] },
+  phase_claim: { input: ["presented_as", "record"] },
+  independence_claim: {
+    input: ["attestations", "claimed", "covers", "deliverable_bytes", "deliverable_digest",
+      "deliverable_signer", "parties", "payTo", "record_commits", "settlement_result"],
+    "input.attestations[]": ["by", "role"],
+  },
+  offer_binding: { input: ["offer", "receipt"] },
+  decision_evidence_binding: { input: ["decision_evidence", "record"] },
+  boundary_binding: { input: ["boundary_event", "covered_through", "prefix"] },
+};
+const DEFINED = new Map(Object.entries(DEFINED_MEMBERS).map(([kind, table]) =>
+  [kind, Object.entries(table).map(([path, names]) => [path, new Set(names)])]));
+const isObject = (x) => typeof x === "object" && x !== null && !Array.isArray(x);
+const own = (obj, key) => (Object.hasOwn(obj, key) ? obj[key] : undefined);
+function checkDefinedMembers(kind, inp) {
+  if (!isObject(inp)) return null;
+  for (const [path, names] of DEFINED.get(kind)) {
+    let objects;
+    if (path === "input") objects = [inp];
+    else {
+      const key = path.slice("input.".length);
+      if (key.endsWith("[]")) {
+        const entries = own(inp, key.slice(0, -2));
+        objects = Array.isArray(entries) ? entries.filter(isObject) : [];
+      } else {
+        objects = isObject(own(inp, key)) ? [own(inp, key)] : [];
+      }
+    }
+    for (const obj of objects) {
+      if (Object.keys(obj).some((name) => !names.has(name))) return ["reject", "unknown_member_reject"];
+    }
+  }
+  return null;
+}
+
 // ------------------------------------------------------------------------ vector kinds
-const CHECKS = {
+const CRITERIA = {
   digest_recompute(inp) {
     let got;
     try {
@@ -360,7 +411,7 @@ const CHECKS = {
   // keccak256(acc || link) over the RECOMPUTED links (prev = previous artifact digest) from
   // ACC_GENESIS. Same branch order, same reason codes.
   chain_commitment(inp) {
-    const [verdict, reason] = CHECKS.chain_set(inp);
+    const [verdict, reason] = CRITERIA.chain_set(inp);
     if (verdict !== "valid") return [verdict, reason];
     const claimed = normDigest(inp.head.acc);
     if (claimed === null) return ["reject", "continuity_reject"];
@@ -493,7 +544,16 @@ const CHECKS = {
   },
 };
 
-export { CHECKS, digestOf, canon };
+// The conformance entry point for every kind: the member check, then the criterion.
+// chain_commitment calls the chain_set CRITERION, so its head's `acc` is read against
+// chain_commitment's list, never chain_set's (n130 / p26).
+const CHECKS = Object.fromEntries(Object.entries(CRITERIA).map(([kind, criterion]) =>
+  [kind, (inp) => checkDefinedMembers(kind, inp) ?? criterion(inp)]));
+if (Object.keys(DEFINED_MEMBERS).sort().join() !== Object.keys(CRITERIA).sort().join()) {
+  throw new Error("DEFINED_MEMBERS must list every kind in CRITERIA");
+}
+
+export { CHECKS, DEFINED_MEMBERS, digestOf, canon };
 
 // ------------------------------------------------------------------------------ runner
 // Guarded so tools/differential.py can import CHECKS without running the corpus pass —
@@ -514,6 +574,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   }
 
   const manifest = JSON.parse(readFileSync(join(ROOT, "MANIFEST.json"), "utf-8"));
+  // v0.5.8: the member lists pinned above must equal MANIFEST.json's `defined_members.closed`.
+  // Compared as canonical JSON (key order free, list order not), as verify.py compares the dicts.
+  const sameJSON = (a, b) => {
+    try {
+      return canon(a) === canon(b);
+    } catch {
+      return false;
+    }
+  };
+  if (!sameJSON(manifest.defined_members?.closed, DEFINED_MEMBERS)) {
+    bad++;
+    console.log("DIVERGE defined_members: MANIFEST.json's `closed` lists differ from the lists pinned in this engine");
+  }
   for (const entry of manifest.vectors) {
     const vector = parseVectorText(readFileSync(join(ROOT, "vectors", entry.file), "utf-8"));
     let verdict, reason;

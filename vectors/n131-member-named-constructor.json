@@ -1,0 +1,15 @@
+{
+  "id": "n131-member-named-constructor",
+  "kind": "canonical_bytes",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p2's input with `constructor: 1` added. Every JavaScript object inherits a property of that name, so an engine that looks names up in a plain object (`name in table`, `table[name]`) finds it and reads the member as defined. The suite does not define it, and the record rejects with unknown_member_reject. p2 is the accepting twin. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "payload": {
+      "b": "x",
+      "a": 1
+    },
+    "claimed_canonical": "{\"a\":1,\"b\":\"x\"}",
+    "constructor": 1
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "n125-unknown-member-empty-object-value",
+  "kind": "boundary_binding",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p18's input with `x_undefined: {}` added. An empty object is a value, and the member rejects with unknown_member_reject. p18 is the accepting twin. An engine that skips empty containers, as Python's truth test does, accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "prefix": [
+      {
+        "event": "record",
+        "seq": 1
+      },
+      {
+        "event": "record",
+        "seq": 2
+      },
+      {
+        "event": "record",
+        "seq": 3
+      }
+    ],
+    "boundary_event": {
+      "event": "witness_ref_introduced",
+      "ruleVersion": "witness-ref-v1",
+      "prefixDigest": "0x359d141c2ce3530ee54762bc13d9a51676cdec13becc24deddc45fb536bbd086",
+      "position": 3,
+      "attestedPrefixLength": 3
+    },
+    "covered_through": 3,
+    "x_undefined": {}
+  }
+}

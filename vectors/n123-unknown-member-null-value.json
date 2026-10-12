@@ -1,0 +1,14 @@
+{
+  "id": "n123-unknown-member-null-value",
+  "kind": "chain_link",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p43's input with `x_undefined: null` added. A member counts by its name, whatever its value, so a null rejects like any other value, with unknown_member_reject. p43 is the accepting twin. An engine that tests the value against null or undefined, instead of testing whether the name is present, accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "artifact_digest": "0x5a811da59710bb115a7744189a9732f27883180f5821caa7a99979bc33257c29",
+    "prev_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4",
+    "seq": 9007199254740991,
+    "expected_link": "0x53be811188c5bc2b8fe5a5dc49560d226b4ff796c682dd71125f021d2c86fcb3",
+    "x_undefined": null
+  }
+}

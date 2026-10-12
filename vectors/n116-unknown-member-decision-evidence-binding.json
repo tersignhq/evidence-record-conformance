@@ -1,0 +1,48 @@
+{
+  "id": "n116-unknown-member-decision-evidence-binding",
+  "kind": "decision_evidence_binding",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p19's input with one member added at its top level, `x_unknown_2026: 1`, a name decision_evidence_binding does not define, so the record rejects with unknown_member_reject. p19 is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "record": {
+      "outcome": "allowed",
+      "decisionEvidenceDigest": "0x68b2b24ff10af252ca43df157efcf23d05098d8deafa0bb22126bee8c6c2f097"
+    },
+    "decision_evidence": {
+      "requested": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "hostAllowed": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "effective": {
+        "capabilities": [
+          "read"
+        ],
+        "budgets": {
+          "nodes": "10"
+        }
+      },
+      "delta": {
+        "removed": {},
+        "reducedBudgets": {}
+      },
+      "policy": {
+        "id": "host-default",
+        "version": "1"
+      }
+    },
+    "x_unknown_2026": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "n115-unknown-member-offer-binding",
+  "kind": "offer_binding",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p15's input with one member added at its top level, `x_unknown_2026: 1`, a name offer_binding does not define, so the record rejects with unknown_member_reject. p15 is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "offer": {
+      "resourceUrl": "https://api.example/premium",
+      "network": "eip155:8453",
+      "scheme": "exact",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "payTo": "0x2222222222222222222222222222222222222222",
+      "amount": "1"
+    },
+    "receipt": {
+      "offerDigest": "0x67513c4f44d024f5fbae8cef109257f6d8d5f47a14c0500391cc1e2dd7fd3e6b"
+    },
+    "x_unknown_2026": 1
+  }
+}

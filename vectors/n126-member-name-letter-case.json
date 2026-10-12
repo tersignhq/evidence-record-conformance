@@ -1,0 +1,15 @@
+{
+  "id": "n126-member-name-letter-case",
+  "kind": "phase_claim",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p7's input with `Presented_as: \"delivery\"` added beside `presented_as: \"delivery\"`. Member names compare as exact strings, so `Presented_as` is a name phase_claim does not define and the record rejects with unknown_member_reject. p7 is the accepting twin. An engine that compares names without regard to letter case reads the two as one member and accepts this vector. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "record": {
+      "economic_phase": "delivery",
+      "deliverable_digest": "0x4672842890404de85d907f76149e3edb90687d233ad7efbaabf887f888053ef4"
+    },
+    "presented_as": "delivery",
+    "Presented_as": "delivery"
+  }
+}

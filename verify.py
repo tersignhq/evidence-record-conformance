@@ -46,6 +46,13 @@ adversarial vector for its known failure class:
                         two conflicting continuations at once; and coverage claimed over
                         an empty attested prefix is a downgrade, not a pass
 
+DEFINED MEMBERS (v0.5.8, issue #17): every kind's `input` is a closed object, and so are the
+objects DEFINED_MEMBERS lists for that kind (the chain `head` and each `records` entry, and each
+independence `attestations` entry). A member whose name is not listed rejects the record with
+unknown_member_reject, whatever its value, before the kind's criterion runs. Names compare as
+exact strings. The lists are pinned here and in tools/cross_check_ts.mjs, and the run fails if
+MANIFEST.json's `defined_members` differs from them.
+
 SCOPE BOUNDARY (stated, not implied): this stdlib core decides the STRUCTURAL predicate —
 digests, canonical bytes, sequence closure, link arithmetic, declared-claim evaluation.
 It does not recover counter-signatures. A structurally complete set whose head and links
@@ -883,7 +890,79 @@ def check_independence_claim(inp):
     return "valid", None, f"{outside} non-party attestation(s)"
 
 
-CHECKS = {
+# ------------------------------------------------------------------- defined members
+# v0.5.8 (issue #17, 2026-10-11): every `valid` vector stayed valid with a member the suite does
+# not define added to its input, and nothing said what a verifier does with one. The ruling:
+# reject it. Per kind, the closed objects and the exact names each one defines. `input` is
+# closed in every kind; inside it, the chain `head` and each object in `records` (chain_set,
+# chain_commitment) and each object in `attestations` (independence_claim) are closed too.
+# Members permitted and not read are listed and their contents are not examined: `witness` and
+# `attestations` beside a chain set, an attestation's `role`, `deliverable_signer` and `payTo`.
+# `record_commits` is listed because the suite defines it: its presence is the independence
+# reject (n22-n24). Every other object is open: digested whole (payload, offer,
+# decision_evidence, each prefix entry), or another protocol's or the record's own (a phase or
+# decision `record`, `receipt`, `settlement_result`, `boundary_event`).
+# Pinned in code, as the reject-reason closure is; main() fails if MANIFEST.json says otherwise.
+_CHAIN_INPUT = frozenset({"head", "records", "witness", "attestations"})
+_CHAIN_ROW = frozenset({"seq", "artifact_digest", "prev_digest", "link"})
+DEFINED_MEMBERS = {
+    "digest_recompute": {"input": frozenset({"payload", "expected_digest"})},
+    "canonical_bytes": {"input": frozenset({"payload", "payload_text", "claimed_canonical"})},
+    "chain_link": {"input": frozenset({"artifact_digest", "prev_digest", "seq", "expected_link"})},
+    "chain_set": {"input": _CHAIN_INPUT, "input.head": frozenset({"seq", "digest"}),
+                  "input.records[]": _CHAIN_ROW},
+    "chain_commitment": {"input": _CHAIN_INPUT, "input.head": frozenset({"seq", "digest", "acc"}),
+                         "input.records[]": _CHAIN_ROW},
+    "anchor_relation": {"input": frozenset({"subject_digest", "anchored_digest"})},
+    "phase_claim": {"input": frozenset({"record", "presented_as"})},
+    "independence_claim": {
+        "input": frozenset({"claimed", "parties", "attestations", "covers", "settlement_result",
+                            "deliverable_bytes", "deliverable_digest", "deliverable_signer", "payTo",
+                            "record_commits"}),
+        "input.attestations[]": frozenset({"by", "role"}),
+    },
+    "offer_binding": {"input": frozenset({"offer", "receipt"})},
+    "decision_evidence_binding": {"input": frozenset({"record", "decision_evidence"})},
+    "boundary_binding": {"input": frozenset({"prefix", "boundary_event", "covered_through"})},
+}
+
+
+def _closed_objects(kind, inp):
+    """(path, object, defined names) for `input` and every closed object inside it. A closed
+    object that is not a JSON object has no members to read; the kind's criterion decides it."""
+    for path, names in DEFINED_MEMBERS[kind].items():
+        if path == "input":
+            yield path, inp, names
+            continue
+        key = path[len("input."):]
+        if key.endswith("[]"):
+            entries = inp.get(key[:-2])
+            if isinstance(entries, list):
+                for i, entry in enumerate(entries):
+                    if isinstance(entry, dict):
+                        yield f"input.{key[:-2]}[{i}]", entry, names
+        elif isinstance(inp.get(key), dict):
+            yield path, inp[key], names
+
+
+def check_defined_members(kind, inp):
+    """unknown_member_reject for a member a closed object does not define, else None.
+
+    A member counts by its NAME: a null, an empty string or an empty object rejects like any
+    other value (n123-n125). Names compare as exact strings — no case folding, no Unicode
+    normalization, no confusable mapping (n126-n128) — against the list for THIS kind and THIS
+    object (n129, n130). Decided before the criterion (n133)."""
+    if not isinstance(inp, dict):
+        return None
+    for path, obj, names in _closed_objects(kind, inp):
+        unknown = [name for name in obj if name not in names]
+        if unknown:
+            return ("reject", "unknown_member_reject",
+                    f"{path} carries {', '.join(repr(n) for n in unknown)}, which {kind} does not define there")
+    return None
+
+
+CRITERIA = {
     "digest_recompute": check_digest_recompute,
     "canonical_bytes": check_canonical_bytes,
     "chain_link": check_chain_link,
@@ -898,14 +977,35 @@ CHECKS = {
 }
 
 
+def _with_defined_members(kind, criterion):
+    def check(inp):
+        return check_defined_members(kind, inp) or criterion(inp)
+    check.__name__, check.__doc__ = criterion.__name__, criterion.__doc__
+    return check
+
+
+# The conformance entry point for every kind: the member check, then the criterion.
+# chain_commitment calls the chain_set CRITERION directly, so its head's `acc` is read against
+# chain_commitment's list, never chain_set's.
+CHECKS = {kind: _with_defined_members(kind, criterion) for kind, criterion in CRITERIA.items()}
+if set(DEFINED_MEMBERS) != set(CRITERIA):
+    sys.exit("DEFINED_MEMBERS must list every kind in CRITERIA")
+
+
 # ------------------------------------------------------------------------------ runner
 # The reason-code closure is PINNED IN CODE, not derived from the manifest — a fork that
 # quietly drops a reject class from MANIFEST.json must go red, not stay green.
 REQUIRED_REASONS = frozenset({
     "recompute_mismatch", "canonicalization_reject", "continuity_reject",
     "completeness_reject", "existence_reject", "phase_reject", "independence_reject",
-    "number_domain_reject", "binding_reject", "boundary_reject",
+    "number_domain_reject", "binding_reject", "boundary_reject", "unknown_member_reject",
 })
+
+
+def defined_members_table():
+    """DEFINED_MEMBERS as MANIFEST.json writes it: kind -> path -> sorted names."""
+    return {kind: {path: sorted(names) for path, names in table.items()}
+            for kind, table in DEFINED_MEMBERS.items()}
 
 
 def _load_strict(path):
@@ -960,6 +1060,11 @@ def main():
     if expected_reasons != REQUIRED_REASONS or reasons_seen != REQUIRED_REASONS:
         print(f"NON-CONFORMANT: reject-reason closure is pinned to {sorted(REQUIRED_REASONS)}; "
               f"manifest covers {sorted(expected_reasons)}, run exercised {sorted(reasons_seen)}")
+        return 1
+    declared = manifest.get("defined_members")
+    if not isinstance(declared, dict) or declared.get("closed") != defined_members_table():
+        print("NON-CONFORMANT: MANIFEST.json `defined_members.closed` must equal the member lists "
+              "pinned in this verifier (DEFINED_MEMBERS)")
         return 1
     if kinds_seen != set(CHECKS):
         print(f"NON-CONFORMANT: every vector kind must be exercised; missing {sorted(set(CHECKS) - kinds_seen)}")

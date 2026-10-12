@@ -24,7 +24,10 @@ non-ASCII values under the encodings _encodings names (not n98's HTML escapes or
 escaped DEL), and unpaired surrogates in values, names, arrays and nested objects, through
 digest_recompute, payload_text and the objects the binding and boundary criteria digest, and
 duplicate names that differ only in how a surrogate pair is written, one half raw and the other
-escaped), run through BOTH engines,
+escaped; since v0.5.8 defined members on every input — an undefined member at the top level
+under each value class, the names every JavaScript object inherits, letter-case, fullwidth and
+trailing-space variants of each name, and an undefined member one level down in every object,
+closed, not read or open), run through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
 Any divergence exits non-zero and prints the offending input.
 
@@ -411,6 +414,54 @@ def mutations(kind, inp):
         m.pop("offer", None)
         m.setdefault("receipt", {})["offerDigest"] = digest_of(None)
         out.append(("offer=absent-with-null-commitment", kind, m))
+    out += _member_mutations(kind, inp)
+    return out
+
+
+def _fullwidth(name):
+    """Each printable ASCII character as its fullwidth form (U+FF01-U+FF5E), which NFKC folds back."""
+    return "".join(chr(ord(c) + 0xFEE0) if "!" <= c <= "~" else c for c in name)
+
+
+def _member_mutations(kind, inp):
+    """v0.5.8 (issue #17): defined members. On every input: an undefined member at the top level
+    under each value class (a number, null, the empty string, object and array, false, zero);
+    the names every JavaScript object inherits, `__proto__` included; a letter-case, a fullwidth
+    and a trailing-space variant of each name the input carries, with the same value; and, in
+    each object the input carries one level down (the first object of an array), an undefined
+    member and a variant of one of its names, whether that object is closed, permitted and not
+    read, or open."""
+    out = []
+    if not isinstance(inp, dict):
+        return out
+
+    def copy_with(fn, tag):
+        m = json.loads(json.dumps(inp))
+        fn(m)
+        out.append((tag, kind, m))
+
+    for tag, value in (("1", 1), ("null", None), ("empty-string", ""), ("empty-object", {}),
+                       ("empty-array", []), ("false", False), ("zero", 0)):
+        copy_with(lambda m, v=value: m.__setitem__("x_undefined", v), f"member=undefined-{tag}")
+    for name in ("constructor", "__proto__", "toString", "hasOwnProperty", "valueOf", "isPrototypeOf"):
+        copy_with(lambda m, n=name: m.__setitem__(n, 1), f"member={name}")
+    for name in list(inp):
+        for tag, variant in (("upper", name.upper()), ("capitalized", name[:1].upper() + name[1:]),
+                             ("fullwidth", _fullwidth(name)), ("trailing-space", name + " ")):
+            if variant != name and variant not in inp:
+                copy_with(lambda m, n=name, v=variant: m.__setitem__(v, m[n]), f"member={name}-{tag}")
+    for key, value in inp.items():
+        if isinstance(value, dict):
+            copy_with(lambda m, k=key: m[k].__setitem__("x_undefined", 1), f"{key}.member=undefined")
+            for name in list(value)[:1]:
+                variant = name.upper() if name.upper() != name else name + " "
+                copy_with(lambda m, k=key, n=name, v=variant: m[k].__setitem__(v, m[k][n]), f"{key}.member={name}-variant")
+        elif isinstance(value, list):
+            for i, entry in enumerate(value):
+                if isinstance(entry, dict):
+                    copy_with(lambda m, k=key, j=i: m[k][j].__setitem__("x_undefined", 1), f"{key}[{i}].member=undefined")
+                    copy_with(lambda m, k=key, j=i: m[k][j].__setitem__("constructor", 1), f"{key}[{i}].member=constructor")
+                    break
     return out
 
 

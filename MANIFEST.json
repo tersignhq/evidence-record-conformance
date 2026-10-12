@@ -1,6 +1,6 @@
 {
   "suite": "evidence-record-conformance",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "layer": "evidence-record",
   "profile": "structural (stdlib): digests, canonical bytes, chain arithmetic, sequence closure, declared-claim evaluation. Counter-signature recovery over the links (secp256k1 personal_sign) is the crypto profile, outside the stdlib core \u2014 a structurally complete set recomputed wholesale by one forging party passes the structural predicate; the counter-signatures are what prevent that in production.",
   "canonicalization": "RFC 8785 (JCS); vector domain is I-JSON with integer numerics (|n| <= 2^53-1); non-integer JSON number TOKENS rejected (number_domain_reject) \u2014 the boundary is the token class, so a fraction or exponent form rejects even when integer-valued (2.0, 1e2; p25/n35/n103); duplicate object names rejected, at load and inside `payload_text`, where names compare after decoding, as UTF-16 code units, and only within one object, so a surrogate pair written with one half raw and the other escaped repeats the same pair written as two escapes (canonicalization_reject; p30/n41/n42/n93), while names that differ only in Unicode normalization are two names (p53); no vector pins whether a pair written half raw accepts where it repeats no name; a `payload_text` that is not a string holding JSON text (a non-JSON constant such as NaN, text that does not parse) rejects the same way (n43/n44), and its shape, an unpaired surrogate included, is decided before its number tokens (n92); strings, names included, are serialized as RFC 8785 section 3.2.2.2 specifies: U+0000-U+001F, the quotation mark and the backslash are escaped (no vector pins these escapes), and every other code point is written as is, U+2028 and U+2029 (p45/n85), `<`, `>` and `&` (p51/n98), and DEL and the C1 controls (p52/n102) included; the canonical text is hashed as UTF-8 (section 3.2.4), so a digest over the text with non-ASCII written as \\u escapes, over Latin-1 bytes or over CESU-8 rejects (recompute_mismatch; p39-p41 accept, n71-n73 reject); no Unicode normalization is applied (section 3.1), so a decomposed value or name digests as written (p42/n74 for a value, p46/n86 for a name); a name or string value containing a surrogate that is not half of a pair is outside I-JSON (RFC 7493 section 2.1) and has no canonical form (RFC 8785 section 3.2.2.2): canonical_bytes and digest_recompute reject it with canonicalization_reject (n81-n84; a paired escape accepts, p44, as does p14's pair in a name), and a criterion that digests an object rejects it with its own reason (binding_reject for an offer, n94, and for decision evidence, n95; boundary_reject for a boundary prefix, n96). n81, n83, n84 and n93-n96 carry an unpaired surrogate as a \\u escape in the vector file itself, the only way a vector can carry one, so a vector loader must keep it as the code unit it names: a loader that replaces it (with U+FFFD, say) or refuses it does not run those vectors as written. A noncharacter, which RFC 7493 section 2.1 also excludes, is serialized as is; no vector pins it",
@@ -17,6 +17,118 @@
   "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",
   "commitment_derivation": "an independence claim reaches exactly as far as the record's DERIVED commitments, never a declared list (n22-n24): `settlement` when settlement_result.success is true and transaction is a string that is not empty after the whitespace strip of identifier_normalization (a result with no transaction member commits to no settlement: n104/p54; a record with no settlement result commits to no settlement: n105/p55); `network` when settlement_result.network is such a string; `delivery` when keccak256(utf8(deliverable_bytes)) == deliverable_digest. A record presenting none of these fields has no evaluable commitments (a scoped claim rejects as unevaluable); a record presenting them and committing to none has an EMPTY commitment set (a scoped claim rejects as overreach). Who delivered is not read by the derivation \u2014 position is the independence axis, decided before scope is",
   "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
+  "defined_members": {
+    "rule": "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. A closed object's members are exactly the names `closed` lists for that kind and that object; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the member. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject like any other value. Names compare as exact strings, with no case folding, no Unicode normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `s\u0435q` written with U+0435 is not `seq` (n127), and `\uff42\uff59` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128). Each kind and each closed object has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. The member check is decided before the kind's criterion, so an input that also fails the criterion rejects with unknown_member_reject (n133, n4's input with a member added). A closed object that is not a JSON object has no members to read, and the kind's criterion decides it as before (n16). The lists include the members the suite permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 carries an undefined member inside each and accepts), an attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: its presence rejects with independence_reject (n22-n24). Every other object is open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member these lists do not name. Each engine pins the lists in its code, and its run fails if `closed` differs from them",
+    "closed": {
+      "digest_recompute": {
+        "input": [
+          "expected_digest",
+          "payload"
+        ]
+      },
+      "canonical_bytes": {
+        "input": [
+          "claimed_canonical",
+          "payload",
+          "payload_text"
+        ]
+      },
+      "chain_link": {
+        "input": [
+          "artifact_digest",
+          "expected_link",
+          "prev_digest",
+          "seq"
+        ]
+      },
+      "chain_set": {
+        "input": [
+          "attestations",
+          "head",
+          "records",
+          "witness"
+        ],
+        "input.head": [
+          "digest",
+          "seq"
+        ],
+        "input.records[]": [
+          "artifact_digest",
+          "link",
+          "prev_digest",
+          "seq"
+        ]
+      },
+      "chain_commitment": {
+        "input": [
+          "attestations",
+          "head",
+          "records",
+          "witness"
+        ],
+        "input.head": [
+          "acc",
+          "digest",
+          "seq"
+        ],
+        "input.records[]": [
+          "artifact_digest",
+          "link",
+          "prev_digest",
+          "seq"
+        ]
+      },
+      "anchor_relation": {
+        "input": [
+          "anchored_digest",
+          "subject_digest"
+        ]
+      },
+      "phase_claim": {
+        "input": [
+          "presented_as",
+          "record"
+        ]
+      },
+      "independence_claim": {
+        "input": [
+          "attestations",
+          "claimed",
+          "covers",
+          "deliverable_bytes",
+          "deliverable_digest",
+          "deliverable_signer",
+          "parties",
+          "payTo",
+          "record_commits",
+          "settlement_result"
+        ],
+        "input.attestations[]": [
+          "by",
+          "role"
+        ]
+      },
+      "offer_binding": {
+        "input": [
+          "offer",
+          "receipt"
+        ]
+      },
+      "decision_evidence_binding": {
+        "input": [
+          "decision_evidence",
+          "record"
+        ]
+      },
+      "boundary_binding": {
+        "input": [
+          "boundary_event",
+          "covered_through",
+          "prefix"
+        ]
+      }
+    }
+  },
   "vector_provenance": "every entry names `author`, the GitHub account that authored the commit adding the vector (git log --diff-filter=A -- vectors/<file>), and `origin` = {class, source}. origin.class is closed: synthetic (inputs constructed in tools/gen_vectors.py); live-ledger (a record from the live ledger, unaltered, with a provenance block in the vector); live-ledger-derived (a live-ledger value reused or altered); contributed (an outside contributor's PR, commit, fixture or published reproduction, named in origin.source, including vectors written here on such material). Among vectors written here, the class follows the value that distinguishes the vector: contributed where it is the contributor's (p39 and n78, @Rul1an's inputs; n24, his reproduction; n48, @stillmarcus24's attestor) and synthetic where the suite constructed it, beside a contributed vector or not (n42, n41's input with its second name escaped; n71, p39's payload under an escaping encoder's digest; n74, whose NFC digest equals p39's); a vector that carries a contributed fixture with a value of its own is contributed whoever altered it (n33, n95). Precedence: a vector that carries a live-ledger value is live-ledger or live-ledger-derived whoever wrote it, an outside pull request included, and names in origin.source any contributor whose input it is (n75); contributed applies only where the vector carries no live-ledger value. The live ledger's signer address used as sample data is not a live-ledger value (n9, n22-n24). Generation fails if a vector has no entry, if its live-ledger class (or its lack of one) disagrees with the live-ledger values and provenance block in its own bytes, or if it carries one of the contributed fixtures the generator recognizes in a vector's bytes (@0rkz's PayPerByte delivery digest, PR #5's decision-evidence objects, PR #6's suite-transition rule version) without crediting the contributor; a contributed input with no value of its own (a reproduction or probe written here) is declared, not derived; authorship is not decided at generation: it is checkable against git history with the command above. Credit for reporting a failure class is recorded in CONTRIBUTORS.md. Metadata only: neither engine reads it",
   "vectors": [
     {
@@ -1738,6 +1850,343 @@
     {
       "file": "p56-independence-address-letter-case-outside-party.json",
       "kind": "independence_claim",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n107-unknown-member-digest-recompute.json",
+      "kind": "digest_recompute",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p3's input, written here"
+      }
+    },
+    {
+      "file": "n108-unknown-member-canonical-bytes.json",
+      "kind": "canonical_bytes",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p2's input, written here"
+      }
+    },
+    {
+      "file": "n109-unknown-member-chain-link.json",
+      "kind": "chain_link",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p43's input, written here"
+      }
+    },
+    {
+      "file": "n110-unknown-member-chain-set.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p6's input, written here"
+      }
+    },
+    {
+      "file": "n111-unknown-member-chain-commitment.json",
+      "kind": "chain_commitment",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p26's input, written here"
+      }
+    },
+    {
+      "file": "n112-unknown-member-anchor-relation.json",
+      "kind": "anchor_relation",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "live-ledger-derived",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p5's input (the live anchor's subject and anchored digests), written here"
+      }
+    },
+    {
+      "file": "n113-unknown-member-phase-claim.json",
+      "kind": "phase_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p7's input, written here"
+      }
+    },
+    {
+      "file": "n114-unknown-member-independence-claim.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p8's input, written here; the live ledger's signer address appears as sample data"
+      }
+    },
+    {
+      "file": "n115-unknown-member-offer-binding.json",
+      "kind": "offer_binding",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p15's input, written here"
+      }
+    },
+    {
+      "file": "n116-unknown-member-decision-evidence-binding.json",
+      "kind": "decision_evidence_binding",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "p19's decision-evidence object from @mohammedmessaoudene-cmd's PR #5 (commit c23a985), with the member of @robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`; written here"
+      }
+    },
+    {
+      "file": "n117-unknown-member-boundary-binding.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p18's input, written here"
+      }
+    },
+    {
+      "file": "n118-unknown-member-in-chain-set-head.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n119-unknown-member-in-chain-set-record.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n120-unknown-member-in-chain-commitment-head.json",
+      "kind": "chain_commitment",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n121-unknown-member-in-chain-commitment-record.json",
+      "kind": "chain_commitment",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n122-unknown-member-in-attestation.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py; the live ledger's signer address appears as sample data"
+      }
+    },
+    {
+      "file": "n123-unknown-member-null-value.json",
+      "kind": "chain_link",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n124-unknown-member-empty-string-value.json",
+      "kind": "offer_binding",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n125-unknown-member-empty-object-value.json",
+      "kind": "boundary_binding",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n126-member-name-letter-case.json",
+      "kind": "phase_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n127-member-name-cyrillic-homoglyph.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n128-member-name-fullwidth-compatibility-form.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py; the live ledger's signer address appears as sample data"
+      }
+    },
+    {
+      "file": "n129-member-of-another-kind.json",
+      "kind": "digest_recompute",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n130-chain-commitment-head-read-as-chain-set.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n131-member-named-constructor.json",
+      "kind": "canonical_bytes",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n132-member-named-proto.json",
+      "kind": "independence_claim",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n133-unknown-member-before-criterion.json",
+      "kind": "chain_set",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p57-chain-commitment-witness-and-attestations.json",
+      "kind": "chain_commitment",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p58-chain-set-not-read-contents.json",
+      "kind": "chain_set",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p59-settlement-result-open.json",
+      "kind": "independence_claim",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py; the live ledger's signer address appears as sample data"
+      }
+    },
+    {
+      "file": "p60-receipt-open.json",
+      "kind": "offer_binding",
       "expect": "valid",
       "author": "Tersign (@wowlegend)",
       "origin": {

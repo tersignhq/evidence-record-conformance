@@ -1,0 +1,12 @@
+{
+  "id": "n112-unknown-member-anchor-relation",
+  "kind": "anchor_relation",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p5's input with one member added at its top level, `x_unknown_2026: 1`, a name anchor_relation does not define, so the record rejects with unknown_member_reject. p5 is the accepting twin: the same input without the member. An engine that reads the members it knows and ignores the rest accepts this vector. The member and its value are the probe published in issue #17, which added it to every valid vector's input and found all of them still valid. Rests on `defined_members` in MANIFEST.json.",
+  "input": {
+    "subject_digest": "0xb2c5d2bd28ff65e13c1549a718a4c447916d5277ce046b2061ed63749ff287d9",
+    "anchored_digest": "0xcf48bed1712f5b7df2a309fb52cb2b3d51ab1a04730e3b115cd3db79c96c9b1a",
+    "x_unknown_2026": 1
+  }
+}
