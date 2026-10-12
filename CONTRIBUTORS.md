@@ -248,6 +248,18 @@ unrecognized phase as itself, which only the vocabulary rule rejects; it was wri
 coverage gaps also listed an *earlier* phase presented: v0.5.5's `n90` presents a delivery record
 as funding, the reverse of `n6`; it was written here.
 
+**The differential and the ablations** — from the same run in
+[#9](https://github.com/tersignhq/evidence-record-conformance/issues/9). His verifier and
+`verify.py`, compared on 524 generated inputs, returned different verdicts on two, both
+`boundary_binding`, a kind the manifest had no sentence for, and different reasons on two more, each
+a chain head with no digest. v0.5.9 writes the kind's rule into `MANIFEST.json` and pins the two
+verdict inputs and one of the reason inputs: `p63` (an empty attestation that claims no coverage,
+valid), `n153` (an attested prefix length past the prefix, `boundary_reject`) and `n165` (p6's head
+with no digest, `completeness_reject`, now stated in `chain_set`); the three are classed
+`contributed`. His ablations named five rules no vector reached alone; v0.5.9's `n160`–`n164`
+pin one each, and they and the other v0.5.9 vectors were written here. The same reading listed n8, n9
+and n16 as rules found only in vector descriptions; `independence_claim` in `MANIFEST.json` states them.
+
 **Members the suite does not define** — [#17](https://github.com/tersignhq/evidence-record-conformance/issues/17)
 (2026-10-11, against `9be9eec`). Its probe added one member no file of the suite defines,
 `x_unknown_2026: 1`, to every valid vector's `input` and found all 56 still valid, beside a positive
