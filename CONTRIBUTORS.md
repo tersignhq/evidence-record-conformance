@@ -20,7 +20,7 @@ author preserved, and the provenance line
 PR closed with that explanation. That work is in `main` under its author's name.
 
 Since then, every merged pull request has landed through GitHub and shows as merged with its
-link: #5, #6 and #7 by merge commit, #11 and #15 by squash.
+link: #5, #6 and #7 by merge commit, #11, #13 and #15 by squash.
 
 ---
 
@@ -220,8 +220,11 @@ path to
 `MANIFEST.json`) and the crypto set (46 vectors and its manifest) from empty directories with no
 network: byte-identical across a changed hash seed and Python 3.11 and 3.12 (structural), on glibc
 and musl and on s390x under emulation (both sets), with a syscall record for one x86_64 glibc
-run of each set. He re-ran both sets at `73865e2` on Python 3.10 as a control on CI. Regeneration shows that the
-generators are deterministic, not that the vectors are correct.
+run of each set. He re-ran both sets at `73865e2` on Python 3.10 as a control on CI, from a clean
+clone; all 204 per-file sha256 he posted
+([issuecomment-6027242185](https://github.com/tersignhq/evidence-record-conformance/issues/14#issuecomment-6027242185),
+2026-10-06) match that commit. Regeneration shows that the generators are deterministic, not that
+the vectors are correct.
 
 ## [@stillmarcus24](https://github.com/stillmarcus24)
 
@@ -232,6 +235,14 @@ published the probe that separates them: party `org:caldera-robotics`, attestor
 `org:caldera%2Drobotics`, valid under one reading and rejected under the other, with no vector to
 decide between them. `n48` is his attestor on n31's parties, written here and classed
 `contributed`; the other identifier vectors of v0.5.4 were written here.
+
+**Full-set run at v0.5.6** —
+[#16](https://github.com/tersignhq/evidence-record-conformance/issues/16#issuecomment-6156948965)
+(2026-10-13). His Node runners at his commit `b18a864`, the structural runner of #8 and a
+counter-signature runner, ran v0.5.6's 162 structural and 46 counter-signature vectors: 162/162 and
+46/46 on verdict and reason. `tools/compare_run.py` at the tag agrees on the structural output; the
+counter-signature output was compared here with each vector's `expect` and `reject_reason`, because
+no entry of `crypto/MANIFEST.json` names a reason.
 
 ## @robertolocatelli81-dev (Noûs)
 
@@ -272,6 +283,12 @@ does with such a member. v0.5.8 rejects it (`unknown_member_reject`; `defined_me
 `MANIFEST.json`). `n107`–`n117` carry the probe's member and value verbatim, one per kind, and are
 classed `contributed` (`n112`, on p5's live anchor, `live-ledger-derived`); the other v0.5.8 vectors
 were written here.
+
+**Full-set run at v0.5.9** —
+[#16](https://github.com/tersignhq/evidence-record-conformance/issues/16#issuecomment-6163463968)
+(2026-10-14). The clean-room verifier of #9, at its commit `63f7464`, ran all 239 structural vectors
+of v0.5.9: 239/239 verdicts and 172/172 named reasons; the crypto profiles were not run. The same
+commit reports 162/162 at v0.5.7.
 
 ## Reported upstream
 
