@@ -9,12 +9,12 @@ implementation is `tools/cross_check_statement.mjs` (TypeScript stack, viem; sam
 not independent reproduction).
 
 ```
-python3 statement/verify_statement.py            # 213/213 vectors (38 accept, 175 reject), verdict + reason, read from statement/MANIFEST.json
+python3 statement/verify_statement.py            # 249/249 vectors (40 accept, 209 reject), verdict + reason, read from statement/MANIFEST.json
 python3 statement/verify_statement.py --mutants  # 56 plausible broken verifiers switched inside the Python engine, each failed by a named vector
 python3 statement/gen_statement_vectors.py       # regenerates every vector and statement/MANIFEST.json byte for byte (CI checks this)
-node tools/cross_check_statement.mjs             # the TypeScript engine over the same 213 vectors
+node tools/cross_check_statement.mjs             # the TypeScript engine over the same 249 vectors
 python3 tools/differential_statement.py          # both engines, the corpus plus an off-corpus battery, no manifest oracle
-python3 tools/mutate_statement.py                # 71 one-site source mutants in the two engines, each failed by its named vectors
+python3 tools/mutate_statement.py                # 105 source mutants in the two engines, each failed by its named vectors
 ```
 
 Licence: Apache-2.0, as the repository (`LICENSE`).
@@ -26,7 +26,7 @@ Licence: Apache-2.0, as the repository (`LICENSE`).
 ```
 
 `body_text` is the response body as served, as text, because several parse rules (a member name written twice, a
-number token such as `1.0`, how deep the body nests, a surrogate written raw) are invisible once a JSON reader has
+number token such as `1.0`, how deep the body nests, a surrogate code point written raw) are invisible once a JSON reader has
 turned the text into values. `expected_signer` is the ledger's key obtained from elsewhere; `records` is the range's
 artifact digests in ledger order. Both are optional and read by key presence (`rules.input`, a suite rule).
 
@@ -34,12 +34,14 @@ artifact digests in ledger order. Both are optional and read by key presence (`r
 
 In this order; the first rule broken decides the reason (`rules.check_order`, a suite rule).
 
-1. **parse**: the body is one JSON object that nests objects and arrays at most 64 deep, the body object counting 1
-   (`rules.depth`, a suite rule, decided on the text before it is read as values); no object carries a member name
-   twice; every number token is an integer in [-(2^53 - 1), 2^53 - 1]; every string, member names included, is
-   well-formed Unicode; and no surrogate is written raw in the text, even where an escape next to it would complete a
-   pair (a body served as UTF-8 cannot carry one).
-2. **shape**: the body is exactly `{statement, statementDigest, signature, signer}`.
+1. **parse**: the body is JSON text that nests objects and arrays at most 64 deep, the body counting 1 (`rules.depth`,
+   a suite rule, decided on the text before it is read as values); no object carries a member name twice; every number
+   token is an integer in [-(2^53 - 1), 2^53 - 1]; every string, member names included, is well-formed Unicode
+   (`rules.parse`); and no surrogate code point is written raw in the text, even where an escape next to it would
+   complete a pair (`rules.raw_surrogate`, a suite rule). A character outside the Basic Multilingual Plane written raw
+   is one code point, not a surrogate, and is accepted (sp39).
+2. **shape**: the body is an object with exactly the members `{statement, statementDigest, signature, signer}`. A body
+   that is JSON text but not an object, an array for example, is refused here, not by the parse rules (sn189).
 3. **Statement rules**: the closed sets and consistency rules over `statement`, in the order of `statement_refusal` in
    `verify_statement.py`, each with its own reason: `shape` (members, fixed values, types), `scope`, `chain_key`,
    `range`, `attachments_version`, `attachment_entry`, `consistency` and `anchor`. The rules are stated in
@@ -66,14 +68,23 @@ deep nesting by wherever its parser stops, which differs between parsers and int
 its two engines agree on every input. The bound changes a reason, never a verdict, since a statement nests 8 deep at
 most. The two depth vectors sit at the bound (64 levels, read and refused as `scope`) and at 3,000 levels (`parse`).
 
+**The raw-surrogate rule is this suite's rule, not the format's.** A body served as UTF-8 cannot carry a raw surrogate,
+so the rule changes no verdict on a served body; it decides text a verifier is handed. A reader of code points sees a
+pair written half raw (sn146, sn147) as two lone surrogates, while a reader that decodes escapes into UTF-16 code units
+first, as JavaScript's `JSON.parse` does, joins the halves into a pair. The format does not refuse such a text: the
+TypeScript check of served text in Tersign's ledger code reads it with `JSON.parse` and accepts it today. The suite
+refuses it so that its two engines agree.
+
 ## Vectors (two-sided)
 
 Every rejecting vector names its accepting twin (`twin`, in the vector and in its manifest entry), and its description
 names what changed: one value; one logical change that moves values bound to each other (an anchor's derived members
 recomputed, a count with the count that must match it, a statement signed by another key); or, for the order vectors,
 two faults. Where the change is to the statement, the test key signs the changed statement again, so the digest and
-signature checks cannot be what rejects it. The runner fails a set in which a twin is missing or not valid, a reason
-is never exercised, or the manifest's `format` differs from the runner's constants.
+signature checks cannot be what rejects it. The vectors that change the served text instead (sn115–sn117,
+sn146–sn149, sn188, sn189) keep the twin's digest and signature, and the rule that rejects each is decided before the
+digest is checked. The runner fails a set in which a twin is missing or not valid, a reason is never exercised, or the
+manifest's `format` differs from the runner's constants.
 
 | class | accepts | rejects | reason |
 |---|---|---|---|
@@ -87,21 +98,22 @@ is never exercised, or the manifest's `format` differs from the runner's constan
 | range | sp20 (5,000 records) | sn38–sn41 5,001 records, from 0, from > to, from a string | `range` |
 | | | sn42 an undefined member | `shape` |
 | chain | sp21 (key present) | sn43–sn48 key empty, null, upper case, 31 and 33 bytes, zero bytes | `chain_key` |
-| | | sn49–sn52 an undefined member, id empty, a number, missing | `shape` |
-| ledger and fixed members | sp22 (ledger in lower case) | sn53–sn56 ledger of 39 and 41 digits, without `0x`, a non-hex character; sn57 limits altered; sn58, sn59 **an undefined member** (value 1, value null); sn60 **schema v2**; sn61 commitmentSchema v2; sn62, sn63, sn129 upper-case hex; sn64 linkVersions `v3` | `shape` |
+| | | sn49–sn52 an undefined member, id empty, a number, missing; sn192 chain null | `shape` |
+| ledger and fixed members | sp22 (ledger in lower case) | sn53–sn56 ledger of 39 and 41 digits, without `0x`, a non-hex character; sn191 ledger a number; sn57 limits altered; sn58, sn59 **an undefined member** (value 1, value null); sn185, sn186 **`anchor` and `bridge` absent where they are null** (twins sp3, sp4); sn60 **schema v2**; sn61 commitmentSchema v2; sn62, sn63, sn129 upper-case hex; sn64 linkVersions `v3` | `shape` |
 | consistency | sp1, sp3 | sn65 before.seq; sn66 **linkVersions miscount**; sn67 **issuer counts miscount**; sn68 the seed; sn69 head null after seq 0; sn131 **a head at seq 0**; sn70 through.seq | `consistency` |
-| before, through | sp1, sp3 | sn137, sn138 an undefined member; sn142 **`before.head` absent where it is null** | `shape` |
-| issuer numbering | sp23 (two series, a gap, a duplicate), sp24–sp26 (256 series, missing numbers, duplicates), sp35 (corrections: `correctionSeq` 0 and 1, the min and the max missing) | sn71–sn77, sn79, sn81, sn82, sn84–sn86 (series without a bound record, ranges, order, caps, 255 and 257) | `consistency` |
-| | | sn78 correctionSeq −1, sn80 and sn139, sn140 an undefined member in a series, `issuerSeq` and a duplicate, sn83 truncated a string, sn145 **`correctionSeq` absent where it is null** | `shape` |
-| anchor and bridge | sp27 (pending, batch root), sp28 (1,001 past, no bridge), sp29 (1,000 past, 1,000 links), sp36, sp37 (height 0 and 2^53 − 1), sp38 (an anchor at `range.to` of a one-record range) | sn87 **a bridge link replaced**; sn88, sn89 subject and anchored digests; sn90 status; sn91 no bridge within the cap; sn92 a bridge without an anchor; sn93, sn136 **an anchor before `range.to`**, with a bridge and without; sn94, sn95 id and proof URL; sn96, sn132 an anchor at `range.to` with another head, another acc; sn97 an empty bridge object; sn98, sn130 height −1 and `true`; sn99 batch root upper case; sn175 anchor.seq `true` at a `range.to` of 1; sn100, sn101 the cap; sn102, sn141 an undefined member in the anchor and the bridge; sn103, sn104 subjectSchema v2; sn105, sn106 upper-case hex; sn133 **no bridge link, the anchor's acc set to `through.acc`**; sn134, sn135 bridge `from` and `to`; sn143, sn144 **`batchRoot` and `bitcoinBlockHeight` absent where they are null** | `anchor` |
+| before, through | sp1, sp3 | sn137, sn138 an undefined member; sn142 **`before.head` absent where it is null**; sn193, sn194 `before.seq` and `through.seq` strings; sn195 **`through.acc` in upper case** | `shape` |
+| link versions | sp1 | sn196, sn197 `v1` and `v2` strings; sn198, sn199 `v1` and `v2` −1 | `shape` |
+| issuer numbering | sp23 (two series, a gap, a duplicate), sp24–sp26 (256 series, missing numbers, duplicates), sp35 (corrections: `correctionSeq` 0 and 1, the min and the max missing), sp40 (a series at number 0) | sn71–sn77, sn79, sn81, sn82, sn84–sn86 (series without a bound record, ranges, order, caps, 255 and 257); sn177 **min −1**; sn178 **a missing number below min**; sn179–sn181 **ledger seqs from 0, descending, repeated**; sn183, sn184 **series ids and missing numbers descending**; sn205 a missing number a string | `consistency` |
+| | | sn78 correctionSeq −1, sn80 and sn139, sn140 an undefined member in a series, `issuerSeq` and a duplicate, sn83 truncated a string, sn145 **`correctionSeq` absent where it is null**; sn176 **a negative count, the sums still equal**; sn182 **a series id in upper case**; sn200 `series` an object; sn201, sn202 min and max strings; sn203, sn204 `missing` and `duplicates` objects; sn206 a duplicate's seq a string; sn207 its `ledgerSeqs` an object | `shape` |
+| anchor and bridge | sp27 (pending, batch root), sp28 (1,001 past, no bridge), sp29 (1,000 past, 1,000 links), sp36, sp37 (height 0 and 2^53 − 1), sp38 (an anchor at `range.to` of a one-record range) | sn87 **a bridge link replaced**; sn88, sn89 subject and anchored digests; sn90 status; sn91 no bridge within the cap; sn92 a bridge without an anchor; sn93, sn136 **an anchor before `range.to`**, with a bridge and without; sn94, sn95 id and proof URL; sn208 the proof URL a number; sn96, sn132 an anchor at `range.to` with another head, another acc; sn97 an empty bridge object; sn98, sn130 height −1 and `true`; sn187 height −(2^53 − 1), read and refused here; sn99 batch root upper case; sn175 anchor.seq `true` at a `range.to` of 1; sn100, sn101 the cap; sn102, sn141 an undefined member in the anchor and the bridge; sn103, sn104 subjectSchema v2; sn105, sn106 upper-case hex; sn133 **no bridge link, the anchor's acc set to `through.acc`**; sn134, sn135 bridge `from` and `to`; sn209 **bridge links an object**; sn143, sn144 **`batchRoot` and `bitcoinBlockHeight` absent where they are null** | `anchor` |
 | digest | sp1 | sn107 a changed head with the original digest; sn127 the digest in upper case | `digest` |
 | signature | sp1, sp34 (upper-case hex digits) | sn108 the original signature over a changed statement; sn109 **another key while naming the ledger**; sn110 **the high-s twin**; sn111 **the raw recovery id**; sn125 a `0X` prefix; sn126 a trailing newline | `signature` |
 | signer | sp30, sp31 (another key, without and as the expected signer), sp32 (expected signer in lower case) | sn112 **a self-consistent statement by another key** | `signer` |
-| envelope | sp1 | sn113 signer names another key; sn114 an undefined member; sn128 signer in another letter case | `shape` |
-| parse | sp33 (a surrogate pair written as escapes) | sn115 **a member written twice**; sn116 **the token `1.0`**; sn117 an integer beyond 2^53 − 1; sn118, sn119 lone surrogates; sn146, sn147 **a pair written half raw**, in both orders; sn149 nesting 3,000 deep | `parse` |
+| envelope | sp1 | sn113 signer names another key; sn114 an undefined member; sn128 signer in another letter case; sn189 **the body an array** | `shape` |
+| parse | sp33 (a surrogate pair written as escapes), sp39 (**a character outside the BMP written raw**) | sn115 **a member written twice**; sn116 **the token `1.0`**; sn117 an integer beyond 2^53 − 1; sn188 **an integer below −(2^53 − 1)**; sn118, sn119 lone surrogates; sn146, sn147 **a pair written half raw**, in both orders; sn149 nesting 3,000 deep | `parse` |
 | | | sn148 nesting 64 deep, the bound: read, and refused as `scope` | `scope` |
 | records | sp2 | sn120–sn124 **swapped, left out, of another chain, one appended, upper case** | `records` |
-| check order | | sn150–sn174, one per adjacent pair of reason groups (below) | the first group's |
+| check order | | sn150–sn174, one per adjacent pair of reason groups, and sn190, one order across two series (below) | the first group's |
 
 **Check order.** Each of sn150–sn174 carries two faults from reason groups that are adjacent in the order above, and
 expects the first group's reason; the generator checks that each fault alone rejects with its own reason. The pairs:
@@ -113,33 +125,66 @@ rule (sn162) · the sealed rule, issuerSeq shape (sn163) · issuerSeq shape, con
 shape (sn165) · series shape, series consistency (sn166) · series consistency, duplicate shape (sn167) · duplicate
 shape, duplicate consistency (sn168) · duplicate consistency, anchor (sn169) · anchor, envelope signer (sn170) ·
 envelope signer, digest (sn171) · digest, signature (sn172) · signature, signer (sn173) · signer, records (sn174).
-Each boundary is pinned by one pair of rules; other pairs of rules across the same boundary are not.
+Each vector pins the order of the two rules it breaks, at the place in the statement where its faults sit, and no
+other. sn165–sn169 put both faults in the first series or in its first duplicate, so they pin the order inside one
+series or one duplicate. sn190 pins one order across two series: the first series' `min` above its `max`
+(consistency) and a sixth member in the second series (shape) reject as consistency, because the series are checked
+one after another, each series' shape, consistency and duplicates before the next series' shape.
 
-**Mutants.** `--mutants` runs 56 one-site broken verifiers switched inside the Python engine, among them: the last of
+**Mutants.** `--mutants` runs 56 broken verifiers switched inside the Python engine, among them: the last of
 two equal member names kept, `1.0` read as 1, no integer bound, undefined members ignored, the limits text not compared,
 `scope` and `binding` letter case folded or not checked, the hex rule on entry types counting characters or refusing any
 32-digit run, the sealed rule read only from `range.from` on or only without v2 links, five consistency rules removed
 (`before.seq`, the seed, the link-version count, the issuer counts, `listCap`) and two bounds lifted, the range, list
 and bridge caps one off, the bridge not folded, the digest not compared or compared case-insensitively, high-s accepted,
 the raw recovery id normalized, the expected signer ignored or compared case-sensitively, records not checked or extra
-records ignored. `tools/mutate_statement.py` edits the source of both engines instead, one site at a time: 33 Python and
-38 TypeScript mutants, among them a head at seq 0 read in one direction only, an anchor at `range.to` compared on its
-head only, the bridge link count dropped, a missing number not allowed to equal min or max, `correctionSeq` read as null
+records ignored. `tools/mutate_statement.py` edits the source of both engines instead, one change per mutant: 50 Python
+and 55 TypeScript mutants. Most edit one site; a move of one check past the next either swaps two adjacent blocks or
+deletes the check at one site and inserts it at another; and the two that read an anchor before `range.to` like one at
+it edit two lines. Among them: a head at seq 0 read in one direction only, an anchor at `range.to` compared on its head
+only, the bridge link count dropped, a missing number not allowed to equal min or max, `correctionSeq` read as null
 only or as positive only, undefined members ignored in `before`, `through`, `range`, `issuerSeq`, a series, a duplicate
-and the bridge, absent members read as null, the bridge's `from` or `to` not compared, an anchor before `range.to` read
-like one at it, `anchor.seq` read without its type, height 0 refused, the integer bound made exclusive, the halves of a
-pair joined, the nesting bound one lower or (TypeScript) removed, and 21 moves of one check past the next, which reach
-14 of the 25 order boundaries (the other 11 rest on their order vectors alone). Each is failed by the vectors it names,
-and one comment-only mutant per engine must survive.
+and the bridge, absent members read as null (in `before`, the anchor, a duplicate, and `anchor` and `bridge`
+themselves), the bridge's `from` or `to` not compared, an anchor before `range.to` read like one at it, `anchor.seq`
+read without its type, height 0 refused, the integer bound made exclusive, the parse rule's lower bound made exclusive
+or removed, the parse rules made to require an object, every surrogate code unit of the text refused, the halves of a
+pair joined, the nesting bound one lower or (TypeScript) removed, negative issuer counts allowed, a negative `min`
+allowed or a `min` of 0 refused, a missing number below `min` allowed, ledger seqs from 0, series ids, missing numbers
+and ledger seqs checked only for repeats, ledger seqs allowed to repeat, the series id form not checked, and 23 changes of
+order, which reach 15 of the 26 order vectors (the other 11 rest on their order vectors alone). Each is failed by
+the vectors it names, and one comment-only mutant per engine must survive.
 
 **Not pinned.** (1) The rule that `anchor.seq` is at least `range.to` cannot be isolated: an anchor before `range.to`
 always breaks the bridge rule too, with the same reason (`bridge.to` would have to be `anchor.seq` with fewer than
 zero links), so removing the seq rule changes no verdict and no reason; sn93 and sn136 carry both. (2) The order among
-rules that share a reason, among the parse rules, and of any pair of rules across a boundary other than the pair its
-order vector uses. (3) The exact nesting bound from above: no vector sits between 65 and 2,999 levels, where a reader
-without an explicit bound decides by its parser's limit, so a verifier whose bound is anywhere from 64 to 2,999 passes
-both depth vectors. (4) Anything about the time-stamp proof `anchor.proofUrl` names; this profile never fetches or
-opens it.
+rules that share a reason and among the parse rules; the order of any pair of rules across a boundary other than the
+pair its order vector breaks; and any order across two series or two duplicates other than sn190's (a duplicate's
+shape against an earlier duplicate's consistency, for example). (3) The exact nesting bound from above: no vector sits
+between 65 and 2,999 levels, where a reader without an explicit bound decides by its parser's limit, so a verifier
+whose bound is anywhere from 64 to 2,999 passes both depth vectors. (4) Anything about the time-stamp proof
+`anchor.proofUrl` names; this profile never fetches or opens it. (5) Checks that a check beside them already implies,
+so that removing one changes no verdict and no reason: the well-formed-Unicode test repeated on the statement after the
+parse rules; the string test before `binding` and `status` are compared with their closed sets; the integer test on
+`bridge.from` and `bridge.to`, each of which must equal an integer of at least 2; and `position` at least 1, given that
+positions ascend strictly from 0.
+
+**What the accepting vectors test.** The accepting vectors test the format's rules, not what a ledger serves today.
+Tersign's ledger code, building statements over the same records (with a stand-in for its database, 2026-10-14),
+gives the statement, digest and served text of sp1–sp5, sp27, sp30–sp32 and sp36–sp38, the signature's nonce aside.
+It gives the statements of sp33 and sp34 served in another form: it writes sp33's character outside the BMP raw, as
+sp39 does, and the hex digits of a signature in lower case. The others carry values Tersign's ledger would not sign
+today:
+
+- attachment entries (sp6–sp8, sp12–sp19): the ledger signs no statement that lists an attachment entry today;
+- v2 links (sp23–sp26, sp35, sp40): the ledger counter-signs every link as v1 today, so no statement it serves carries
+  a v2 link, a bound record or a series;
+- both (sp9–sp11);
+- sp20: `through.head` and `through.acc` are written by hand, not folded over 5,000 records;
+- sp21: the ledger sets no `chain.key`;
+- sp22: the ledger writes its address in mixed case, never in lower case;
+- sp28: the anchor's `head` and `acc` are not values of the chain, and the ledger states no anchor whose commitment
+  disagrees with its own fold;
+- sp29: the 1,000 bridge links are synthetic.
 
 **Issuer-numbering reports.** Every accepting vector that carries a v2 link has its report computed by
 `issuer_report()` in the generator from one link binding per ledger seq, as the format defines the report (counts,

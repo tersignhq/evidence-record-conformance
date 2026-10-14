@@ -193,7 +193,7 @@ them or by rejecting them for another reason.
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
 with its key over one range of one record chain. Tersign's ledger serves one at
 `GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
-record whose digest is presented. The profile has 213 two-sided vectors (38 accept, 175 reject) and 13 reject reasons,
+record whose digest is presented. The profile has 249 two-sided vectors (40 accept, 209 reject) and 13 reject reasons,
 two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors), a
 direct differential (`tools/differential_statement.py`) and a source-mutation run over both engines
 (`tools/mutate_statement.py`). Every rejecting vector names the accepting vector it was built from and what changed.
@@ -223,10 +223,11 @@ record content, and no member is defined to name who asked for it or when.
   `through`, so they are the records that key counter-signed on that chain at seq `from` to `to`, in that order, with
   none left out and none added. With `records` alone, only that they fold between the commitments of a statement the
   named key signed.
-- That the anchor's derived members agree with each other (subject digest, anchored digest, id, the path of
-  `proofUrl`); that an anchor at `range.to` commits `through.head` and `through.acc`; and that, for an anchor at most
-  1,000 records past `range.to`, the bridge links fold `through.acc` to `anchor.acc`. An anchor more than 1,000
-  records past `range.to` agrees only with itself: no rule here relates its `seq`, `head` or `acc` to the range.
+- That the anchor's derived members agree with each other (subject digest, anchored digest and id, and `proofUrl`
+  ends with `/v1/anchors/<id>/proof.ots`); that an anchor at `range.to` commits `through.head` and `through.acc`;
+  and that, for an anchor at most 1,000 records past `range.to`, the bridge links fold `through.acc` to `anchor.acc`.
+  An anchor more than 1,000 records past `range.to` agrees only with itself: no rule here relates its `seq`, `head`
+  or `acc` to the range.
 
 **What it does not establish.**
 
@@ -243,10 +244,11 @@ record content, and no member is defined to name who asked for it or when.
   depend on who pays for it; a single statement cannot show that. No member is defined to name a requester, but the
   rules here constrain many values only in form: `chain.sellerId` and `chain.key`; the split of `linkVersions` and the
   issuer-numbering report; attachment entries; `anchor.status`, `anchor.batchRoot`, `anchor.bitcoinBlockHeight` and
-  the part of `anchor.proofUrl` before its path; an anchor's `head` and, through the bridge links, its `acc` (at
-  `range.to` both are `through`'s); an anchor's `seq`, `head` and `acc` more than 1,000 records past `range.to`; and
-  `before` and `through`, unless the relying party brings the records. Any of these could vary with the requester
-  without breaking a rule here.
+  everything in `anchor.proofUrl` before the suffix `/v1/anchors/<id>/proof.ots` (the host, and a path prefix or
+  a query just as well); an anchor's `head` and, through the bridge links, its `acc` (at `range.to` both are
+  `through`'s); an anchor's `seq`, `head` and `acc` more than 1,000 records past `range.to`; and `before` and
+  `through`, unless the relying party brings the records. Any of these could vary with the requester without breaking
+  a rule here.
 
 **What statements served today carry.** Every link Tersign's ledger has counter-signed is a v1 link, which binds no
 issuer numbering. So in every statement it serves today `linkVersions.v2` is 0, `issuerSeq.unboundRecords` equals the
@@ -254,11 +256,13 @@ number of records in the range and `issuerSeq.series` is empty: every record is 
 is empty and `chain.key` is absent. The vectors that carry v2 links, bound records, series, gaps, duplicates,
 attachment entries or a chain key are synthetic and signed by the test key: they pin the format's rules, not anything
 a ledger has served. Their issuer-numbering reports are computed from link bindings, as the format defines the report,
-and each vector's description lists its bindings or names the vector that does.
+and each vector's description lists its bindings or names the vector that does. `statement/README.md` (*What the
+accepting vectors test*) names each accepting vector that carries a value Tersign's ledger would not sign today, and
+why.
 
-**Measured at this commit.** Both engines return the pinned verdict and reason on all 213 vectors;
-`differential_statement.py` compares 7,331 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
-broken verifiers and `tools/mutate_statement.py` all 71 source mutants, while both comment-only identity mutants
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 249 vectors;
+`differential_statement.py` compares 7,367 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
+broken verifiers and `tools/mutate_statement.py` all 105 source mutants, while both comment-only identity mutants
 survive; Python 3.9.6 and 3.14.7 regenerate the set byte for byte from empty directories. No outside implementation has
 run these vectors yet.
 
@@ -898,6 +902,11 @@ repository but `MANIFEST.json`, `LICENSE` and `vectors/`, and its author lists w
 file names and the tag's commit message included. Fourteen of the 77 vectors added since v0.5.7
 (n107–n117, p63, n153, n165) were written here from inputs that author reported in #17 and #9. No
 outside run of either crypto profile at v0.5.9 has been reported here.
+
+No outside run of the chain-statement profile (`statement/`, v0.6.0) has been reported. A run of it is
+reported in the same form, one object per vector in `statement/MANIFEST.json`, and
+`python3 tools/compare_run.py <output.json> --manifest statement/MANIFEST.json` compares it
+(`statement/README.md`, *Reporting a run*).
 
 A reading no vector pins is not reproduced by any of these runs. Agreement makes no verifier a reference, ours included. Earlier outside runs re-ran *our* verifier (byte-identical at `46ad663`; mutation-tested at `0e560c1`), and an outside verifier ran `p18`, `n25` and `n26` (CONTRIBUTORS.md, @Tetsurohhori).
 

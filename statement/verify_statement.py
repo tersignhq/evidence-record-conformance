@@ -10,11 +10,12 @@ served, as TEXT, plus what a relying party may bring from elsewhere:
 `expected_signer` (the ledger key obtained out of band) and `records` (the artifact digests of the range, in ledger
 order) are optional and read by key presence. The check, in this order; the first rule broken decides the reason:
 
-  1 parse              one JSON object, nesting objects and arrays at most 64 deep (the body object counts 1); no
+  1 parse              JSON text, nesting objects and arrays at most 64 deep (the body counts 1; a suite rule); no
                        member name twice in any object; every number token an integer in [-(2**53 - 1), 2**53 - 1];
-                       every string, member names included, well-formed Unicode, and no surrogate written raw in the
-                       text (an escape next to it does not make it half of a pair)
-  2 shape              the body is exactly {statement, statementDigest, signature, signer}
+                       every string, member names included, well-formed Unicode; and no surrogate code point written
+                       raw in the text, an escape next to it not making it half of a pair (a suite rule; a character
+                       outside the BMP written raw is one code point and is accepted)
+  2 shape              the body is an object with exactly the members {statement, statementDigest, signature, signer}
   3 statement rules    the closed sets and consistency rules over `statement` (statement_refusal below), with the
                        reasons shape, scope, chain_key, range, attachments_version, attachment_entry, consistency
                        and anchor
@@ -30,7 +31,7 @@ order) are optional and read by key presence. The check, in this order; the firs
 A valid verdict opens no attachment entry and checks no time-stamp proof (README, Chain statements).
 
     python3 statement/verify_statement.py            # every vector in statement/MANIFEST.json
-    python3 statement/verify_statement.py --mutants  # each one-site broken verifier must fail its named vector
+    python3 statement/verify_statement.py --mutants  # each broken verifier must fail its named vector
 """
 import glob
 import hashlib
@@ -433,7 +434,7 @@ def recover_signer(statement_digest, signature, mut=None):
 
 
 def check(inp, mut=None):
-    """-> ("valid", None) or ("reject", reason). `mut` names a one-site broken verifier (MUTANTS); None is the profile."""
+    """-> ("valid", None) or ("reject", reason). `mut` names a broken verifier (MUTANTS); None is the profile."""
     try:
         body = parse(inp["body_text"], mut)
     except Reject as r:
@@ -493,7 +494,7 @@ PINNED = {"schema": SCHEMA, "commitment_schema": COMMITMENT_SCHEMA, "signature_p
           "list_cap": LIST_CAP, "bridge_cap": BRIDGE_CAP, "max_depth": MAX_DEPTH, "type_hex_digits": TYPE_HEX_DIGITS,
           "statement_members": list(MEMBERS), "anchor_members": list(ANCHOR_MEMBERS), "envelope": list(ENVELOPE)}
 
-MUTANTS = {   # each a plausible one-site broken verifier; the suite must fail it on the named vector
+MUTANTS = {   # each a plausible broken verifier; the suite must fail it on the named vector
     "duplicate_last_wins": "sn115-duplicate-member-first-reads-otherwise",
     "float_token_as_int": "sn116-attachments-version-token-1-0",
     "no_integer_bound": "sn117-integer-beyond-2-53",

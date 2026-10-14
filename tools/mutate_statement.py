@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Mutation run for the chain-statement profile's two engines, stdlib only.
 
-Each mutant is a one-site change to statement/verify_statement.py or tools/cross_check_statement.mjs (a change of
-order moves one check past another), applied in a scratch copy of the repository with tools/mutate_members.py's
-copy. A mutant is KILLED when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for
+Each mutant is one change to statement/verify_statement.py or tools/cross_check_statement.mjs, applied in a scratch
+copy of the repository with tools/mutate_members.py's copy. Most edit one site. A change of order moves one check past
+another: it either swaps two adjacent blocks in one edit or deletes the check at one site and inserts it at another;
+and the two "anchor before range.to read like one at it" mutants edit two lines, the seq rule and the at-range.to
+branch. A mutant is KILLED when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for
 it fails; the unmutated copy must pass first and again at the end. Each engine also runs one comment-only IDENTITY
 mutant, which must survive: a run in which it is killed measures something other than the change. The TypeScript
 mutants need `node` and `viem` (`npm i viem` in the repository root, as CI does). These complement
@@ -55,6 +57,8 @@ PY_EXPECTED = ('    if "expected_signer" in inp and mut != "expected_signer_igno
                '        elif expected != st["ledger"]:\n'
                '            return "reject", "signer"\n')
 PY_VALID = '    return "valid", None\n'
+PY_MEMBERS = '    if not _exactly(st, MEMBERS, mut if mut == "extra_members_ignored" else None):\n'
+PY_TEXT_TYPE = '    if not isinstance(text, str):\n        raise Reject("parse")\n'
 
 
 def superset(site):
@@ -123,6 +127,35 @@ PY = {
     "py-digest-after-signature": ([(PY_DIGEST_CMP + PY_SIGNATURE, PY_SIGNATURE + PY_DIGEST_CMP)], ["sn172"]),
     "py-expected-signer-before-signature": ([(PY_SIGNATURE + PY_EXPECTED, PY_EXPECTED + PY_SIGNATURE)], ["sn173"]),
     "py-records-before-expected-signer": ([(PY_EXPECTED, ""), (PY_VALID, PY_EXPECTED + PY_VALID)], ["sn174"]),
+    # ---- static review, third round: clauses no vector isolated
+    "py-issuer-counts-negative-allowed": ([("_int(iq[k]) and iq[k] >= 0", "_int(iq[k])")], ["sn176"]),
+    "py-series-min-negative-allowed": ([(' or s["min"] < 0', "")], ["sn177"]),
+    "py-series-min-positive-only": ([('s["min"] < 0', 's["min"] <= 0')], ["sp40"]),
+    "py-missing-below-min-allowed": ([('m < s["min"] or ', "")], ["sn178"]),
+    "py-ledger-seqs-from-0": ([("1 <= q <= hi", "q <= hi")], ["sn179"]),
+    "py-ledger-seqs-distinct-only": ([("q > ls[i - 1]", "q != ls[i - 1]")], ["sn180"]),
+    "py-ledger-seqs-non-strict": ([("q > ls[i - 1]", "q >= ls[i - 1]")], ["sn181"]),
+    "py-series-id-form-unchecked": ([(' and _hex32(s["series"])', "")], ["sn182"]),
+    "py-series-ids-distinct-only": ([('s["series"] <= last_series', 's["series"] == last_series')], ["sn183"]),
+    "py-missing-distinct-only": ([("m <= prev", "m == prev")], ["sn184"]),
+    "py-anchor-absent-as-null": ([(PY_MEMBERS, '    if isinstance(st, dict) and "anchor" not in st:\n'
+                                               '        st = dict(st, anchor=None)\n' + PY_MEMBERS)], ["sn185"]),
+    "py-bridge-absent-as-null": ([(PY_MEMBERS, '    if isinstance(st, dict) and "bridge" not in st:\n'
+                                               '        st = dict(st, bridge=None)\n' + PY_MEMBERS)], ["sn186"]),
+    "py-parse-lower-bound-exclusive": ([("not -SAFE <= v <= SAFE", "not -SAFE < v <= SAFE")], ["sn187"]),
+    "py-parse-no-lower-bound": ([("not -SAFE <= v <= SAFE", "not v <= SAFE")], ["sn188"]),
+    "py-parse-requires-object": ([("    return body\n", '    if not isinstance(body, dict):\n        raise Reject("parse")\n'
+                                                       "    return body\n")], ["sn189"]),
+    "py-every-series-shape-first": ([('    last_series = ""\n',
+                                      '    for s in series:\n'
+                                      '        if not (_exactly(s, ("series", "min", "max", "missing", "duplicates")) '
+                                      'and _hex32(s["series"])\n'
+                                      '                and _int(s["min"]) and _int(s["max"]) and isinstance(s["missing"], list)\n'
+                                      '                and isinstance(s["duplicates"], list)):\n'
+                                      '            return "shape"\n'
+                                      '    last_series = ""\n')], ["sn190"]),
+    "py-raw-astral-refused": ([(PY_TEXT_TYPE, PY_TEXT_TYPE + '    if any(ord(ch) > 0xFFFF for ch in text):\n'
+                                                             '        raise Reject("parse")\n')], ["sp39"]),
 }
 
 TS_SCAN = '    if (scanText(text) || illFormed(body)) return ["reject", "parse"];\n'
@@ -154,6 +187,7 @@ TS_RECORDS_END = '    if (acc !== st.through.acc || prev !== st.through.head) re
 TS_BEFORE_DECL = '  const { before, through } = st;\n'
 TS_ANCHOR_DECL = '  const a = st.anchor;\n'
 TS_DUP_LOOP = '    for (const d of s.duplicates) {\n'
+TS_MEMBERS = '  if (!exactly(st, MEMBERS)) return "shape";\n'
 
 
 def ts_superset(site, members):
@@ -233,6 +267,35 @@ TS = {
     "ts-digest-after-signature": ([(TS_DIGEST_CMP + TS_SIGNATURE, TS_SIGNATURE + TS_DIGEST_CMP)], ["sn172"]),
     "ts-expected-signer-before-signature": ([(TS_SIGNATURE + TS_EXPECTED, TS_EXPECTED + TS_SIGNATURE)], ["sn173"]),
     "ts-records-before-expected-signer": ([(TS_EXPECTED, ""), (TS_RECORDS_END, TS_RECORDS_END + TS_EXPECTED)], ["sn174"]),
+    # ---- static review, third round: clauses no vector isolated
+    "ts-issuer-counts-negative-allowed": ([("isInt(iq[k]) && iq[k] >= 0", "isInt(iq[k])")], ["sn176"]),
+    "ts-series-min-negative-allowed": ([(" || s.min < 0", "")], ["sn177"]),
+    "ts-series-min-positive-only": ([("s.min < 0", "s.min <= 0")], ["sp40"]),
+    "ts-missing-below-min-allowed": ([("m < s.min || ", "")], ["sn178"]),
+    "ts-ledger-seqs-from-0": ([("q >= 1 && ", "")], ["sn179"]),
+    "ts-ledger-seqs-distinct-only": ([("q > ls[k - 1]", "q !== ls[k - 1]")], ["sn180"]),
+    "ts-ledger-seqs-non-strict": ([("q > ls[k - 1]", "q >= ls[k - 1]")], ["sn181"]),
+    "ts-series-id-form-unchecked": ([(" || !isHex32(s.series)", "")], ["sn182"]),
+    "ts-series-ids-distinct-only": ([("s.series <= lastSeries", "s.series === lastSeries")], ["sn183"]),
+    "ts-missing-distinct-only": ([("m <= prev", "m === prev")], ["sn184"]),
+    "ts-anchor-absent-as-null": ([(TS_MEMBERS, '  if (isObj(st) && !own(st, "anchor")) st = { ...st, anchor: null };\n'
+                                               + TS_MEMBERS)], ["sn185"]),
+    "ts-bridge-absent-as-null": ([(TS_MEMBERS, '  if (isObj(st) && !own(st, "bridge")) st = { ...st, bridge: null };\n'
+                                               + TS_MEMBERS)], ["sn186"]),
+    "ts-parse-lower-bound-exclusive": ([("if (v > SAFE || v < -SAFE) return true;", "if (v > SAFE || v <= -SAFE) return true;")],
+                                       ["sn187"]),
+    "ts-parse-no-lower-bound": ([("if (v > SAFE || v < -SAFE) return true;", "if (v > SAFE) return true;")], ["sn188"]),
+    "ts-parse-requires-object": ([("    body = JSON.parse(text);\n",
+                                   '    body = JSON.parse(text);\n    if (!isObj(body)) return ["reject", "parse"];\n')], ["sn189"]),
+    "ts-every-series-shape-first": ([('  let lastSeries = "";\n',
+                                      '  for (const s of iq.series) {\n'
+                                      '    if (!exactly(s, ["series", "min", "max", "missing", "duplicates"]) || !isHex32(s.series) || '
+                                      '!isInt(s.min) || !isInt(s.max) ||\n'
+                                      '      !Array.isArray(s.missing) || !Array.isArray(s.duplicates)) return "shape";\n'
+                                      '  }\n'
+                                      '  let lastSeries = "";\n')], ["sn190"]),
+    "ts-raw-astral-refused": ([('    if (LONE_SURROGATE.test(text)) return ["reject", "parse"];\n',
+                                '    if (/[\\uD800-\\uDFFF]/.test(text)) return ["reject", "parse"];\n')], ["sp39"]),
 }
 
 IDENTITY = {   # comment-only edits: each must SURVIVE (no vector may fail)

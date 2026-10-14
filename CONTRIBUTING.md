@@ -22,8 +22,11 @@ One pull request per change. Each new vector's description names the requirement
 section and sentence of the format it tests, or the `MANIFEST.json` key of the suite rule.
 
 Every criterion carries an accepting and a rejecting twin, so an implementation that rejects a class
-unconditionally fails just as one that accepts it unconditionally does. The reject-reason closure is
-pinned in the verifier rather than derived from the manifest, so a fork that drops a class goes red.
+unconditionally fails just as one that accepts it unconditionally does. The exceptions are named in
+the profile's README (for the chain-statement profile, under *Not pinned* in `statement/README.md`):
+each rule no vector isolates and each order no vector pins.
+The reject-reason closure is pinned in the verifier rather than derived from the manifest, so a fork
+that drops a class goes red.
 Every new vector needs a provenance entry naming its author and origin (`vector_provenance` in
 `MANIFEST.json`): `PROVENANCE` in `tools/gen_vectors.py` for the core (generation fails without
 one), and the vector's own entry in its profile's generator under `crypto/` or `statement/`.

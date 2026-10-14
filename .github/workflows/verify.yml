@@ -50,7 +50,7 @@ jobs:
           node-version: 22
       - name: Chain-statement vectors, read from statement/MANIFEST.json (fails on an unexercised reason, a reject without an accepting twin or an empty set)
         run: python3 statement/verify_statement.py
-      - name: Chain-statement mutants (each one-site broken verifier must fail its named vector)
+      - name: Chain-statement mutants (each broken verifier must fail its named vector)
         run: python3 statement/verify_statement.py --mutants
       - name: Chain-statement vector regeneration is byte-identical
         run: |
