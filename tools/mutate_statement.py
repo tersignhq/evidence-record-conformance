@@ -3,9 +3,9 @@
 
 Each mutant is one change to statement/verify_statement.py or tools/cross_check_statement.mjs, applied in a scratch
 copy of the repository with tools/mutate_members.py's copy. Most edit one site. A change of order moves one check past
-another: it either swaps two adjacent blocks in one edit or deletes the check at one site and inserts it at another;
-and the two "anchor before range.to read like one at it" mutants edit two lines, the seq rule and the at-range.to
-branch. A mutant is KILLED when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for
+another: it swaps two adjacent blocks in one edit, deletes the check at one site and inserts it at another, or (the
+envelope-signer and every-series-shape moves) inserts a copy of the check ahead of the other; and the two "anchor
+before range.to read like one at it" mutants edit two lines, the seq rule and the at-range.to branch. A mutant is KILLED when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for
 it fails; the unmutated copy must pass first and again at the end. Each engine also runs one comment-only IDENTITY
 mutant, which must survive: a run in which it is killed measures something other than the change. The TypeScript
 mutants need `node` and `viem` (`npm i viem` in the repository root, as CI does). These complement
@@ -67,7 +67,7 @@ def superset(site):
 
 
 PY = {
-    # ---- rule parts no gate reached before (dynamic review, What broke: F3 a to d)
+    # ---- rule parts no vector reached before
     "py-seq0-head-one-direction": ([('    if (before["seq"] == 0) != (before["head"] is None):\n',
                                      '    if before["seq"] != 0 and before["head"] is None:\n')], ["sn131"]),
     "py-anchor-at-to-head-only": ([('    if a["seq"] == to and (a["acc"] != through["acc"] or a["head"] != through["head"]):\n',
@@ -76,7 +76,7 @@ PY = {
                                        '    if not all(_hex32(x) for x in links):\n')], ["sn133"]),
     "py-missing-max-exclusive": ([('m > s["max"]', 'm >= s["max"]')], ["sp35"]),
     "py-missing-min-exclusive": ([('m < s["min"]', 'm <= s["min"]')], ["sp35"]),
-    # ---- static review F4, F7
+    # ---- correctionSeq, undefined and absent members, the bridge, anchor.seq and the integer bound
     "py-correction-seq-null-only": ([('(d["correctionSeq"] is None or (_int(d["correctionSeq"]) and d["correctionSeq"] >= 0))',
                                       'd["correctionSeq"] is None')], ["sp35"]),
     "py-correction-seq-positive-only": ([('d["correctionSeq"] >= 0', 'd["correctionSeq"] > 0')], ["sp35"]),
@@ -108,12 +108,12 @@ PY = {
     "py-anchor-seq-type-unchecked": ([('    if not _int(a["seq"]) or a["seq"] < to:\n', '    if a["seq"] < to:\n')], ["sn175"]),
     "py-integer-bound-exclusive": ([('return type(v) is int and -SAFE <= v <= SAFE', 'return type(v) is int and -SAFE < v < SAFE')],
                                    ["sp37"]),
-    # ---- the served text (dynamic review, What broke: F1, F2)
+    # ---- the served text
     "py-surrogate-halves-joined": ([('            v.encode("utf-8")\n',
                                      '            v.encode("utf-16-be", "surrogatepass").decode("utf-16-be").encode("utf-8")\n')],
                                    ["sn146", "sn147"]),
     "py-depth-bound-63": ([('    if _depth(text) > MAX_DEPTH:\n', '    if _depth(text) >= MAX_DEPTH:\n')], ["sn148"]),
-    # ---- check order (static review F6): one check moved past the next
+    # ---- check order: one check moved past the next
     "py-scope-after-chain": ([(PY_SCOPE, ''),
                               (PY_RANGE, '    if not (isinstance(st["scope"], str) and st["scope"] in SCOPES):\n'
                                          '        return "scope"\n' + PY_RANGE)], ["sn152"]),
@@ -127,7 +127,7 @@ PY = {
     "py-digest-after-signature": ([(PY_DIGEST_CMP + PY_SIGNATURE, PY_SIGNATURE + PY_DIGEST_CMP)], ["sn172"]),
     "py-expected-signer-before-signature": ([(PY_SIGNATURE + PY_EXPECTED, PY_EXPECTED + PY_SIGNATURE)], ["sn173"]),
     "py-records-before-expected-signer": ([(PY_EXPECTED, ""), (PY_VALID, PY_EXPECTED + PY_VALID)], ["sn174"]),
-    # ---- static review, third round: clauses no vector isolated
+    # ---- clauses no vector isolated before
     "py-issuer-counts-negative-allowed": ([("_int(iq[k]) and iq[k] >= 0", "_int(iq[k])")], ["sn176"]),
     "py-series-min-negative-allowed": ([(' or s["min"] < 0', "")], ["sn177"]),
     "py-series-min-positive-only": ([('s["min"] < 0', 's["min"] <= 0')], ["sp40"]),
@@ -197,7 +197,7 @@ def ts_superset(site, members):
 
 
 TS = {
-    # ---- rule parts no gate reached before (dynamic review, What broke: F3 a to d)
+    # ---- rule parts no vector reached before
     "ts-seq0-head-one-direction": ([('  if ((before.seq === 0) !== (before.head === null)) return "consistency";\n',
                                      '  if (before.seq !== 0 && before.head === null) return "consistency";\n')], ["sn131"]),
     "ts-anchor-at-to-head-only": ([('  if (a.seq === to && (a.acc !== through.acc || a.head !== through.head)) return "anchor";\n',
@@ -206,7 +206,7 @@ TS = {
                                        '  if (!bridge.links.every(isHex32)) return "anchor";\n')], ["sn133"]),
     "ts-missing-max-exclusive": ([("m > s.max", "m >= s.max")], ["sp35"]),
     "ts-missing-min-exclusive": ([("m < s.min", "m <= s.min")], ["sp35"]),
-    # ---- static review F4, F7
+    # ---- correctionSeq, undefined and absent members, the bridge, anchor.seq and the integer bound
     "ts-correction-seq-null-only": ([("!(d.correctionSeq === null || (isInt(d.correctionSeq) && d.correctionSeq >= 0))",
                                       "!(d.correctionSeq === null)")], ["sp35"]),
     "ts-correction-seq-positive-only": ([("d.correctionSeq >= 0", "d.correctionSeq > 0")], ["sp35"]),
@@ -239,12 +239,12 @@ TS = {
     "ts-integer-bound-exclusive": ([("const isInt = (v) => typeof v === \"number\" && Number.isSafeInteger(v);",
                                      "const isInt = (v) => typeof v === \"number\" && Number.isSafeInteger(v) && "
                                      "Math.abs(v) < Number.MAX_SAFE_INTEGER;")], ["sp37"]),
-    # ---- the served text (dynamic review, What broke: F1, F2)
+    # ---- the served text
     "ts-raw-surrogate-unchecked": ([('    if (LONE_SURROGATE.test(text)) return ["reject", "parse"];\n', "")],
                                    ["sn146", "sn147"]),
     "ts-depth-unbounded": ([("      if (stack.length > MAX_DEPTH) return true;\n", "")], ["sn149"]),
     "ts-depth-bound-63": ([("stack.length > MAX_DEPTH", "stack.length >= MAX_DEPTH")], ["sn148"]),
-    # ---- check order (static review F6): one check moved past the next
+    # ---- check order: one check moved past the next
     "ts-envelope-before-text-rules": ([(TS_SCAN, TS_ENVELOPE + TS_SCAN), ("  }\n" + TS_ENVELOPE, "  }\n")], ["sn150"]),
     "ts-scope-after-chain": ([(TS_SCOPE, ""), (TS_KEY, TS_KEY + TS_SCOPE)], ["sn152"]),
     "ts-chain-key-before-seller-id": ([(TS_SELLER + TS_KEY, TS_KEY + TS_SELLER)], ["sn153"]),
@@ -267,7 +267,7 @@ TS = {
     "ts-digest-after-signature": ([(TS_DIGEST_CMP + TS_SIGNATURE, TS_SIGNATURE + TS_DIGEST_CMP)], ["sn172"]),
     "ts-expected-signer-before-signature": ([(TS_SIGNATURE + TS_EXPECTED, TS_EXPECTED + TS_SIGNATURE)], ["sn173"]),
     "ts-records-before-expected-signer": ([(TS_EXPECTED, ""), (TS_RECORDS_END, TS_RECORDS_END + TS_EXPECTED)], ["sn174"]),
-    # ---- static review, third round: clauses no vector isolated
+    # ---- clauses no vector isolated before
     "ts-issuer-counts-negative-allowed": ([("isInt(iq[k]) && iq[k] >= 0", "isInt(iq[k])")], ["sn176"]),
     "ts-series-min-negative-allowed": ([(" || s.min < 0", "")], ["sn177"]),
     "ts-series-min-positive-only": ([("s.min < 0", "s.min <= 0")], ["sp40"]),

@@ -29,7 +29,9 @@ The reject-reason closure is pinned in the verifier rather than derived from the
 that drops a class goes red.
 Every new vector needs a provenance entry naming its author and origin (`vector_provenance` in
 `MANIFEST.json`): `PROVENANCE` in `tools/gen_vectors.py` for the core (generation fails without
-one), and the vector's own entry in its profile's generator under `crypto/` or `statement/`.
+one); the vector's own entry in its profile's generator under `crypto/`; and under `statement/` the
+author and origin that `write()` in `gen_statement_vectors.py` records (one author for every vector
+today; a contributed vector needs its own entry added there).
 
 Before opening a pull request, run what CI runs:
 

@@ -237,14 +237,13 @@ RULES = {
     "raw_surrogate": ("suite", "The text is read as code points. A surrogate code point written raw in the text, not as "
                       "a \\u escape, is refused, even where an escaped surrogate next to it would complete a pair, so "
                       "either half of a pair written raw is refused; a character outside the Basic Multilingual Plane "
-                      "written raw is one code point, not a surrogate, and is accepted. Otherwise parse. The format does "
-                      "not refuse a pair written half raw: the TypeScript check of served text in Tersign's ledger code "
-                      "reads the text with JSON.parse, which joins the two halves into a pair, and accepts it today. A "
-                      "body served as UTF-8 cannot carry a raw surrogate, so the rule changes no verdict on a served "
-                      "body; this suite fixes it so that a reader of code points and a reader of UTF-16 code units "
-                      "agree."),
+                      "written raw is one code point, not a surrogate, and is accepted. Otherwise parse. The format's parse "
+                      "rule does not say whether the text is read as code points or as UTF-16 code units; JSON.parse, a "
+                      "reader of UTF-16 code units, joins the two halves into a pair. A body served as UTF-8 cannot "
+                      "carry a raw surrogate, so the rule changes no verdict on a served body; this suite fixes it so "
+                      "that a reader of code points and a reader of UTF-16 code units agree."),
     "depth": ("suite", "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, "
-              "decided on the text before it is read as values. Otherwise parse. The format sets no bound; this suite "
+              "counted on the text. Otherwise parse. The format sets no bound; this suite "
               "fixes one so that its engines agree on every input, where a reader without one decides deep nesting by "
               "wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at "
               "most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, "
@@ -274,8 +273,9 @@ RULES = {
                "range.from + linkVersions.v1, so when linkVersions.v1 > 0 a sealed entry at any position below it, "
                "positions before range.from included, rejects as attachment_entry. When linkVersions.v1 is 0 the "
                "statement says nothing about links before range.from, and a sealed entry there is not checked."),
-    "before_through": ("format", "before is {seq, head, acc} with head null or 0x + 64 lower-case hex; through is "
-                       "{seq, head, acc} with both digests 0x + 64 lower-case hex (shape). before.seq = range.from - 1; "
+    "before_through": ("format", "before is {seq, head, acc}: seq an integer, head null or 0x + 64 lower-case hex, "
+                       "acc 0x + 64 lower-case hex; through is {seq, head, acc}: seq an integer, head and acc 0x + 64 "
+                       "lower-case hex (shape). before.seq = range.from - 1; "
                        "before.head is null exactly when before.seq is 0; at seq 0, before.acc is the commitment seed "
                        "keccak256(utf8(\"tersign-chain-commitment-v1\")); through.seq = range.to (consistency)."),
     "link_versions": ("format", "linkVersions is exactly {v1, v2} of non-negative integers (shape), and v1 + v2 counts "
@@ -284,10 +284,12 @@ RULES = {
                    "truncated}: non-negative integers, a boolean and an array (shape). listCap is format.list_cap; "
                    "unboundRecords = linkVersions.v1 and boundRecords + absentRecords = linkVersions.v2; with no bound "
                    "record there is no series; series, each series' missing numbers and its duplicates are each at "
-                   "most listCap long; series ids ascend strictly and 0 <= min <= max; missing numbers ascend strictly "
-                   "within [min, max]; a duplicate names at least two ledger seqs, ascending, each from 1 to range.to "
-                   "(consistency). A series is exactly {series, min, max, missing, duplicates} and a duplicate exactly "
-                   "{seq, correctionSeq, ledgerSeqs}, correctionSeq null or a non-negative integer (shape)."),
+                   "most listCap long; series ids ascend strictly and 0 <= min <= max; missing numbers are integers "
+                   "ascending strictly within [min, max]; a duplicate names at least two ledger seqs, integers strictly "
+                   "ascending, each from 1 to range.to (consistency). A series is exactly {series, min, max, missing, "
+                   "duplicates}: series 0x + 64 lower-case hex, min and max integers, missing and duplicates arrays; a "
+                   "duplicate is exactly {seq, correctionSeq, ledgerSeqs}: seq an integer, correctionSeq null or a "
+                   "non-negative integer, ledgerSeqs an array (shape)."),
     "anchor": ("format", "anchor is null (and then bridge is null) or exactly the eleven members in "
                "format.anchor_members: subjectSchema = commitmentSchema; seq an integer >= range.to; head, acc, "
                "subjectDigest and anchoredDigest 0x + 64 lower-case hex; batchRoot null or the same; status one of "
@@ -319,11 +321,13 @@ RULES = {
                     "from each of two reason groups adjacent in that order, and expect the first group's reason; each "
                     "fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, "
                     "each by the one pair of rules its vector breaks, at the place in the statement where its two faults "
-                    "sit. The issuer-numbering order vectors put both faults in the first series or in its first "
-                    "duplicate, so they pin the order inside one series or one duplicate; one more vector pins one order "
-                    "across two series (the first series' consistency before the second series' shape). They do not pin "
-                    "other pairs of rules across a boundary, any other order across two series or two duplicates, the "
-                    "order among rules that share a reason, or the order among the parse rules. Every other vector "
+                    "sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the "
+                    "first series or in its first duplicate, so they pin the order inside one series or one duplicate; "
+                    "the issuer-counts vector puts its series fault in the second series, and one more vector pins one "
+                    "order across two series (the first series' consistency before the second series' shape). They do "
+                    "not pin other pairs of rules across a boundary, any other order across two series or two "
+                    "duplicates, the order among rules that share a reason, or the order among the parse rules. Every "
+                    "other vector "
                     "breaks one rule, except where its description names a second, and expects that rule's reason."),
     "input": ("suite", "A vector's input is {body_text, expected_signer?, records?}: the served body as text, and the "
               "two values a relying party may bring from elsewhere, read by key presence."),
@@ -1004,7 +1008,7 @@ def main():
             "so the body nests 64 deep, the bound: it is read, and scope is not one of the set.", "depth",
             text=nested(V.MAX_DEPTH))
     derived("nesting-past-bound", "anchored-range-with-one-link-bridge", "parse", "scope replaced by 2,998 nested "
-            "arrays, so the body nests 3,000 deep: refused before it is read as values.", "depth", text=nested(3000))
+            "arrays, so the body nests 3,000 deep, past the bound: refused.", "depth", text=nested(3000))
 
     # ---------------------------------------------------------------------------------------------- check order
     def render(st, body_fns, text_fns):
@@ -1199,7 +1203,7 @@ def main():
     assert low_text != base_text
     derived("anchor-height-below-least-integer", "anchored-range-with-one-link-bridge", "parse", "anchor."
             "bitcoinBlockHeight written as -9007199254740992 (-2**53), below -(2**53 - 1), with the twin's digest and "
-            "signature: refused before it is read as values (a parse rule without a lower bound reads it, and the "
+            "signature: refused by the parse rules (a parse rule without a lower bound admits it, and the "
             "height rule then refuses it as anchor).", "parse", text=low_text)
     derived("body-an-array", "anchored-range-with-one-link-bridge", "shape", "The served body wrapped in an array: "
             "JSON text the parse rules accept, but not an object, so the envelope rule refuses it (a check that reads "
@@ -1247,6 +1251,46 @@ def main():
             "member name is the bridge link, not an array (a check that iterates it without the type rule folds the "
             "member name and accepts it).", "bridge",
             lambda st: st["bridge"].update(links={st["bridge"]["links"][0]: 1}))
+    derived("range-to-string", "anchored-range-with-one-link-bridge", "range", "range.to as the string \"5\".",
+            "range", put(["range", "to"], "5"))
+    for member, value in (("boundRecords", "0"), ("unboundRecords", "4"), ("absentRecords", "0"), ("listCap", "256")):
+        derived("issuer-%s-string" % "".join("-" + c.lower() if c.isupper() else c for c in member),
+                "anchored-range-with-one-link-bridge", "shape", "issuerSeq.%s as the string \"%s\"." % (member, value),
+                "issuer_seq", put(["issuerSeq", member], value))
+    derived("duplicate-correction-seq-string", "issuer-numbering-corrections", "shape", "The first duplicate's "
+            "correctionSeq 0 as the string \"0\".", "issuer_seq", dup(correctionSeq="0"))
+    derived("duplicate-ledger-seq-string", "issuer-numbering-report", "consistency", "The duplicate's ledger seqs [1, 2] "
+            "with the first as the string \"1\".", "issuer_seq", dup(ledgerSeqs=["1", 2]))
+
+    # member names and JSON syntax
+    derived("lone-surrogate-in-member-name", "anchored-range-with-one-link-bridge", "parse", "chain's member name "
+            "sellerId with a high surrogate escape and no low half appended: a member name is a string and is "
+            "well-formed Unicode too (sn118 and sn119 carry their lone surrogates in values). A check that tests only "
+            "values reads the name and refuses the statement as shape, for the member it does not define.", "parse",
+            lambda st: st.update(chain={"sellerId\ud800": st["chain"]["sellerId"]}))
+    derived("body-not-json-text", "anchored-range-with-one-link-bridge", "parse", "The served text with its final "
+            "closing brace removed: not JSON text. A check that reads a syntax error as a fault of shape refuses it as "
+            "shape.", "parse", text=base_text[:-1])
+    derived("lone-surrogate-in-bridge-link", "anchored-range-with-one-link-bridge", "parse", "The bridge link with a "
+            "low surrogate escape appended: a string inside an array is read too (a check that does not descend into "
+            "arrays refuses the link as anchor, by its form).", "parse",
+            lambda st: st["bridge"]["links"].__setitem__(0, st["bridge"]["links"][0] + "\udc00"))
+    derived("lone-surrogate-in-envelope-signer", "anchored-range-with-one-link-bridge", "parse", "The envelope's "
+            "signer with a low surrogate escape appended, with the twin's digest and signature: the parse rules cover "
+            "the whole body, not only the statement (a check that tests only the statement refuses it as shape, for "
+            "the signer that is not the ledger).", "parse",
+            text=js_text({**genuine, "signer": genuine["signer"] + "\udc00"}))
+
+    # the remaining type and records checks
+    derived("entry-type-array", "declared-entry-before-range", "attachment_entry", "The entry's type the array "
+            "[\"example-type\"], not a string (a check that tests its pattern on the array's text form, as a "
+            "JavaScript RegExp does, accepts it).", "entry_type", typed(["example-type"]))
+    derived("signature-not-a-string", "anchored-range-with-one-link-bridge", "signature", "The envelope's signature "
+            "the number 7, with the twin's digest.", "signature", text=js_text({**genuine, "signature": 7}))
+    derived("records-last-not-through-head", "anchored-range-records-fold", "records", "through.head replaced by "
+            "another digest and the statement signed again, with the relying party's records: they fold to "
+            "through.acc, but the last of them is not through.head (a check that compares only the fold accepts "
+            "it).", "records", put(["through", "head"], "0x" + "99" * 32))
 
     write(acc_rows, rej_rows)
     return verify_written()

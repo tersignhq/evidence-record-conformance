@@ -191,9 +191,9 @@ them or by rejecting them for another reason.
 ## Chain statements (v0.6.0)
 
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
-with its key over one range of one record chain. Tersign's ledger serves one at
+with its key over one range of one record chain. Tersign's ledger serves one, paid per request over x402, at
 `GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
-record whose digest is presented. The profile has 249 two-sided vectors (40 accept, 209 reject) and 13 reject reasons,
+record whose digest is presented. The profile has 263 two-sided vectors (40 accept, 223 reject) and 13 reject reasons,
 two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors), a
 direct differential (`tools/differential_statement.py`) and a source-mutation run over both engines
 (`tools/mutate_statement.py`). Every rejecting vector names the accepting vector it was built from and what changed.
@@ -220,9 +220,9 @@ record content, and no member is defined to name who asked for it or when.
   time comes from the same origin as the statement. Every vector here is signed by a published test key, so no vector
   establishes anything about a live ledger's key.
 - With `records` and `expected_signer`, the range's artifact digests in ledger order: that they fold from `before` to
-  `through`, so they are the records that key counter-signed on that chain at seq `from` to `to`, in that order, with
-  none left out and none added. With `records` alone, only that they fold between the commitments of a statement the
-  named key signed.
+  `through`, so they are the records the statement, signed by that key, commits to on that chain at seq `from` to
+  `to`, in that order, with none left out and none added; no record's own counter-signature is checked here. With
+  `records` alone, only that they fold between the commitments of a statement the named key signed.
 - That the anchor's derived members agree with each other (subject digest, anchored digest and id, and `proofUrl`
   ends with `/v1/anchors/<id>/proof.ots`); that an anchor at `range.to` commits `through.head` and `through.acc`;
   and that, for an anchor at most 1,000 records past `range.to`, the bridge links fold `through.acc` to `anchor.acc`.
@@ -250,18 +250,18 @@ record content, and no member is defined to name who asked for it or when.
   `through`, unless the relying party brings the records. Any of these could vary with the requester without breaking
   a rule here.
 
-**What statements served today carry.** Every link Tersign's ledger has counter-signed is a v1 link, which binds no
-issuer numbering. So in every statement it serves today `linkVersions.v2` is 0, `issuerSeq.unboundRecords` equals the
-number of records in the range and `issuerSeq.series` is empty: every record is reported as unbound. `attachments.entries`
-is empty and `chain.key` is absent. The vectors that carry v2 links, bound records, series, gaps, duplicates,
-attachment entries or a chain key are synthetic and signed by the test key: they pin the format's rules, not anything
-a ledger has served. Their issuer-numbering reports are computed from link bindings, as the format defines the report,
-and each vector's description lists its bindings or names the vector that does. `statement/README.md` (*What the
-accepting vectors test*) names each accepting vector that carries a value Tersign's ledger would not sign today, and
-why.
+**What a statement from Tersign's ledger carries today.** Every link Tersign's ledger has counter-signed is a v1
+link, which binds no issuer numbering. So in every statement it can serve today `linkVersions.v2` is 0,
+`issuerSeq.unboundRecords` equals the number of records in the range and `issuerSeq.series` is empty: every record is
+reported as unbound. `attachments.entries` is empty and `chain.key` is absent. The vectors that carry v2 links, bound
+records, series, gaps, duplicates, attachment entries or a chain key are synthetic and signed by the test key: they pin
+the format's rules, not anything a ledger has served. The accepting ones among them that carry a v2 link have
+issuer-numbering reports computed from link bindings, as the format defines the report, and each such vector's
+description lists its bindings or names the vector that does. `statement/README.md` (*What the accepting vectors test*)
+names each accepting vector that carries a value Tersign's ledger would not sign today, and why.
 
-**Measured at this commit.** Both engines return the pinned verdict and reason on all 249 vectors;
-`differential_statement.py` compares 7,367 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 263 vectors;
+`differential_statement.py` compares 7,381 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
 broken verifiers and `tools/mutate_statement.py` all 105 source mutants, while both comment-only identity mutants
 survive; Python 3.9.6 and 3.14.7 regenerate the set byte for byte from empty directories. No outside implementation has
 run these vectors yet.

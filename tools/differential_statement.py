@@ -12,11 +12,13 @@ eight accepting vectors, and compares [verdict, reason] directly, with no expect
     the value 1 and once with null; each array also with its last element repeated, dropped and the order reversed.
     A changed statement whose rules the Python engine accepts is signed again by the test key, so the comparison
     reaches the digest, signature, signer and records steps rather than stopping at the signature;
-  - the served text: each member name written twice, each integer token written as N.0, Ne0, 2**53 and 2**53 + 1, a
-    surrogate that is not half of a pair, and a pair written as escapes, in each string; a pair written half raw and
-    half as an escape, in both orders, and a lone surrogate written raw; the scope value replaced by nested arrays so
-    the body nests 63, 64, 65, 66, 300, 1,000 and 3,000 deep; the text pretty-printed, padded with whitespace, with a
-    byte-order mark, truncated, and as a top-level array;
+  - the served text: each member name written twice; the first `from`, `seq`, `version`, `listCap` and `v1` integer
+    tokens each written as N.0, Ne0, 2**53, 2**53 + 1 and -(2**53 - 1); in chain.sellerId, a lone high and a lone low
+    surrogate as escapes, a pair written as escapes, a character outside the Basic Multilingual Plane written raw, a
+    pair written half raw and half as an escape in both orders, and a lone surrogate written raw; a lone high surrogate
+    as an escape in scope and in an entry type; the scope value replaced by nested arrays so the body nests 63, 64, 65,
+    66, 300, 1,000 and 3,000 deep; the text pretty-printed, padded with whitespace, with a byte-order mark, truncated,
+    and as a top-level array;
   - the envelope: each member removed, an undefined member, signer in another letter case, statementDigest in upper
     case, and the signature with upper-case digits, a 0X prefix, v = 0, 1 and 29, s = 0, n/2 and n/2 + 1, r = 0 and n, a
     trailing newline, one byte short and a number;

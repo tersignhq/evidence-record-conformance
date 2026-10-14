@@ -71,11 +71,11 @@
   },
   "raw_surrogate": {
    "source": "suite",
-   "rule": "The text is read as code points. A surrogate code point written raw in the text, not as a \\u escape, is refused, even where an escaped surrogate next to it would complete a pair, so either half of a pair written raw is refused; a character outside the Basic Multilingual Plane written raw is one code point, not a surrogate, and is accepted. Otherwise parse. The format does not refuse a pair written half raw: the TypeScript check of served text in Tersign's ledger code reads the text with JSON.parse, which joins the two halves into a pair, and accepts it today. A body served as UTF-8 cannot carry a raw surrogate, so the rule changes no verdict on a served body; this suite fixes it so that a reader of code points and a reader of UTF-16 code units agree."
+   "rule": "The text is read as code points. A surrogate code point written raw in the text, not as a \\u escape, is refused, even where an escaped surrogate next to it would complete a pair, so either half of a pair written raw is refused; a character outside the Basic Multilingual Plane written raw is one code point, not a surrogate, and is accepted. Otherwise parse. The format's parse rule does not say whether the text is read as code points or as UTF-16 code units; JSON.parse, a reader of UTF-16 code units, joins the two halves into a pair. A body served as UTF-8 cannot carry a raw surrogate, so the rule changes no verdict on a served body; this suite fixes it so that a reader of code points and a reader of UTF-16 code units agree."
   },
   "depth": {
    "source": "suite",
-   "rule": "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, decided on the text before it is read as values. Otherwise parse. The format sets no bound; this suite fixes one so that its engines agree on every input, where a reader without one decides deep nesting by wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, not between."
+   "rule": "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, counted on the text. Otherwise parse. The format sets no bound; this suite fixes one so that its engines agree on every input, where a reader without one decides deep nesting by wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, not between."
   },
   "envelope": {
    "source": "format",
@@ -115,7 +115,7 @@
   },
   "before_through": {
    "source": "format",
-   "rule": "before is {seq, head, acc} with head null or 0x + 64 lower-case hex; through is {seq, head, acc} with both digests 0x + 64 lower-case hex (shape). before.seq = range.from - 1; before.head is null exactly when before.seq is 0; at seq 0, before.acc is the commitment seed keccak256(utf8(\"tersign-chain-commitment-v1\")); through.seq = range.to (consistency)."
+   "rule": "before is {seq, head, acc}: seq an integer, head null or 0x + 64 lower-case hex, acc 0x + 64 lower-case hex; through is {seq, head, acc}: seq an integer, head and acc 0x + 64 lower-case hex (shape). before.seq = range.from - 1; before.head is null exactly when before.seq is 0; at seq 0, before.acc is the commitment seed keccak256(utf8(\"tersign-chain-commitment-v1\")); through.seq = range.to (consistency)."
   },
   "link_versions": {
    "source": "format",
@@ -123,7 +123,7 @@
   },
   "issuer_seq": {
    "source": "format",
-   "rule": "issuerSeq is exactly {boundRecords, unboundRecords, absentRecords, listCap, series, truncated}: non-negative integers, a boolean and an array (shape). listCap is format.list_cap; unboundRecords = linkVersions.v1 and boundRecords + absentRecords = linkVersions.v2; with no bound record there is no series; series, each series' missing numbers and its duplicates are each at most listCap long; series ids ascend strictly and 0 <= min <= max; missing numbers ascend strictly within [min, max]; a duplicate names at least two ledger seqs, ascending, each from 1 to range.to (consistency). A series is exactly {series, min, max, missing, duplicates} and a duplicate exactly {seq, correctionSeq, ledgerSeqs}, correctionSeq null or a non-negative integer (shape)."
+   "rule": "issuerSeq is exactly {boundRecords, unboundRecords, absentRecords, listCap, series, truncated}: non-negative integers, a boolean and an array (shape). listCap is format.list_cap; unboundRecords = linkVersions.v1 and boundRecords + absentRecords = linkVersions.v2; with no bound record there is no series; series, each series' missing numbers and its duplicates are each at most listCap long; series ids ascend strictly and 0 <= min <= max; missing numbers are integers ascending strictly within [min, max]; a duplicate names at least two ledger seqs, integers strictly ascending, each from 1 to range.to (consistency). A series is exactly {series, min, max, missing, duplicates}: series 0x + 64 lower-case hex, min and max integers, missing and duplicates arrays; a duplicate is exactly {seq, correctionSeq, ledgerSeqs}: seq an integer, correctionSeq null or a non-negative integer, ledgerSeqs an array (shape)."
   },
   "anchor": {
    "source": "format",
@@ -151,7 +151,7 @@
   },
   "check_order": {
    "source": "suite",
-   "rule": "The first rule broken decides the reason, in the order the runner lists (parse, envelope, statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, expected signer, records). The order vectors (ids containing \"-order-\") each carry two faults, one from each of two reason groups adjacent in that order, and expect the first group's reason; each fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, each by the one pair of rules its vector breaks, at the place in the statement where its two faults sit. The issuer-numbering order vectors put both faults in the first series or in its first duplicate, so they pin the order inside one series or one duplicate; one more vector pins one order across two series (the first series' consistency before the second series' shape). They do not pin other pairs of rules across a boundary, any other order across two series or two duplicates, the order among rules that share a reason, or the order among the parse rules. Every other vector breaks one rule, except where its description names a second, and expects that rule's reason."
+   "rule": "The first rule broken decides the reason, in the order the runner lists (parse, envelope, statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, expected signer, records). The order vectors (ids containing \"-order-\") each carry two faults, one from each of two reason groups adjacent in that order, and expect the first group's reason; each fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, each by the one pair of rules its vector breaks, at the place in the statement where its two faults sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the first series or in its first duplicate, so they pin the order inside one series or one duplicate; the issuer-counts vector puts its series fault in the second series, and one more vector pins one order across two series (the first series' consistency before the second series' shape). They do not pin other pairs of rules across a boundary, any other order across two series or two duplicates, the order among rules that share a reason, or the order among the parse rules. Every other vector breaks one rule, except where its description names a second, and expects that rule's reason."
   },
   "input": {
    "source": "suite",
@@ -3086,6 +3086,174 @@
    "expect": "reject",
    "reason": "anchor",
    "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn210-range-to-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "range",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn211-issuer-bound-records-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn212-issuer-unbound-records-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn213-issuer-absent-records-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn214-issuer-list-cap-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn215-duplicate-correction-seq-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp35-issuer-numbering-corrections",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn216-duplicate-ledger-seq-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn217-lone-surrogate-in-member-name.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn218-body-not-json-text.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn219-lone-surrogate-in-bridge-link.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn220-lone-surrogate-in-envelope-signer.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn221-entry-type-array.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn222-signature-not-a-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn223-records-last-not-through-head.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "synthetic",
