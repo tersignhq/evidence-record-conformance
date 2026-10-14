@@ -1851,7 +1851,7 @@
    "kind": "chain_statement",
    "expect": "reject",
    "reason": "signer",
-   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "twin": "sp31-another-key-as-expected-signer",
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "synthetic",

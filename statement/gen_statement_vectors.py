@@ -734,14 +734,14 @@ def main():
     forged = copy.deepcopy(A)
     forged["ledger"] = OTHER
     forged_text = envelope(forged, KEY2)
-    derived("self-consistent-statement-by-another-key", "anchored-range-with-one-link-bridge", "signer", "A statement "
-            "naming and signed by the second test key, checked against the first key brought from elsewhere: "
-            "internally consistent, not by the expected key.", "expected_signer", text=forged_text)
-    valid("another-key-without-expected-signer", "The same statement with no key brought from elsewhere: valid, and "
-          "the verdict establishes only that the key it names signed it.", "expected_signer", forged, {},
-          text=forged_text)
+    valid("another-key-without-expected-signer", "A statement naming and signed by the second test key, with no key "
+          "brought from elsewhere: valid, and the verdict establishes only that the key it names signed it.",
+          "expected_signer", forged, {}, text=forged_text)
     valid("another-key-as-expected-signer", "The same statement with the second test key brought from elsewhere.",
           "expected_signer", forged, {"expected_signer": OTHER}, text=forged_text)
+    derived("self-consistent-statement-by-another-key", "another-key-as-expected-signer", "signer", "The same "
+            "statement checked against the first test key brought from elsewhere: internally consistent, not signed by "
+            "the expected key.", "expected_signer", text=forged_text, opts=X)
     valid("expected-signer-lower-case", "The first accepting vector with the expected signer written in lower case: "
           "compared case-insensitively.", "expected_signer", A, {"expected_signer": LEDGER.lower()}, text=base_text)
     derived("envelope-signer-not-ledger", "anchored-range-with-one-link-bridge", "shape", "The envelope's signer "
