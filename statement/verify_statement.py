@@ -10,8 +10,10 @@ served, as TEXT, plus what a relying party may bring from elsewhere:
 `expected_signer` (the ledger key obtained out of band) and `records` (the artifact digests of the range, in ledger
 order) are optional and read by key presence. The check, in this order; the first rule broken decides the reason:
 
-  1 parse              one JSON object; no member name twice in any object; every number token an integer in
-                       [-(2**53 - 1), 2**53 - 1]; every string, member names included, well-formed Unicode
+  1 parse              one JSON object, nesting objects and arrays at most 64 deep (the body object counts 1); no
+                       member name twice in any object; every number token an integer in [-(2**53 - 1), 2**53 - 1];
+                       every string, member names included, well-formed Unicode, and no surrogate written raw in the
+                       text (an escape next to it does not make it half of a pair)
   2 shape              the body is exactly {statement, statementDigest, signature, signer}
   3 statement rules    the closed sets and consistency rules over `statement` (statement_refusal below), with the
                        reasons shape, scope, chain_key, range, attachments_version, attachment_entry, consistency
@@ -67,6 +69,7 @@ ANCHOR_STATUSES = ("pending", "confirmed")
 MAX_RANGE = 5000
 LIST_CAP = 256
 BRIDGE_CAP = 1000
+MAX_DEPTH = 64   # objects and arrays nested in the body, the body object counting 1; a statement nests 8 deep at most
 TYPE_HEX_DIGITS = 32
 SAFE = 2 ** 53 - 1
 ZERO32 = "0x" + "00" * 32
@@ -85,6 +88,8 @@ ADDRESS_RE = re.compile(r"0x[0-9a-fA-F]{40}")
 SIGNATURE_RE = re.compile(r"0x[0-9a-fA-F]{130}")
 TYPE_RE = re.compile(r"[a-z][a-z0-9-]{0,62}[a-z0-9]")
 HEXLIKE_TYPE_RE = re.compile(r"[0-9a-f-]+")
+STRING_RE = re.compile(r'"(?:[^"\\]|\\.)*"', re.S)
+BRACKET_RE = re.compile(r"[\[\]{}]")
 
 
 class Reject(Exception):
@@ -127,6 +132,19 @@ def _ill_formed(v):
     return False
 
 
+def _depth(text):
+    """The deepest nesting of objects and arrays in the text, the outermost counting 1. String contents are skipped,
+    and nothing is parsed, so the bound is decided before any reader nests."""
+    d = top = 0
+    for m in BRACKET_RE.finditer(STRING_RE.sub("", text)):
+        if m.group() in "[{":
+            d += 1
+            top = max(top, d)
+        else:
+            d -= 1
+    return top
+
+
 def type_ok(t, mut=None):
     """2-64 characters: a lower-case letter, then lower-case letters, digits and hyphens, ending in a letter or digit;
     and not a type made only of hex digits and hyphens that holds 32 or more hex digits."""
@@ -163,6 +181,8 @@ def parse(text, mut=None):
         raise Reject("parse")
 
     if not isinstance(text, str):
+        raise Reject("parse")
+    if _depth(text) > MAX_DEPTH:
         raise Reject("parse")
     try:
         body = json.loads(text, object_pairs_hook=pairs, parse_float=no_float, parse_int=bounded,
@@ -470,7 +490,7 @@ KIND = "chain_statement"
 PINNED = {"schema": SCHEMA, "commitment_schema": COMMITMENT_SCHEMA, "signature_prefix": SIGNATURE_PREFIX,
           "limits": LIMITS, "scopes": list(SCOPES), "attachments_version": ATTACHMENTS_VERSION,
           "bindings": list(BINDINGS), "anchor_statuses": list(ANCHOR_STATUSES), "max_range": MAX_RANGE,
-          "list_cap": LIST_CAP, "bridge_cap": BRIDGE_CAP, "type_hex_digits": TYPE_HEX_DIGITS,
+          "list_cap": LIST_CAP, "bridge_cap": BRIDGE_CAP, "max_depth": MAX_DEPTH, "type_hex_digits": TYPE_HEX_DIGITS,
           "statement_members": list(MEMBERS), "anchor_members": list(ANCHOR_MEMBERS), "envelope": list(ENVELOPE)}
 
 MUTANTS = {   # each a plausible one-site broken verifier; the suite must fail it on the named vector

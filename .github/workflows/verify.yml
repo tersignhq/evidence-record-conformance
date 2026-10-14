@@ -64,6 +64,8 @@ jobs:
           node tools/cross_check_statement.mjs
       - name: Direct engine parity on chain statements, corpus + off-corpus battery, no manifest oracle
         run: python3 tools/differential_statement.py
+      - name: Chain-statement source mutants in both engines (each must fail its named vectors; identity mutants survive)
+        run: python3 tools/mutate_statement.py
   cross-implementation:
     runs-on: ubuntu-latest
     steps:

@@ -5,8 +5,10 @@
 // shares verify.py's. Run:  npm i viem  (in the repo root), then  node tools/cross_check_statement.mjs
 //
 // Profile note: the served body is TEXT. JSON.parse keeps the last of two equal member names and turns the token 1.0
-// into 1, so the duplicate-member and number-token rules are checked on the text itself (scanText), after JSON.parse
-// has accepted its syntax.
+// into 1, so the duplicate-member, number-token and nesting rules are checked on the text itself (scanText), after
+// JSON.parse has accepted its syntax. JSON.parse also joins a surrogate written raw in the text with an escaped one next
+// to it into a pair, which a code-point reader never does, so a surrogate code unit written raw that is not half of a
+// raw pair is refused on the text before the decoded strings are read.
 import { concatHex, keccak256, numberToHex, recoverMessageAddress, stringToHex } from "viem";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -35,6 +37,7 @@ const ANCHOR_STATUSES = ["pending", "confirmed"];
 const MAX_RANGE = 5000;
 const LIST_CAP = 256;
 const BRIDGE_CAP = 1000;
+const MAX_DEPTH = 64;
 const TYPE_HEX_DIGITS = 32;
 const SAFE = 2n ** 53n - 1n;
 const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -66,8 +69,9 @@ const digestOf = (v) => keccak256(stringToHex(canon(v)));
 const accStep = (acc, link) => keccak256(concatHex([acc, link]));
 const chainLink = (artifact, prev, seq) => keccak256(concatHex([artifact, prev ?? ZERO32, numberToHex(seq, { size: 8 })]));
 
-// The text-level parse rules, over text JSON.parse has already accepted: a member name twice in one object, and a
-// number token that is not an integer in [-(2**53 - 1), 2**53 - 1]. Returns true when the text breaks one.
+// The text-level parse rules, over text JSON.parse has already accepted: objects and arrays nested more than MAX_DEPTH
+// deep (the body object counts 1), a member name twice in one object, and a number token that is not an integer in
+// [-(2**53 - 1), 2**53 - 1]. Returns true when the text breaks one.
 function scanText(text) {
   const stack = [];
   let i = 0;
@@ -84,11 +88,9 @@ function scanText(text) {
         top.expectKey = false;
       }
       i = j + 1;
-    } else if (c === "{") {
-      stack.push({ keys: new Set(), expectKey: true });
-      i++;
-    } else if (c === "[") {
-      stack.push({ keys: null, expectKey: false });
+    } else if (c === "{" || c === "[") {
+      stack.push(c === "{" ? { keys: new Set(), expectKey: true } : { keys: null, expectKey: false });
+      if (stack.length > MAX_DEPTH) return true;
       i++;
     } else if (c === "}" || c === "]") {
       stack.pop();
@@ -237,6 +239,7 @@ export async function checkStatement(input) {
   let body;
   try {
     if (typeof text !== "string") return ["reject", "parse"];
+    if (LONE_SURROGATE.test(text)) return ["reject", "parse"];
     body = JSON.parse(text);
     if (scanText(text) || illFormed(body)) return ["reject", "parse"];
   } catch {
@@ -270,7 +273,7 @@ export async function checkStatement(input) {
 export const PINNED = {
   schema: SCHEMA, commitment_schema: COMMITMENT_SCHEMA, signature_prefix: SIGNATURE_PREFIX, limits: LIMITS, scopes: SCOPES,
   attachments_version: ATTACHMENTS_VERSION, bindings: BINDINGS, anchor_statuses: ANCHOR_STATUSES, max_range: MAX_RANGE,
-  list_cap: LIST_CAP, bridge_cap: BRIDGE_CAP, type_hex_digits: TYPE_HEX_DIGITS, statement_members: MEMBERS,
+  list_cap: LIST_CAP, bridge_cap: BRIDGE_CAP, max_depth: MAX_DEPTH, type_hex_digits: TYPE_HEX_DIGITS, statement_members: MEMBERS,
   anchor_members: ANCHOR_MEMBERS, envelope: ENVELOPE,
 };
 

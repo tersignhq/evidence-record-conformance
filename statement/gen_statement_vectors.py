@@ -7,9 +7,14 @@ member in the order a ledger serves them, and signatures by two published test k
 all in this file. No vector carries a record, a key or an anchor of any live ledger, so no vector says anything about a
 live ledger's key: a valid verdict here establishes only that the published test key signed the bytes.
 
-Every rejecting vector is built from an accepting vector of this set, its twin, by one change; where the change is to
-the statement, the twin's key signs the changed statement again, so the digest and signature checks cannot be what
-rejects it (the digest, signature and signer vectors exist to test those)."""
+Every rejecting vector is built from an accepting vector of this set, its twin, by the change its description names:
+one value, or one logical change that moves values bound to each other, or, for the order vectors, two faults. Where the
+change is to the statement, the twin's key signs the changed statement again, so the digest and signature checks cannot
+be what rejects it (the digest, signature and signer vectors exist to test those).
+
+Every accepting vector that carries a v2 link has its issuer-numbering report computed by issuer_report() from one link
+binding per ledger seq, the way the format defines the report, so each is a report a ledger could sign; the others
+carry the report of an all-v1 range (every record unbound, no series). A rejecting vector changes one."""
 import copy
 import hashlib
 import json
@@ -33,6 +38,7 @@ NONCE_DERIVATION = "keccak256(the private key as 32 big-endian bytes || the 32-b
 BASE = "https://ledger.example"
 HEIGHT = 900000
 AUTHOR = "Tersign (@wowlegend)"
+VERSION = "0.6.0"   # the suite release this set belongs to, as MANIFEST.json "version"
 
 
 def address(priv):
@@ -157,13 +163,80 @@ SER1, SER2 = "0x" + "0a" * 32, "0x" + "0b" * 32
 E1 = {"position": 1, "type": "example-type", "binding": "declared"}
 E2 = {"position": 4, "type": "example-other", "binding": "declared"}
 
+ABSENT = "a v2 link that binds no issuer number"
+
+
+def issuer_report(bindings, frm, to):
+    """(linkVersions, issuerSeq) for the range frm..to, from one link binding per ledger seq 1..to: None for a v1 link
+    (it binds no issuer numbering), ABSENT for a v2 link that binds no number, or (series, seq, correctionSeq). As the
+    format defines the report: the counts, and each series' min and max, are over the range; a series is reported when
+    a record in the range binds it; a number between min and max is missing when no original (correctionSeq null)
+    binding at or before `to` names it; a duplicate is a (seq, correctionSeq) named by two or more bindings at or before
+    `to`, one of them in the range, ordered by seq, then correctionSeq with null first; each list stops at the cap, and
+    then `truncated` is true."""
+    assert sorted(bindings) == list(range(1, to + 1)), "one binding per ledger seq 1..to"
+    in_range = range(frm, to + 1)
+    v1 = sum(1 for q in in_range if bindings[q] is None)
+    absent = sum(1 for q in in_range if bindings[q] is ABSENT)
+    bound = [(q, b) for q, b in sorted(bindings.items()) if b is not None and b is not ABSENT]
+    series, truncated = [], False
+    for sid in sorted({b[0] for q, b in bound if q >= frm}):
+        if len(series) >= V.LIST_CAP:
+            truncated = True
+            break
+        mine = [(q, b) for q, b in bound if b[0] == sid]
+        nums = [b[1] for q, b in mine if q >= frm]
+        originals = {b[1] for q, b in mine if b[2] is None}
+        missing = []
+        for n in range(min(nums), max(nums) + 1):
+            if n in originals:
+                continue
+            if len(missing) >= V.LIST_CAP:
+                truncated = True
+                break
+            missing.append(n)
+        groups = {}
+        for q, b in mine:
+            groups.setdefault((b[1], b[2]), []).append(q)
+        dups = sorted(({"seq": k[0], "correctionSeq": k[1], "ledgerSeqs": sorted(qs)} for k, qs in groups.items()
+                       if len(qs) >= 2 and max(qs) >= frm),
+                      key=lambda d: (d["seq"], -1 if d["correctionSeq"] is None else d["correctionSeq"]))
+        truncated = truncated or len(dups) > V.LIST_CAP
+        series.append({"series": sid, "min": min(nums), "max": max(nums), "missing": missing,
+                       "duplicates": dups[:V.LIST_CAP]})
+    return ({"v1": v1, "v2": len(in_range) - v1},
+            {"boundRecords": len(in_range) - v1 - absent, "unboundRecords": v1, "absentRecords": absent,
+             "series": series, "listCap": V.LIST_CAP, "truncated": truncated})
+
+
+# Link bindings for the accepting issuer-numbering vectors: {ledger seq: binding}, every seq from 1 to range.to.
+REPORT = {1: (SER1, 1, None), 2: (SER1, 1, None), 3: (SER1, 3, None), 4: (SER2, 7, None), 5: ABSENT}
+REPORT_CORRECTIONS = {1: (SER1, 1, None), 2: (SER1, 2, 0), 3: (SER1, 2, 0), 4: (SER1, 3, 1), 5: (SER1, 3, 1)}
+REPORT_MISSING_AT_CAP = dict(REPORT)
+REPORT_MISSING_AT_CAP[3] = (SER1, 258, None)
+REPORT_SERIES_AT_CAP = {q: (None if q == 1 else ("0x" + format(q - 1, "064x"), 1, None)) for q in range(1, 258)}
+REPORT_DUPLICATES_AT_CAP = {q: (SER1, (q + 1) // 2, None) for q in range(1, 513)}
+REPORT_MIXED = {1: None, 2: None, 3: None, 4: ABSENT, 5: ABSENT}
+# (bindings, range.from, range.to) of every report an accepting vector carries; tools that check the reports read this.
+REPORTS = {"report": (REPORT, 2, 5), "corrections": (REPORT_CORRECTIONS, 2, 5),
+           "missing_at_cap": (REPORT_MISSING_AT_CAP, 2, 5), "series_at_cap": (REPORT_SERIES_AT_CAP, 2, 257),
+           "duplicates_at_cap": (REPORT_DUPLICATES_AT_CAP, 2, 512), "mixed": (REPORT_MIXED, 2, 5)}
+
 # Rules each vector rests on, labelled as the format's own (the rules a ledger serving this format applies before it
 # signs) or as this suite's. The runner pins the constants under "format"; these texts say what the vectors test.
 RULES = {
     "parse": ("format", "The served body is one JSON object; no object carries a member name twice; every number token "
               "is an integer in [-(2**53 - 1), 2**53 - 1] (a fraction or exponent token is not, even when its value is "
               "an integer); every string, member names included, is well-formed Unicode (a surrogate that is not half of "
-              "a pair has no UTF-8 form). Otherwise parse."),
+              "a pair has no UTF-8 form). The text is read as code points: a surrogate written raw in the text is not "
+              "half of a pair with an escaped surrogate next to it, so either half written raw is refused (a body served "
+              "as UTF-8 cannot carry one). Otherwise parse."),
+    "depth": ("suite", "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, "
+              "decided on the text before it is read as values. Otherwise parse. The format sets no bound; this suite "
+              "fixes one so that its engines agree on every input, where a reader without one decides deep nesting by "
+              "wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at "
+              "most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, "
+              "not between."),
     "envelope": ("format", "The body is exactly {statement, statementDigest, signature, signer}, and signer equals "
                  "statement.ledger byte for byte. Otherwise shape."),
     "members": ("format", "The statement's members are exactly the fourteen in format.statement_members; schema, limits "
@@ -229,12 +302,19 @@ RULES = {
                 "ends at through.acc with through.head as the last digest. Otherwise records."),
     "check_order": ("suite", "The first rule broken decides the reason, in the order the runner lists (parse, envelope, "
                     "statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, "
-                    "expected signer, records). Every vector here breaks one rule, except where its description names "
-                    "a second, and expects the reason of the first in this order."),
+                    "expected signer, records). The order vectors (ids containing \"-order-\") each carry two faults, one "
+                    "from each of two reason groups adjacent in that order, and expect the first group's reason; each "
+                    "fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, "
+                    "each by one pair of rules. They do not pin other pairs of rules across a boundary, the order among "
+                    "rules that share a reason, or the order among the parse rules. Every other vector breaks one rule, "
+                    "except where its description names a second, and expects that rule's reason."),
     "input": ("suite", "A vector's input is {body_text, expected_signer?, records?}: the served body as text, and the "
               "two values a relying party may bring from elsewhere, read by key presence."),
-    "twin": ("suite", "Every rejecting vector names an accepting vector of this set, its twin, from which it differs by "
-             "one change; the runner fails a set where a twin is missing or not valid."),
+    "twin": ("suite", "Every rejecting vector names an accepting vector of this set, its twin, and its description "
+             "names what changed: one value; one logical change that moves values bound to each other (an anchor's "
+             "derived members recomputed, a count with the count that must match it, a statement signed by another "
+             "key); or, for the order vectors, two faults. The runner fails a set where a twin is missing or not "
+             "valid."),
 }
 
 
@@ -243,8 +323,12 @@ def main():
     A = build(a, "chain-a", 2, 5, anchor_seq=6)
     A_REC = a.digests[2:6]
     A_AT = build(a, "chain-a", 2, 6, anchor_seq=6)
+    c = Chain("c", 512)
+    C_SERIES = build(c, "chain-c", 2, 257)
+    C_DUPLICATES = build(c, "chain-c", 2, 512)
     B = build(b, "chain-b", 1, 3)
     B_REC = b.digests[1:4]
+    B_ONE = build(b, "chain-b", 1, 1, anchor_seq=1)
     X = {"expected_signer": LEDGER}
 
     acc_rows, rej_rows = [], []
@@ -295,12 +379,15 @@ def main():
     def typed(t):
         return entries([{**E1, "type": t}])
 
-    def v2report(st):
-        st["linkVersions"] = {"v1": 0, "v2": 4}
-        st["issuerSeq"].update({"boundRecords": 3, "unboundRecords": 0, "absentRecords": 1, "series": [
-            {"series": SER1, "min": 1, "max": 5, "missing": [3], "duplicates": [{"seq": 2, "correctionSeq": None,
-                                                                                 "ledgerSeqs": [2, 3]}]},
-            {"series": SER2, "min": 7, "max": 7, "missing": [], "duplicates": []}]})
+    def report(name):
+        bindings, frm, to = REPORTS[name]
+
+        def fn(st):
+            assert (st["range"]["from"], st["range"]["to"]) == (frm, to), name
+            st["linkVersions"], st["issuerSeq"] = issuer_report(bindings, frm, to)
+        return fn
+
+    v2report = report("report")
 
     def then(*fns):
         def fn(st):
@@ -310,8 +397,7 @@ def main():
 
     def mixed(position):
         def fn(st):
-            st["linkVersions"] = {"v1": 2, "v2": 2}
-            st["issuerSeq"].update({"boundRecords": 0, "unboundRecords": 2, "absentRecords": 2, "series": []})
+            report("mixed")(st)
             st["attachments"]["entries"] = [{"position": position, "type": "example-type", "binding": "sealed"}]
         return fn
 
@@ -371,15 +457,17 @@ def main():
     valid_from("two-declared-entries", "anchored-range-with-one-link-bridge", "Two declared entries, positions 1 and "
                "4, ascending.", "entries", entries([E1, E2]))
     valid_from("sealed-entry-on-v2-range", "anchored-range-with-one-link-bridge", "A sealed entry at position 3 on a "
-               "range whose links are all v2 (linkVersions {v1: 0, v2: 4}, an issuer-numbering report consistent with "
-               "it). Hand-built and signed by the test key.", "sealed",
+               "range whose links are all v2: linkVersions {v1: 0, v2: 4} and the issuer-numbering report computed from "
+               "the bindings the issuer-numbering report vector names. Signed by the test key.", "sealed",
                then(v2report, entries([{"position": 3, "type": "example-type", "binding": "sealed"}])))
     valid_from("sealed-entry-at-first-v2-link", "anchored-range-with-one-link-bridge", "A mixed range 2..5 with "
-               "{v1: 2, v2: 2}: the first v2 link is at range.from + v1 = 4, and a sealed entry at 4 accepts.",
+               "{v1: 2, v2: 2} (seq 1 to 3 v1 links, seq 4 and 5 v2 links that bind no issuer number, so two unbound "
+               "and two absent records): the first v2 link is at range.from + v1 = 4, and a sealed entry at 4 accepts.",
                "sealed", mixed(4))
     valid_from("sealed-entry-before-range-when-v1-is-zero", "anchored-range-with-one-link-bridge", "A sealed entry at "
-               "position 1, before range.from, on a range with linkVersions.v1 = 0: the statement says nothing about "
-               "links before range.from, so the position is not checked.", "sealed",
+               "position 1, before range.from, on the all-v2 range of the issuer-numbering report (seq 1 binds a number "
+               "there too): with linkVersions.v1 = 0 the statement says nothing about links before range.from, so the "
+               "position is not checked.", "sealed",
                then(v2report, entries([{"position": 1, "type": "example-type", "binding": "sealed"}])))
     derived("sealed-entry-without-v2-link", "declared-entry-inside-range", "attachment_entry", "The entry at position "
             "4 with binding sealed on a range with no v2 link (linkVersions.v2 = 0).", "sealed",
@@ -424,8 +512,9 @@ def main():
                "5 = range.to.", "entries", entries([{**E1, "position": 5}]))
     derived("entry-position-after-range-to", "entry-position-at-range-to", "attachment_entry", "The entry at position "
             "6, after range.to (5).", "entries", entries([{**E1, "position": 6}]))
-    derived("entry-positions-repeat", "two-declared-entries", "attachment_entry", "Two entries at position 4: "
-            "positions ascend strictly.", "entries", entries([E2, {**E1, "position": 4}]))
+    derived("entry-positions-repeat", "two-declared-entries", "attachment_entry", "The first entry's position 1 set "
+            "to 4, so both entries are at position 4: positions ascend strictly.", "entries",
+            entries([{**E1, "position": 4}, E2]))
     derived("entry-positions-inverted", "two-declared-entries", "attachment_entry", "The two entries in the order 4, 1.",
             "entries", entries([E2, E1]))
     derived("entry-position-string", "declared-entry-before-range", "attachment_entry", "The entry's position as the "
@@ -559,43 +648,45 @@ def main():
             "range.to is 5.", "before_through", put(["through", "seq"], 6))
 
     # ---------------------------------------------------------------------------------------------- issuer numbering
-    valid_from("issuer-numbering-report", "anchored-range-with-one-link-bridge", "A v2 issuer-numbering report: "
-               "linkVersions {v1: 0, v2: 4}, three bound records and one absent, two series, one gap and one duplicate. "
-               "Hand-built and signed by the test key.", "issuer_seq", v2report)
-
-    def v2with(fn):
-        return then(v2report, fn)
+    valid_from("issuer-numbering-report", "anchored-range-with-one-link-bridge", "A v2 issuer-numbering report over seq "
+               "2..5, computed from these link bindings: seq 1 and 2 both bind series 0x0a.. number 1, seq 3 binds "
+               "0x0a.. number 3, seq 4 binds 0x0b.. number 7, and seq 5 is a v2 link that binds no number. So "
+               "linkVersions {v1: 0, v2: 4}, three bound records and one absent; series 0x0a.. has min 1, max 3, number "
+               "2 missing and number 1 named by ledger seqs 1 and 2 (a duplicate); series 0x0b.. has min and max 7. "
+               "Signed by the test key.", "issuer_seq", v2report)
 
     def ser(i, **kv):
         return lambda st: st["issuerSeq"]["series"][i].update(kv)
+
+    def ser_append(i, member, value):
+        return lambda st: st["issuerSeq"]["series"][i][member].append(value)
 
     derived("series-without-bound-record", "anchored-range-with-one-link-bridge", "consistency", "A series on a "
             "statement with no bound record.", "issuer_seq", put(["issuerSeq", "series"],
                                                                  [{"series": SER1, "min": 1, "max": 1, "missing": [],
                                                                    "duplicates": []}]))
-    derived("missing-number-outside-min-max", "issuer-numbering-report", "consistency", "A missing number 6 in a "
-            "series whose max is 5.", "issuer_seq", v2with(ser(0, missing=[6])))
-    derived("missing-numbers-repeat", "issuer-numbering-report", "consistency", "Missing numbers 3, 3.",
-            "issuer_seq", v2with(ser(0, missing=[3, 3])))
-    derived("series-ids-repeat", "issuer-numbering-report", "consistency", "Two series with one id.", "issuer_seq",
-            v2with(ser(1, series=SER1)))
-    derived("series-min-above-max", "issuer-numbering-report", "consistency", "A series with min 8 and max 7.",
-            "issuer_seq", v2with(ser(1, min=8)))
+    derived("missing-number-outside-min-max", "issuer-numbering-report", "consistency", "Series 0x0a..'s missing "
+            "numbers [2] replaced by [4], above its max 3.", "issuer_seq", ser(0, missing=[4]))
+    derived("missing-numbers-repeat", "issuer-numbering-report", "consistency", "Series 0x0a..'s missing numbers [2] "
+            "replaced by [2, 2].", "issuer_seq", ser(0, missing=[2, 2]))
+    derived("series-ids-repeat", "issuer-numbering-report", "consistency", "The second series' id set to the first's: "
+            "two series with one id.", "issuer_seq", ser(1, series=SER1))
+    derived("series-min-above-max", "issuer-numbering-report", "consistency", "Series 0x0b..'s min set to 8, above its "
+            "max 7.", "issuer_seq", ser(1, min=8))
 
     def dup(**kv):
         return lambda st: st["issuerSeq"]["series"][0]["duplicates"][0].update(kv)
 
-    derived("duplicate-one-ledger-seq", "issuer-numbering-report", "consistency", "A duplicate naming one ledger seq.",
-            "issuer_seq", v2with(dup(ledgerSeqs=[2])))
-    derived("duplicate-ledger-seq-after-range", "issuer-numbering-report", "consistency", "A duplicate naming ledger "
-            "seq 6, after range.to (5).", "issuer_seq", v2with(dup(ledgerSeqs=[2, 6])))
-    derived("duplicate-correction-seq-negative", "issuer-numbering-report", "shape", "A duplicate with correctionSeq "
-            "-1.", "issuer_seq", v2with(dup(correctionSeq=-1)))
+    derived("duplicate-one-ledger-seq", "issuer-numbering-report", "consistency", "The duplicate's ledger seqs [1, 2] "
+            "replaced by [2]: a duplicate names at least two.", "issuer_seq", dup(ledgerSeqs=[2]))
+    derived("duplicate-ledger-seq-after-range", "issuer-numbering-report", "consistency", "The duplicate's ledger seqs "
+            "[1, 2] replaced by [1, 6]: 6 is after range.to (5).", "issuer_seq", dup(ledgerSeqs=[1, 6]))
+    derived("duplicate-correction-seq-negative", "issuer-numbering-report", "shape", "The duplicate's correctionSeq "
+            "set to -1.", "issuer_seq", dup(correctionSeq=-1))
     derived("issuer-bound-plus-absent-miscount", "issuer-numbering-report", "consistency", "absentRecords 0, so bound "
-            "+ absent (3) differs from linkVersions.v2 (4).", "issuer_seq",
-            v2with(put(["issuerSeq", "absentRecords"], 0)))
+            "+ absent (3) differs from linkVersions.v2 (4).", "issuer_seq", put(["issuerSeq", "absentRecords"], 0))
     derived("series-unknown-member", "issuer-numbering-report", "shape", "A series with a sixth member, note.",
-            "issuer_seq", v2with(ser(1, note="x")))
+            "issuer_seq", ser(1, note="x"))
     derived("list-cap-255", "anchored-range-with-one-link-bridge", "consistency", "issuerSeq.listCap 255.",
             "issuer_seq", put(["issuerSeq", "listCap"], 255))
     derived("list-cap-257", "anchored-range-with-one-link-bridge", "consistency", "issuerSeq.listCap 257.",
@@ -603,28 +694,27 @@ def main():
     derived("truncated-string", "anchored-range-with-one-link-bridge", "shape", "issuerSeq.truncated the string "
             "\"false\".", "issuer_seq", put(["issuerSeq", "truncated"], "false"))
 
-    def n_series(n):
-        return v2with(put(["issuerSeq", "series"], [{"series": hex32(i + 1), "min": 1, "max": 1, "missing": [],
-                                                     "duplicates": []} for i in range(n)]))
-
-    def n_missing(n):
-        return v2with(ser(0, max=1000, missing=list(range(1, n + 1))))
-
-    def n_duplicates(n):
-        return v2with(ser(0, duplicates=[{"seq": i + 1, "correctionSeq": None, "ledgerSeqs": [2, 3]}
-                                         for i in range(n)]))
-
-    valid_from("series-at-list-cap", "anchored-range-with-one-link-bridge", "256 series, the list cap.", "issuer_seq",
-               n_series(256))
-    derived("series-over-list-cap", "series-at-list-cap", "consistency", "257 series.", "issuer_seq", n_series(257))
-    valid_from("missing-at-list-cap", "anchored-range-with-one-link-bridge", "256 missing numbers in one series.",
-               "issuer_seq", n_missing(256))
-    derived("missing-over-list-cap", "missing-at-list-cap", "consistency", "257 missing numbers in one series.",
-            "issuer_seq", n_missing(257))
-    valid_from("duplicates-at-list-cap", "anchored-range-with-one-link-bridge", "256 duplicates in one series.",
-               "issuer_seq", n_duplicates(256))
-    derived("duplicates-over-list-cap", "duplicates-at-list-cap", "consistency", "257 duplicates in one series.",
-            "issuer_seq", n_duplicates(257))
+    valid("series-at-list-cap", "256 series, the list cap, over seq 2..257 of a 512-record chain: seq 1 is a v1 link, "
+          "and each seq k from 2 to 257 is a v2 link binding number 1 of its own series, id k - 1 as 32 bytes. Each "
+          "series has min and max 1, nothing missing and no duplicate; no anchor. Signed by the test key.", "issuer_seq",
+          mutate(C_SERIES, report("series_at_cap")))
+    derived("series-over-list-cap", "series-at-list-cap", "consistency", "A 257th series (id 257, min and max 1) "
+            "appended: one more than the cap.", "issuer_seq",
+            lambda st: st["issuerSeq"]["series"].append({"series": hex32(257), "min": 1, "max": 1, "missing": [],
+                                                         "duplicates": []}))
+    valid_from("missing-at-list-cap", "anchored-range-with-one-link-bridge", "256 missing numbers in one series: the "
+               "bindings of the issuer-numbering report with seq 3 binding series 0x0a.. number 258 instead of 3, so "
+               "the series runs from 1 to 258 and numbers 2 to 257 are missing. Signed by the test key.", "issuer_seq",
+               report("missing_at_cap"))
+    derived("missing-over-list-cap", "missing-at-list-cap", "consistency", "Number 258 appended to the 256 missing "
+            "numbers: 257 in one series.", "issuer_seq", ser_append(0, "missing", 258))
+    valid("duplicates-at-list-cap", "256 duplicates in one series, over seq 2..512 of a 512-record chain: seq 2k - 1 "
+          "and seq 2k both bind series 0x0a.. number k, for k from 1 to 256, so the series runs from 1 to 256 with "
+          "nothing missing and each number named by two ledger seqs; no anchor. Signed by the test key.", "issuer_seq",
+          mutate(C_DUPLICATES, report("duplicates_at_cap")))
+    derived("duplicates-over-list-cap", "duplicates-at-list-cap", "consistency", "A 257th duplicate appended (number "
+            "256 with correctionSeq 0, ledger seqs 511 and 512): one more than the cap.", "issuer_seq",
+            ser_append(0, "duplicates", {"seq": 256, "correctionSeq": 0, "ledgerSeqs": [511, 512]}))
 
     # ---------------------------------------------------------------------------------------------- anchor and bridge
     derived("bridge-link-replaced", "anchored-range-with-one-link-bridge", "anchor", "The bridge's one link replaced "
@@ -818,6 +908,232 @@ def main():
             "boolean is not a non-negative integer (a reader that takes true for 1 accepts it).", "anchor",
             put(["anchor", "bitcoinBlockHeight"], True))
 
+    # ---------------------------------------------------------------------------------------------- rule parts no vector reached
+    valid_from("issuer-numbering-corrections", "anchored-range-with-one-link-bridge", "A v2 issuer-numbering report "
+               "with corrections, over seq 2..5, computed from these link bindings: seq 1 binds series 0x0a.. number 1, "
+               "seq 2 and 3 both bind number 2 with correctionSeq 0, and seq 4 and 5 both bind number 3 with "
+               "correctionSeq 1. Only seq 1 is an original, so numbers 2 and 3, the series' min and max, are both "
+               "missing, and each is a duplicate: correctionSeq 0 and a positive correctionSeq, a missing number equal "
+               "to min and one equal to max. Signed by the test key.", "issuer_seq", report("corrections"))
+    valid_from("anchor-height-0", "anchored-range-with-one-link-bridge", "anchor.bitcoinBlockHeight 0, the least "
+               "non-negative integer.", "anchor", put(["anchor", "bitcoinBlockHeight"], 0))
+    valid_from("anchor-height-2-53-minus-1", "anchored-range-with-one-link-bridge", "anchor.bitcoinBlockHeight "
+               "2**53 - 1, the greatest integer the parse rule admits.", "anchor",
+               put(["anchor", "bitcoinBlockHeight"], 2 ** 53 - 1))
+    derived("before-head-at-seq-0", "range-from-genesis-without-anchor", "consistency", "before.head set to a digest "
+            "where before.seq is 0: head is null exactly when seq is 0, in both directions (a check that reads only "
+            "a null head after seq 0 accepts it).", "before_through", put(["before", "head"], "0x" + "12" * 32))
+    derived("anchor-at-range-to-other-acc", "anchor-at-range-to", "anchor", "An anchor at range.to whose acc is not "
+            "through.acc (head equal; derived members recomputed). A check that compares only the head accepts it.",
+            "anchor", lambda st: reanchor(st["range"]["to"], st["through"]["head"], "0x" + "34" * 32)(st))
+
+    def empty_bridge_folding(st):
+        reanchor(st["anchor"]["seq"], st["anchor"]["head"], st["through"]["acc"])(st)
+        st["bridge"]["links"] = []
+
+    derived("bridge-without-links-folding-to-anchor", "anchored-range-with-one-link-bridge", "anchor", "One logical "
+            "change: the anchor's acc set to through.acc (derived members recomputed) and the bridge's one link "
+            "removed. Folding no link then ends at anchor.acc, so only the link count, one per record after range.to, "
+            "rejects it.", "bridge", empty_bridge_folding)
+    derived("bridge-from-not-after-range-to", "anchored-range-with-one-link-bridge", "anchor", "bridge.from 7, not "
+            "range.to + 1 (6). The link still folds to anchor.acc.", "bridge",
+            put(["bridge", "from"], 7))
+    derived("bridge-to-not-anchor-seq", "anchored-range-with-one-link-bridge", "anchor", "bridge.to 7 where anchor.seq "
+            "is 6. The link count and the fold still hold.", "bridge", put(["bridge", "to"], 7))
+    derived("anchor-before-range-to-without-bridge", "anchored-range-with-one-link-bridge", "anchor", "An anchor at "
+            "seq 4, before range.to (5), derived members recomputed, with bridge null. It breaks the seq rule and the "
+            "bridge rule, as every anchor before range.to does (bridge.to would have to be anchor.seq with fewer than "
+            "zero links). A check that treats an anchor at or before range.to like one at range.to accepts it.",
+            "anchor", then(reanchor(4, "0x" + "77" * 32, "0x" + "88" * 32), put(["bridge"], None)))
+    derived("before-unknown-member", "anchored-range-with-one-link-bridge", "shape", "before with a fourth member "
+            "(x_unknown_2026: 1).", "before_through", put(["before", "x_unknown_2026"], 1))
+    derived("through-unknown-member", "anchored-range-with-one-link-bridge", "shape", "through with a fourth member "
+            "(x_unknown_2026: 1).", "before_through", put(["through", "x_unknown_2026"], 1))
+    derived("issuer-seq-unknown-member", "anchored-range-with-one-link-bridge", "shape", "issuerSeq with a seventh "
+            "member (x_unknown_2026: 1).", "issuer_seq", put(["issuerSeq", "x_unknown_2026"], 1))
+    derived("duplicate-unknown-member", "issuer-numbering-report", "shape", "The duplicate with a fourth member "
+            "(x_unknown_2026: 1).", "issuer_seq", dup(x_unknown_2026=1))
+    derived("bridge-unknown-member", "anchored-range-with-one-link-bridge", "anchor", "The bridge with a fourth member "
+            "(x_unknown_2026: 1).", "bridge", put(["bridge", "x_unknown_2026"], 1))
+    derived("before-head-missing", "range-from-genesis-without-anchor", "shape", "before without its head, where the "
+            "head is null at seq 0: a member that is absent is not a member whose value is null.", "before_through",
+            put(["before", "head"], DELETE))
+    derived("anchor-batch-root-missing", "anchored-range-with-one-link-bridge", "anchor", "The anchor without its "
+            "batchRoot, which is null in the twin.", "anchor", put(["anchor", "batchRoot"], DELETE))
+    derived("anchor-height-missing", "pending-anchor-with-batch-root", "anchor", "The pending anchor without its "
+            "bitcoinBlockHeight, which is null in the twin.", "anchor", put(["anchor", "bitcoinBlockHeight"], DELETE))
+    derived("duplicate-correction-seq-missing", "issuer-numbering-report", "shape", "The duplicate without its "
+            "correctionSeq, which is null in the twin.", "issuer_seq",
+            lambda st: st["issuerSeq"]["series"][0]["duplicates"][0].pop("correctionSeq"))
+
+    # ---------------------------------------------------------------------------------------------- the served text
+    raw_high = pair_text.replace("\\ud83d", chr(0xD83D), 1)
+    raw_low = pair_text.replace("\\ude00", chr(0xDE00), 1)
+    assert raw_high != pair_text and raw_low != pair_text
+    derived("surrogate-raw-high-then-escaped-low", "surrogate-pair-as-escapes", "parse", "The pair's high surrogate "
+            "written raw in the text and its low half as the escape \\ude00. Read as code points these are two lone "
+            "surrogates (a body served as UTF-8 cannot carry the raw half); a reader of UTF-16 code units that decodes "
+            "the escape first sees a pair.", "parse", text=raw_high)
+    derived("surrogate-escaped-high-then-raw-low", "surrogate-pair-as-escapes", "parse", "The mirror: the high "
+            "surrogate as the escape \\ud83d and the low half written raw.", "parse", text=raw_low)
+
+    def nested(depth):
+        text = base_text.replace('"scope":"range"', '"scope":' + "[" * (depth - 2) + "]" * (depth - 2), 1)
+        assert text != base_text and V._depth(text) == depth
+        return text
+
+    derived("nesting-at-bound", "anchored-range-with-one-link-bridge", "scope", "scope replaced by 62 nested arrays, "
+            "so the body nests 64 deep, the bound: it is read, and scope is not one of the set.", "depth",
+            text=nested(V.MAX_DEPTH))
+    derived("nesting-past-bound", "anchored-range-with-one-link-bridge", "parse", "scope replaced by 2,998 nested "
+            "arrays, so the body nests 3,000 deep: refused before it is read as values.", "depth", text=nested(3000))
+
+    # ---------------------------------------------------------------------------------------------- check order
+    def render(st, body_fns, text_fns):
+        d = digest_of(st)
+        body = {"statement": st, "statementDigest": d, "signature": sign(V.signature_message_hash(d), KEY1),
+                "signer": st["ledger"]}
+        for f in body_fns:
+            body = f(body)
+        text = js_text(body)
+        for f in text_fns:
+            changed = f(text)
+            assert changed != text
+            text = changed
+        return text
+
+    def faulted(twin, faults):
+        tst, topts, _ = known[twin]
+        st, opts, body_fns, text_fns = copy.deepcopy(tst), dict(topts), [], []
+        for kind, fn in faults:
+            if kind == "statement":
+                fn(st)
+            elif kind == "body":
+                body_fns.append(fn)
+            elif kind == "text":
+                text_fns.append(fn)
+            else:
+                opts = fn(opts)
+        return render(st, body_fns, text_fns), opts
+
+    def ordered(slug, twin, first, second):
+        """A vector with two faults from adjacent reason groups; each fault alone must reject with its own reason."""
+        (r1, d1, f1), (r2, d2, f2) = first, second
+        assert r1 != r2
+        for faults, want in (([f1], r1), ([f2], r2), ([f1, f2], r1)):
+            text, opts = faulted(twin, faults)
+            got = V.check(dict(opts, body_text=text))
+            assert got == ("reject", want), (slug, want, got)
+        text, opts = faulted(twin, [f1, f2])
+        add("reject", "order-" + slug, text, opts, "Two faults: %s, which alone rejects as %s; and %s, which alone "
+            "rejects as %s. The %s rule comes first in the check order and decides." % (d1, r1, d2, r2, r1),
+            "check_order", twin=twin, reason=r1)
+
+    def high_s_body(body):
+        old = body["signature"]
+        rr, ss, vv = old[2:66], int(old[66:130], 16), int(old[130:], 16)
+        return dict(body, signature="0x" + rr + (S.N - ss).to_bytes(32, "big").hex() + bytes([55 - vv]).hex())
+
+    def in_statement(fn):
+        return ("statement", fn)
+
+    def in_body(fn):
+        return ("body", fn)
+
+    def in_text(fn):
+        return ("text", fn)
+
+    def in_opts(fn):
+        return ("opts", fn)
+
+    token = ("parse", "attachments.version written as the token 1.0",
+             in_text(lambda t: t.replace('"attachments":{"version":1,', '"attachments":{"version":1.0,', 1)))
+    envelope_member = ("shape", "a fifth envelope member", in_body(lambda bd: dict(bd, x_unknown_2026=1)))
+    schema_v2 = ("shape", "schema tersign-chain-statement-v2", in_statement(put(["schema"], "tersign-chain-statement-v2")))
+    scope_unknown = ("scope", "scope \"x-unknown\"", in_statement(put(["scope"], "x-unknown")))
+    seller_empty = ("shape", "chain.sellerId empty", in_statement(put(["chain", "sellerId"], "")))
+    key_upper = ("chain_key", "chain.key in upper-case hex", in_statement(put(["chain", "key"], "0x" + "AB" * 32)))
+    range_member = ("shape", "range with a third member", in_statement(put(["range", "count"], 4)))
+    from_0 = ("range", "range.from 0", in_statement(put(["range", "from"], 0)))
+    from_string = ("range", "range.from the string \"2\"", in_statement(put(["range", "from"], "2")))
+    version_2 = ("attachments_version", "attachments.version 2", in_statement(put(["attachments", "version"], 2)))
+    entries_object = ("attachment_entry", "attachments.entries an object",
+                      in_statement(put(["attachments", "entries"], {})))
+    binding_verified = ("attachment_entry", "the entry's binding \"verified\"",
+                        in_statement(lambda st: st["attachments"]["entries"][0].update(binding="verified")))
+    before_acc_upper = ("shape", "before.acc in upper-case hex",
+                        in_statement(lambda st: st["before"].update(acc=upper(st["before"]["acc"]))))
+    through_seq = ("consistency", "through.seq 6 where range.to is 5", in_statement(put(["through", "seq"], 6)))
+    before_seq = ("consistency", "before.seq 2 where range.from is 2", in_statement(put(["before", "seq"], 2)))
+    lv_member = ("shape", "linkVersions with a third member, v3", in_statement(put(["linkVersions", "v3"], 0)))
+    lv_count = ("consistency", "linkVersions.v1 3 for a 4-record range, with unboundRecords 3 to match",
+                in_statement(then(put(["linkVersions", "v1"], 3), put(["issuerSeq", "unboundRecords"], 3))))
+    lv_count_mixed = ("consistency", "linkVersions.v2 1 on the 4-record mixed range, with absentRecords 1 to match",
+                      in_statement(then(put(["linkVersions", "v2"], 1), put(["issuerSeq", "absentRecords"], 1))))
+    sealed_on_v1 = ("attachment_entry", "the sealed entry moved to position 3, a v1 link",
+                    in_statement(lambda st: st["attachments"]["entries"][0].update(position=3)))
+    truncated_string = ("shape", "issuerSeq.truncated the string \"false\"",
+                        in_statement(put(["issuerSeq", "truncated"], "false")))
+    list_cap = ("consistency", "issuerSeq.listCap 255", in_statement(put(["issuerSeq", "listCap"], 255)))
+    absent_0 = ("consistency", "absentRecords 0, so bound + absent differs from linkVersions.v2",
+                in_statement(put(["issuerSeq", "absentRecords"], 0)))
+    second_series_member = ("shape", "the second series given a sixth member", in_statement(ser(1, note="x")))
+    first_series_member = ("shape", "the first series given a sixth member", in_statement(ser(0, note="x")))
+    first_series_min = ("consistency", "the first series' min set to 4, above its max 3", in_statement(ser(0, min=4)))
+    missing_repeat = ("consistency", "the first series' missing numbers [2, 2]", in_statement(ser(0, missing=[2, 2])))
+    duplicate_member = ("shape", "the duplicate given a fourth member", in_statement(dup(note="x")))
+    duplicate_one = ("consistency", "the duplicate's ledger seqs [2]", in_statement(dup(ledgerSeqs=[2])))
+    status_final = ("anchor", "anchor.status \"final\"", in_statement(put(["anchor", "status"], "final")))
+    signer_other = ("shape", "the envelope's signer naming the second test key",
+                    in_body(lambda bd: dict(bd, signer=OTHER)))
+    signer_lower = ("shape", "the envelope's signer in lower case",
+                    in_body(lambda bd: dict(bd, signer=bd["signer"].lower())))
+    digest_upper = ("digest", "statementDigest in upper-case hex",
+                    in_body(lambda bd: dict(bd, statementDigest="0x" + bd["statementDigest"][2:].upper())))
+    high_s_sig = ("signature", "the signature replaced by its high-s twin", in_body(high_s_body))
+    expected_other = ("signer", "the second test key brought as the expected signer",
+                      in_opts(lambda o: dict(o, expected_signer=OTHER)))
+    records_swapped = ("records", "the second and third records swapped",
+                       in_opts(lambda o: dict(o, records=[o["records"][i] for i in (0, 2, 1, 3)])))
+
+    base, keyed, entry, mixed_range, report_twin, with_records = (
+        "anchored-range-with-one-link-bridge", "chain-key-present", "declared-entry-before-range",
+        "sealed-entry-at-first-v2-link", "issuer-numbering-report", "anchored-range-records-fold")
+    ordered("parse-then-envelope-shape", base, token, envelope_member)
+    ordered("statement-shape-then-scope", base, schema_v2, scope_unknown)
+    ordered("scope-then-chain-shape", base, scope_unknown, seller_empty)
+    ordered("chain-shape-then-chain-key", keyed, seller_empty, key_upper)
+    ordered("chain-key-then-range-shape", keyed, key_upper, range_member)
+    ordered("range-shape-then-range", base, range_member, from_0)
+    ordered("range-then-attachments-version", base, from_string, version_2)
+    ordered("attachments-version-then-attachment-entry", base, version_2, entries_object)
+    ordered("attachment-entry-then-before-shape", entry, binding_verified, before_acc_upper)
+    ordered("before-shape-then-consistency", base, before_acc_upper, through_seq)
+    ordered("before-consistency-then-link-versions-shape", base, before_seq, lv_member)
+    ordered("link-versions-shape-then-count", base, lv_member, lv_count)
+    ordered("link-versions-count-then-sealed-entry", mixed_range, lv_count_mixed, sealed_on_v1)
+    ordered("sealed-entry-then-issuer-seq-shape", mixed_range, sealed_on_v1, truncated_string)
+    ordered("issuer-seq-shape-then-consistency", base, truncated_string, list_cap)
+    ordered("issuer-counts-then-series-shape", report_twin, absent_0, second_series_member)
+    ordered("series-shape-then-consistency", report_twin, first_series_member, first_series_min)
+    ordered("series-consistency-then-duplicate-shape", report_twin, missing_repeat, duplicate_member)
+    ordered("duplicate-shape-then-consistency", report_twin, duplicate_member, duplicate_one)
+    ordered("duplicate-consistency-then-anchor", report_twin, duplicate_one, status_final)
+    ordered("anchor-then-envelope-signer", base, status_final, signer_other)
+    ordered("envelope-signer-then-digest", base, signer_lower, digest_upper)
+    ordered("digest-then-signature", base, digest_upper, high_s_sig)
+    ordered("signature-then-signer", base, high_s_sig, expected_other)
+    ordered("signer-then-records", with_records, expected_other, records_swapped)
+
+    # ---------------------------------------------------------------------------------------------- found by re-running the sweep
+    valid("anchor-at-range-to-of-one-record", "A statement over seq 1..1 of the three-record chain with its anchor at "
+          "seq 1 = range.to: before is the seed, the anchor commits through.head and through.acc, bridge null.",
+          "anchor", B_ONE)
+    derived("anchor-seq-true-at-range-to", "anchor-at-range-to-of-one-record", "anchor", "anchor.seq true, the "
+            "derived members recomputed over it: a boolean is not an integer. A check that compares seq by value "
+            "without its type reads true as equal to range.to (1) and accepts it.", "anchor",
+            lambda st: reanchor(True, st["anchor"]["head"], st["anchor"]["acc"])(st))
+
     write(acc_rows, rej_rows)
     return verify_written()
 
@@ -871,6 +1187,7 @@ def write(acc_rows, rej_rows):
                                                        "the published test keys"}
         entries.append(e)
     man = {
+        "version": VERSION,
         "profile": "chain statement (tersign-chain-statement-v1)",
         "runner": "statement/verify_statement.py",
         "second_engine": "tools/cross_check_statement.mjs",

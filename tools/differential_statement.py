@@ -13,15 +13,18 @@ eight accepting vectors, and compares [verdict, reason] directly, with no expect
     A changed statement whose rules the Python engine accepts is signed again by the test key, so the comparison
     reaches the digest, signature, signer and records steps rather than stopping at the signature;
   - the served text: each member name written twice, each integer token written as N.0, Ne0, 2**53 and 2**53 + 1, a
-    surrogate that is not half of a pair, and a pair written as escapes, in each string; the text pretty-printed,
-    padded with whitespace, with a byte-order mark, truncated, and as a top-level array;
+    surrogate that is not half of a pair, and a pair written as escapes, in each string; a pair written half raw and
+    half as an escape, in both orders, and a lone surrogate written raw; the scope value replaced by nested arrays so
+    the body nests 63, 64, 65, 66, 300, 1,000 and 3,000 deep; the text pretty-printed, padded with whitespace, with a
+    byte-order mark, truncated, and as a top-level array;
   - the envelope: each member removed, an undefined member, signer in another letter case, statementDigest in upper
     case, and the signature with upper-case digits, a 0X prefix, v = 0, 1 and 29, s = 0, n/2 and n/2 + 1, r = 0 and n, a
     trailing newline, one byte short and a number;
   - expected_signer and records: the other test key, letter case, whitespace, empty; records dropped, repeated,
     swapped, extended, upper-cased, non-hex and non-string.
 
-A form not on this list is not compared. Any divergence exits non-zero and prints the input.
+A form not on this list is not compared. Every case is written to JSON and read back before either engine sees it, so
+both read the values a vector file would carry. Any divergence exits non-zero and prints the input.
 
 Run:  npm i viem  (repo root), then  python3 tools/differential_statement.py
 """
@@ -141,10 +144,16 @@ def battery(vectors):
             for form in (number + ".0", number + "e0", str(2 ** 53), str(2 ** 53 + 1), "-" + str(2 ** 53 - 1)):
                 cases.append(dict(opts, body_text=text[:at + len(token)] + form + text[end:]))
         for needle, form in (('"sellerId":"', "\\ud800"), ('"sellerId":"', "\\udc00"), ('"sellerId":"', "\\ud83d\\ude00"),
-                             ('"sellerId":"', "\U0001F600"), ('"scope":"', "\\ud800"), ('"type":"', "\\ud800")):
+                             ('"sellerId":"', "\U0001F600"), ('"scope":"', "\\ud800"), ('"type":"', "\\ud800"),
+                             ('"sellerId":"', chr(0xD83D) + "\\ude00"), ('"sellerId":"', "\\ud83d" + chr(0xDE00)),
+                             ('"sellerId":"', chr(0xD800))):
             at = text.find(needle)
             if at >= 0:
                 cases.append(dict(opts, body_text=text[:at + len(needle)] + form + text[at + len(needle):]))
+        if '"scope":"range"' in text:
+            for depth in (63, 64, 65, 66, 300, 1000, 3000):
+                cases.append(dict(opts, body_text=text.replace('"scope":"range"', '"scope":' + "[" * (depth - 2)
+                                                               + "]" * (depth - 2), 1)))
         cases.append(dict(opts, body_text=json.dumps(body, indent=2, ensure_ascii=False)))
         cases.append(dict(opts, body_text=" \n" + text + "\t "))
         cases.append(dict(opts, body_text=chr(0xFEFF) + text))
@@ -182,7 +191,7 @@ def main():
         print("set problems: %s" % problems[:3])
         return 1
     with multiprocessing.Pool() as pool:
-        cases = pool.map(materialize, battery(vectors), chunksize=25)
+        cases = json.loads(json.dumps(pool.map(materialize, battery(vectors), chunksize=25)))
         pyv = pool.map(py, cases, chunksize=25)
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as fh:
         json.dump(cases, fh)

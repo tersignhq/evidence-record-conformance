@@ -1,0 +1,17 @@
+{
+  "id": "sn142-before-head-missing",
+  "kind": "chain_statement",
+  "expect": "reject",
+  "reject_reason": "shape",
+  "twin": "sp3-range-from-genesis-without-anchor",
+  "description": "before without its head, where the head is null at seq 0: a member that is absent is not a member whose value is null. Accepting twin: sp3. Rests on rules.before_through (format) in statement/MANIFEST.json.",
+  "input": {
+    "body_text": "{\"statement\":{\"schema\":\"tersign-chain-statement-v1\",\"ledger\":\"0xC6c2919698CD8F3c63e731F9231871F75138E60B\",\"chain\":{\"sellerId\":\"chain-b\"},\"range\":{\"from\":1,\"to\":3},\"scope\":\"range\",\"attachments\":{\"version\":1,\"entries\":[]},\"commitmentSchema\":\"tersign-chain-commitment-v1\",\"before\":{\"seq\":0,\"acc\":\"0x79dde68558318c3f4b7d1af20992f140584708a1001befee3e4ec19c217acfe3\"},\"through\":{\"seq\":3,\"head\":\"0x4487b4d59ad84e2385add9aa90ed6f9ace2223110feb53dffe6e8d71c72b70c6\",\"acc\":\"0x7348fb73c4cdf5d0222a645d373a30e97a0072a6632a1abeb5b7584833ac9a8a\"},\"linkVersions\":{\"v1\":3,\"v2\":0},\"issuerSeq\":{\"boundRecords\":0,\"unboundRecords\":3,\"absentRecords\":0,\"series\":[],\"listCap\":256,\"truncated\":false},\"anchor\":null,\"bridge\":null,\"limits\":\"This statement covers only records counter-signed on this chain at ledger seq from..to, and the attachment entries it lists. Records never submitted to this ledger are outside it, and nothing here says the issuer issued no other records. An attachment entry names the position of a record on this chain at or before seq to; Tersign lists entries and does not verify them. Binding declared: the attachment is the record at that position, bound by the counter-signed link at that position. Binding sealed: the attachment is sealed inside the v2 chain link at that position. Issuer-sequence gaps and duplicates are reported only for records whose counter-signed link binds the issuer seq, only between the lowest and highest such seq in the range, and only against records counter-signed at or before seq to; an omission after the highest bound seq is not detectable. It restates the ledger's contemporaneous counter-signatures and the anchor named, and its own signature adds no earlier time. It is not a statement about record content, tax treatment or compliance with any law.\"},\"statementDigest\":\"0xdce1e0f06aca9f5b9da7d72d495dbff13296e35d52854e1db1d14fd9f311e8dd\",\"signature\":\"0x8123287fd6bdc89f412ae3ed5ffc670f351dc3d410c87a1310f5082d5bf04c6a52c0396de1861873fd2a5a5a23429cbe786a794a3b20370f5a447e31d2c82dd51b\",\"signer\":\"0xC6c2919698CD8F3c63e731F9231871F75138E60B\"}",
+    "records": [
+      "0xba63d5ed3bc3251e8ca54de5cc10555dae97130be626bffa00696c0603d0f1c1",
+      "0x3e2e86a93d76091ca08cf9fece237aac018e673852d21d7ac6e6ae3d4ed17896",
+      "0x4487b4d59ad84e2385add9aa90ed6f9ace2223110feb53dffe6e8d71c72b70c6"
+    ],
+    "expected_signer": "0xC6c2919698CD8F3c63e731F9231871F75138E60B"
+  }
+}
