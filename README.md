@@ -193,10 +193,10 @@ them or by rejecting them for another reason.
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
 with its key over one range of one record chain. Tersign's ledger serves one at
 `GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
-record whose digest is presented. The profile has 164 two-sided vectors (34 accept, 130 reject) and 13 reject reasons,
-two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors) and a
-direct differential (`tools/differential_statement.py`). Every rejecting vector names the accepting vector it was
-built from by one change.
+record whose digest is presented. The profile has 213 two-sided vectors (38 accept, 175 reject) and 13 reject reasons,
+two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors), a
+direct differential (`tools/differential_statement.py`) and a source-mutation run over both engines
+(`tools/mutate_statement.py`). Every rejecting vector names the accepting vector it was built from and what changed.
 
 **What a statement states.** The chain's account identifier (`chain.sellerId`); the range (`range`); the chain
 commitment and record digest just before the range (`before`) and at its last record (`through`); the number of records
@@ -206,20 +206,27 @@ anchor covering the range, with its confirmation status (`anchor`), and, when th
 past the range, the chain links that connect the range to it (`bridge`). Tersign's Terms (§9.11) say its ledger states
 an anchor only after checking it against the stored records; a verifier can check the anchor's members and the bridge,
 not that check. A fixed `limits` text is signed in every statement and compared byte for byte. A statement contains no
-record content, and no member names who asked for it or when: the member set is closed.
+record content, and no member is defined to name who asked for it or when.
 
 **What a valid verdict establishes.**
 
-- The key named in `statement.ledger` signed exactly these statement bytes, and the statement keeps every rule in
-  `statement/MANIFEST.json` (`rules`).
-- With `expected_signer`, the ledger's key obtained from elsewhere (for Tersign's ledger,
-  `https://tersign.ai/v1/ledger`): that the signer is that key. Without it, only that the key the statement names
-  signed it. Every vector here is signed by a published test key, so no vector establishes anything about a live
-  ledger's key.
-- With `records`, the range's artifact digests in ledger order: that they fold from `before` to `through`, so they are
-  the records counter-signed on that chain at seq `from` to `to`, in that order, with none left out and none added.
-- That the anchor's derived members agree with each other and with `through` (subject digest, anchored digest, id, the
-  path of `proofUrl`), and that the bridge links fold `through.acc` to `anchor.acc`.
+- The key named in `statement.ledger` signed the canonical form of this statement (`canonical(statement)`: two served
+  texts that write the same values differently, with escapes for example, carry one signature), and the statement
+  keeps every rule in `statement/MANIFEST.json` (`rules`).
+- With `expected_signer`, the ledger's key obtained from elsewhere: that the signer is that key. Without it, only that
+  the key the statement names signed it. For Tersign's ledger, pin the key rather than fetch it: it is
+  `0x9d38BA84730271eb27Ac9bD4Bd2620c08dB4FDa6`, the `ledger_signer` committed in the live vector p1 (*Pin the signer,
+  do not fetch it*, below). `https://tersign.ai/v1/ledger` serves the same value, but a key fetched at verification
+  time comes from the same origin as the statement. Every vector here is signed by a published test key, so no vector
+  establishes anything about a live ledger's key.
+- With `records` and `expected_signer`, the range's artifact digests in ledger order: that they fold from `before` to
+  `through`, so they are the records that key counter-signed on that chain at seq `from` to `to`, in that order, with
+  none left out and none added. With `records` alone, only that they fold between the commitments of a statement the
+  named key signed.
+- That the anchor's derived members agree with each other (subject digest, anchored digest, id, the path of
+  `proofUrl`); that an anchor at `range.to` commits `through.head` and `through.acc`; and that, for an anchor at most
+  1,000 records past `range.to`, the bridge links fold `through.acc` to `anchor.acc`. An anchor more than 1,000
+  records past `range.to` agrees only with itself: no rule here relates its `seq`, `head` or `acc` to the range.
 
 **What it does not establish.**
 
@@ -233,20 +240,27 @@ record content, and no member names who asked for it or when: the member set is 
   signature adds no earlier time.
 - Anything about an attachment entry: the ledger lists entries and does not verify them, and a valid verdict opens none.
 - That its content is independent of who requested it. Tersign's Terms (§9.11) say a statement's content does not
-  depend on who pays for it; a single statement cannot show that, though the closed member set leaves no member that
-  could name a requester.
+  depend on who pays for it; a single statement cannot show that. No member is defined to name a requester, but the
+  rules here constrain many values only in form: `chain.sellerId` and `chain.key`; the split of `linkVersions` and the
+  issuer-numbering report; attachment entries; `anchor.status`, `anchor.batchRoot`, `anchor.bitcoinBlockHeight` and
+  the part of `anchor.proofUrl` before its path; an anchor's `head` and, through the bridge links, its `acc` (at
+  `range.to` both are `through`'s); an anchor's `seq`, `head` and `acc` more than 1,000 records past `range.to`; and
+  `before` and `through`, unless the relying party brings the records. Any of these could vary with the requester
+  without breaking a rule here.
 
 **What statements served today carry.** Every link Tersign's ledger has counter-signed is a v1 link, which binds no
 issuer numbering. So in every statement it serves today `linkVersions.v2` is 0, `issuerSeq.unboundRecords` equals the
 number of records in the range and `issuerSeq.series` is empty: every record is reported as unbound. `attachments.entries`
 is empty and `chain.key` is absent. The vectors that carry v2 links, bound records, series, gaps, duplicates,
-attachment entries or a chain key are hand-built and signed by the test key: they pin the format's rules, not anything
-a ledger has served.
+attachment entries or a chain key are synthetic and signed by the test key: they pin the format's rules, not anything
+a ledger has served. Their issuer-numbering reports are computed from link bindings, as the format defines the report,
+and each vector's description lists its bindings or names the vector that does.
 
-**Measured at this commit.** Both engines return the pinned verdict and reason on all 164 vectors;
-`differential_statement.py` compares 7,202 inputs (7,038 off the corpus) with 0 divergences; `--mutants` fails
-all 56 broken verifiers; Python 3.9.6 and 3.14.7 regenerate the set byte for byte. No outside implementation has run
-these vectors yet.
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 213 vectors;
+`differential_statement.py` compares 7,331 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
+broken verifiers and `tools/mutate_statement.py` all 71 source mutants, while both comment-only identity mutants
+survive; Python 3.9.6 and 3.14.7 regenerate the set byte for byte from empty directories. No outside implementation has
+run these vectors yet.
 
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
 
