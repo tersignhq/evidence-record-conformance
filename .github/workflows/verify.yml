@@ -41,6 +41,29 @@ jobs:
           python3 crypto/gen_eip712_vectors.py
           after=$(cat crypto/eip712_vectors/*.json crypto/EIP712_MANIFEST.json | sha256sum)
           test "$before" = "$after"
+  statement-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Chain-statement vectors, read from statement/MANIFEST.json (fails on an unexercised reason, a reject without an accepting twin or an empty set)
+        run: python3 statement/verify_statement.py
+      - name: Chain-statement mutants (each one-site broken verifier must fail its named vector)
+        run: python3 statement/verify_statement.py --mutants
+      - name: Chain-statement vector regeneration is byte-identical
+        run: |
+          before=$(cat statement/vectors/*.json statement/MANIFEST.json | sha256sum)
+          python3 statement/gen_statement_vectors.py
+          after=$(cat statement/vectors/*.json statement/MANIFEST.json | sha256sum)
+          test "$before" = "$after"
+      - name: Second TypeScript-stack implementation (same authors) over the chain-statement corpus
+        run: |
+          npm i viem
+          node tools/cross_check_statement.mjs
+      - name: Direct engine parity on chain statements, corpus + off-corpus battery, no manifest oracle
+        run: python3 tools/differential_statement.py
   cross-implementation:
     runs-on: ubuntu-latest
     steps:

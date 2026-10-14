@@ -26,7 +26,7 @@ unconditionally fails just as one that accepts it unconditionally does. The reje
 pinned in the verifier rather than derived from the manifest, so a fork that drops a class goes red.
 Every new vector needs a provenance entry naming its author and origin (`vector_provenance` in
 `MANIFEST.json`): `PROVENANCE` in `tools/gen_vectors.py` for the core (generation fails without
-one), and the vector's own entry in its profile's generator under `crypto/`.
+one), and the vector's own entry in its profile's generator under `crypto/` or `statement/`.
 
 Before opening a pull request, run what CI runs:
 
@@ -36,6 +36,8 @@ python3 crypto/verify_crypto.py && python3 crypto/verify_crypto.py --mutants
 python3 crypto/verify_eip712.py && python3 crypto/verify_eip712.py --mutants
 npm i viem && node tools/cross_check_ts.mjs
 python3 tools/differential.py
+python3 statement/verify_statement.py && python3 statement/verify_statement.py --mutants
+node tools/cross_check_statement.mjs && python3 tools/differential_statement.py
 python3 tools/mutate_members.py && python3 tools/mutate_rules.py
 sh tools/regen_check.sh    # in a scratch clone: it moves each vector directory aside and regenerates it
 ```

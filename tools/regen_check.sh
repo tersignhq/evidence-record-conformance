@@ -19,4 +19,5 @@ check() {  # $1 = label, $2 = generator, $3 = output dir, $4 = manifest
 check structural tools/gen_vectors.py vectors MANIFEST.json
 check crypto crypto/gen_crypto_vectors.py crypto/vectors crypto/MANIFEST.json
 check eip712 crypto/gen_eip712_vectors.py crypto/eip712_vectors crypto/EIP712_MANIFEST.json
+check statement statement/gen_statement_vectors.py statement/vectors statement/MANIFEST.json
 exit $fail

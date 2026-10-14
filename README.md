@@ -188,6 +188,66 @@ them or by rejecting them for another reason.
 | a boundary member read by value, so a present `null` reads as absent | n158, n171 | `boundary_reject` |
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
 
+## Chain statements (v0.6.0)
+
+A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
+with its key over one range of one record chain. Tersign's ledger serves one at
+`GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
+record whose digest is presented. The profile has 164 two-sided vectors (34 accept, 130 reject) and 13 reject reasons,
+two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors) and a
+direct differential (`tools/differential_statement.py`). Every rejecting vector names the accepting vector it was
+built from by one change.
+
+**What a statement states.** The chain's account identifier (`chain.sellerId`); the range (`range`); the chain
+commitment and record digest just before the range (`before`) and at its last record (`through`); the number of records
+in the range by link version (`linkVersions`); and an issuer-numbering report (`issuerSeq`), which reports gaps and
+duplicates only for records whose counter-signed link binds the issuer's numbering. It may also state a commitment
+anchor covering the range, with its confirmation status (`anchor`), and, when that anchor lies at most 1,000 records
+past the range, the chain links that connect the range to it (`bridge`). Tersign's Terms (§9.11) say its ledger states
+an anchor only after checking it against the stored records; a verifier can check the anchor's members and the bridge,
+not that check. A fixed `limits` text is signed in every statement and compared byte for byte. A statement contains no
+record content, and no member names who asked for it or when: the member set is closed.
+
+**What a valid verdict establishes.**
+
+- The key named in `statement.ledger` signed exactly these statement bytes, and the statement keeps every rule in
+  `statement/MANIFEST.json` (`rules`).
+- With `expected_signer`, the ledger's key obtained from elsewhere (for Tersign's ledger,
+  `https://tersign.ai/v1/ledger`): that the signer is that key. Without it, only that the key the statement names
+  signed it. Every vector here is signed by a published test key, so no vector establishes anything about a live
+  ledger's key.
+- With `records`, the range's artifact digests in ledger order: that they fold from `before` to `through`, so they are
+  the records counter-signed on that chain at seq `from` to `to`, in that order, with none left out and none added.
+- That the anchor's derived members agree with each other and with `through` (subject digest, anchored digest, id, the
+  path of `proofUrl`), and that the bridge links fold `through.acc` to `anchor.acc`.
+
+**What it does not establish.**
+
+- Anything about record content, tax treatment or compliance with any law.
+- Anything about records never submitted to the ledger: nothing in a statement says the issuer issued no other records.
+- A gap or duplicate in an issuer's numbering outside what the report covers: only records whose counter-signed link
+  binds the issuer's numbering, only between the lowest and highest such number in the range, and only against records
+  counter-signed at or before `range.to`. An omission after the highest bound number is not detectable.
+- That the anchor exists outside the statement. This profile never fetches or opens the time-stamp proof
+  `anchor.proofUrl` names, so `status` and `bitcoinBlockHeight` are the ledger's statement of them. The statement's own
+  signature adds no earlier time.
+- Anything about an attachment entry: the ledger lists entries and does not verify them, and a valid verdict opens none.
+- That its content is independent of who requested it. Tersign's Terms (§9.11) say a statement's content does not
+  depend on who pays for it; a single statement cannot show that, though the closed member set leaves no member that
+  could name a requester.
+
+**What statements served today carry.** Every link Tersign's ledger has counter-signed is a v1 link, which binds no
+issuer numbering. So in every statement it serves today `linkVersions.v2` is 0, `issuerSeq.unboundRecords` equals the
+number of records in the range and `issuerSeq.series` is empty: every record is reported as unbound. `attachments.entries`
+is empty and `chain.key` is absent. The vectors that carry v2 links, bound records, series, gaps, duplicates,
+attachment entries or a chain key are hand-built and signed by the test key: they pin the format's rules, not anything
+a ledger has served.
+
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 164 vectors;
+`differential_statement.py` compares 7,202 inputs (7,038 off the corpus) with 0 divergences; `--mutants` fails
+all 56 broken verifiers; Python 3.9.6 and 3.14.7 regenerate the set byte for byte. No outside implementation has run
+these vectors yet.
+
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
 
 **From the clean-room run in [#9](https://github.com/tersignhq/evidence-record-conformance/issues/9)

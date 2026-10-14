@@ -1,0 +1,2078 @@
+{
+ "profile": "chain statement (tersign-chain-statement-v1)",
+ "runner": "statement/verify_statement.py",
+ "second_engine": "tools/cross_check_statement.mjs",
+ "differential": "tools/differential_statement.py",
+ "generator": "statement/gen_statement_vectors.py",
+ "licence": "Apache-2.0, as the repository (LICENSE)",
+ "format": {
+  "schema": "tersign-chain-statement-v1",
+  "commitment_schema": "tersign-chain-commitment-v1",
+  "signature_prefix": "tersign-chain-statement-v1:",
+  "limits": "This statement covers only records counter-signed on this chain at ledger seq from..to, and the attachment entries it lists. Records never submitted to this ledger are outside it, and nothing here says the issuer issued no other records. An attachment entry names the position of a record on this chain at or before seq to; Tersign lists entries and does not verify them. Binding declared: the attachment is the record at that position, bound by the counter-signed link at that position. Binding sealed: the attachment is sealed inside the v2 chain link at that position. Issuer-sequence gaps and duplicates are reported only for records whose counter-signed link binds the issuer seq, only between the lowest and highest such seq in the range, and only against records counter-signed at or before seq to; an omission after the highest bound seq is not detectable. It restates the ledger's contemporaneous counter-signatures and the anchor named, and its own signature adds no earlier time. It is not a statement about record content, tax treatment or compliance with any law.",
+  "scopes": [
+   "range"
+  ],
+  "attachments_version": 1,
+  "bindings": [
+   "declared",
+   "sealed"
+  ],
+  "anchor_statuses": [
+   "pending",
+   "confirmed"
+  ],
+  "max_range": 5000,
+  "list_cap": 256,
+  "bridge_cap": 1000,
+  "type_hex_digits": 32,
+  "statement_members": [
+   "anchor",
+   "attachments",
+   "before",
+   "bridge",
+   "chain",
+   "commitmentSchema",
+   "issuerSeq",
+   "ledger",
+   "limits",
+   "linkVersions",
+   "range",
+   "schema",
+   "scope",
+   "through"
+  ],
+  "anchor_members": [
+   "acc",
+   "anchoredDigest",
+   "batchRoot",
+   "bitcoinBlockHeight",
+   "head",
+   "id",
+   "proofUrl",
+   "seq",
+   "status",
+   "subjectDigest",
+   "subjectSchema"
+  ],
+  "envelope": [
+   "statement",
+   "statementDigest",
+   "signature",
+   "signer"
+  ]
+ },
+ "rules": {
+  "parse": {
+   "source": "format",
+   "rule": "The served body is one JSON object; no object carries a member name twice; every number token is an integer in [-(2**53 - 1), 2**53 - 1] (a fraction or exponent token is not, even when its value is an integer); every string, member names included, is well-formed Unicode (a surrogate that is not half of a pair has no UTF-8 form). Otherwise parse."
+  },
+  "envelope": {
+   "source": "format",
+   "rule": "The body is exactly {statement, statementDigest, signature, signer}, and signer equals statement.ledger byte for byte. Otherwise shape."
+  },
+  "members": {
+   "source": "format",
+   "rule": "The statement's members are exactly the fourteen in format.statement_members; schema, limits and commitmentSchema are the fixed values in format, compared byte for byte; ledger is 0x + 40 hex digits in either letter case. Otherwise shape."
+  },
+  "scope": {
+   "source": "format",
+   "rule": "scope is a member whose value is one of format.scopes, compared exactly. A value outside the set, null and the empty string reject as scope; a statement without the member rejects as shape."
+  },
+  "chain": {
+   "source": "format",
+   "rule": "chain is {sellerId} or {sellerId, key}; sellerId is a non-empty string (shape). key, when present, is 0x + 64 lower-case hex digits other than 32 zero bytes (chain_key)."
+  },
+  "range": {
+   "source": "format",
+   "rule": "range is exactly {from, to} (shape) of integers with 1 <= from <= to and at most format.max_range records (range)."
+  },
+  "attachments": {
+   "source": "format",
+   "rule": "attachments is exactly {version, entries} and version is the JSON integer 1 (attachments_version); entries is an array (attachment_entry)."
+  },
+  "entries": {
+   "source": "format",
+   "rule": "Each entry is exactly {position, type, binding}. position is an integer, 1 <= position <= range.to (it may lie before range.from), strictly ascending across entries. binding is one of format.bindings, compared exactly. Otherwise attachment_entry."
+  },
+  "entry_type": {
+   "source": "format",
+   "rule": "type is 2-64 characters: a lower-case letter, then lower-case letters, digits and hyphens, ending in a letter or digit; and a type made only of hex digits and hyphens that holds format.type_hex_digits or more hex digits is refused (hyphens are not counted; one character outside [0-9a-f-] takes a type outside this rule). Otherwise attachment_entry."
+  },
+  "sealed": {
+   "source": "format",
+   "rule": "A sealed entry needs a v2 link at its position. The first v2 link of the range is at range.from + linkVersions.v1, so when linkVersions.v1 > 0 a sealed entry at any position below it, positions before range.from included, rejects as attachment_entry. When linkVersions.v1 is 0 the statement says nothing about links before range.from, and a sealed entry there is not checked."
+  },
+  "before_through": {
+   "source": "format",
+   "rule": "before is {seq, head, acc} with head null or 0x + 64 lower-case hex; through is {seq, head, acc} with both digests 0x + 64 lower-case hex (shape). before.seq = range.from - 1; before.head is null exactly when before.seq is 0; at seq 0, before.acc is the commitment seed keccak256(utf8(\"tersign-chain-commitment-v1\")); through.seq = range.to (consistency)."
+  },
+  "link_versions": {
+   "source": "format",
+   "rule": "linkVersions is exactly {v1, v2} of non-negative integers (shape), and v1 + v2 counts every record of the range (consistency)."
+  },
+  "issuer_seq": {
+   "source": "format",
+   "rule": "issuerSeq is exactly {boundRecords, unboundRecords, absentRecords, listCap, series, truncated}: non-negative integers, a boolean and an array (shape). listCap is format.list_cap; unboundRecords = linkVersions.v1 and boundRecords + absentRecords = linkVersions.v2; with no bound record there is no series; series, each series' missing numbers and its duplicates are each at most listCap long; series ids ascend strictly and 0 <= min <= max; missing numbers ascend strictly within [min, max]; a duplicate names at least two ledger seqs, ascending, each from 1 to range.to (consistency). A series is exactly {series, min, max, missing, duplicates} and a duplicate exactly {seq, correctionSeq, ledgerSeqs}, correctionSeq null or a non-negative integer (shape)."
+  },
+  "anchor": {
+   "source": "format",
+   "rule": "anchor is null (and then bridge is null) or exactly the eleven members in format.anchor_members: subjectSchema = commitmentSchema; seq an integer >= range.to; head, acc, subjectDigest and anchoredDigest 0x + 64 lower-case hex; batchRoot null or the same; status one of format.anchor_statuses; bitcoinBlockHeight null or a non-negative integer; subjectDigest = keccak256 over canonical({acc, head, schema: subjectSchema, seq}); id = \"seller:\" + subjectDigest; anchoredDigest = sha256 over the 32 subject-digest bytes; proofUrl a string ending /v1/anchors/<id>/proof.ots; an anchor at range.to commits through.acc and through.head. Otherwise anchor."
+  },
+  "bridge": {
+   "source": "format",
+   "rule": "An anchor at range.to carries bridge null. An anchor more than format.bridge_cap records past range.to carries bridge null. Otherwise bridge is exactly {from: range.to + 1, to: anchor.seq, links}, one 0x + 64 lower-case hex link per record after range.to, and the links fold through.acc to anchor.acc (acc = keccak256(acc || link), the core's chain_commitment step). Otherwise anchor."
+  },
+  "digest": {
+   "source": "format",
+   "rule": "statementDigest = keccak256 over the UTF-8 bytes of canonical(statement), the canonical form the core's digest_recompute pins. Otherwise digest."
+  },
+  "signature": {
+   "source": "format",
+   "rule": "The signature is \"0x\" then 130 hex digits (r || s || v), v is 27 or 28, s <= n/2, 1 <= r < n and s >= 1, decided on the bytes before recovery, and personal_sign recovery (the construction the counter-signature profile's step 7 recovers) over the UTF-8 string format.signature_prefix + statementDigest yields statement.ledger, compared case-insensitively. Otherwise signature."
+  },
+  "expected_signer": {
+   "source": "format",
+   "rule": "When the relying party brings the ledger's key from elsewhere (expected_signer), it equals statement.ledger, compared case-insensitively. Otherwise signer. Without it a valid verdict says only that the key named in the statement signed it."
+  },
+  "records": {
+   "source": "format",
+   "rule": "When the relying party brings the range's artifact digests (records, in ledger order), there is one 0x + 64 lower-case hex digest per record of the range, and folding them from before (link = keccak256(digest || prev or 32 zero bytes || uint64_be(seq)), acc = keccak256(acc || link)) ends at through.acc with through.head as the last digest. Otherwise records."
+  },
+  "check_order": {
+   "source": "suite",
+   "rule": "The first rule broken decides the reason, in the order the runner lists (parse, envelope, statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, expected signer, records). Every vector here breaks one rule, except where its description names a second, and expects the reason of the first in this order."
+  },
+  "input": {
+   "source": "suite",
+   "rule": "A vector's input is {body_text, expected_signer?, records?}: the served body as text, and the two values a relying party may bring from elsewhere, read by key presence."
+  },
+  "twin": {
+   "source": "suite",
+   "rule": "Every rejecting vector names an accepting vector of this set, its twin, from which it differs by one change; the runner fails a set where a twin is missing or not valid."
+  }
+ },
+ "reject_reasons": [
+  "parse",
+  "shape",
+  "scope",
+  "attachments_version",
+  "attachment_entry",
+  "range",
+  "chain_key",
+  "consistency",
+  "anchor",
+  "digest",
+  "signature",
+  "signer",
+  "records"
+ ],
+ "test_key_address": "0xC6c2919698CD8F3c63e731F9231871F75138E60B",
+ "test_key_derivation": "keccak256(\"evidence-record-conformance crypto-profile test key v1\") mod n (the counter-signature profile's test key, crypto/MANIFEST.json)",
+ "second_test_key_address": "0x7C60fe68B81E02aEC8e556e894d0d6dD7F5871dA",
+ "second_test_key_derivation": "keccak256(\"evidence-record-conformance statement-profile second test key v1\") mod n",
+ "test_nonce_derivation": "keccak256(the private key as 32 big-endian bytes || the 32-byte message hash) mod n, per signature",
+ "vector_provenance": "every entry names author and origin = {class, source}, origin.class from the core's closed set; every vector here is synthetic. No vector carries a record, key or anchor of a live ledger, and proofUrl values use the reserved host ledger.example.",
+ "vectors": [
+  {
+   "file": "sp1-anchored-range-with-one-link-bridge.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp2-anchored-range-records-fold.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp3-range-from-genesis-without-anchor.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp4-anchor-at-range-to.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp5-no-expected-signer.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp6-declared-entry-before-range.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp7-declared-entry-inside-range.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp8-two-declared-entries.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp9-sealed-entry-on-v2-range.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp10-sealed-entry-at-first-v2-link.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp11-sealed-entry-before-range-when-v1-is-zero.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp12-entry-position-at-range-to.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp13-type-2-characters.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp14-type-64-characters.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp15-type-ending-in-digit.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp16-type-31-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp17-type-31-hex-digits-split-by-hyphens.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp18-type-x-then-32-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp19-type-32-hex-digits-then-x.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp20-range-at-maximum.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp21-chain-key-present.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp22-ledger-lower-case.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp23-issuer-numbering-report.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp24-series-at-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp25-missing-at-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp26-duplicates-at-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp27-pending-anchor-with-batch-root.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp28-anchor-past-bridge-cap.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp29-anchor-at-bridge-cap.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp30-another-key-without-expected-signer.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp31-another-key-as-expected-signer.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp32-expected-signer-lower-case.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp33-surrogate-pair-as-escapes.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp34-signature-upper-case-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn1-scope-unknown-value.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "scope",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn2-scope-letter-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "scope",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn3-scope-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "scope",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn4-scope-empty-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "scope",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn5-scope-missing.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn6-sealed-entry-without-v2-link.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp7-declared-entry-inside-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn7-sealed-entry-on-v1-link-of-mixed-range.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp10-sealed-entry-at-first-v2-link",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn8-sealed-entry-before-range-on-mixed-range.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp10-sealed-entry-at-first-v2-link",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn9-attachments-version-2.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn10-attachments-version-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn11-attachments-version-true.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn12-attachments-version-0.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn13-attachments-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn14-attachments-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachments_version",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn15-attachments-entries-object.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn16-entry-binding-outside-set.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn17-entry-binding-letter-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn18-entry-binding-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn19-entry-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn20-entry-unknown-member-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn21-entry-binding-missing.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn22-entry-position-0.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn23-entry-position-after-range-to.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp12-entry-position-at-range-to",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn24-entry-positions-repeat.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp8-two-declared-entries",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn25-entry-positions-inverted.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp8-two-declared-entries",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn26-entry-position-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn27-entry-position-true.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn28-entry-type-letter-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn29-entry-type-empty.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn30-entry-type-trailing-hyphen.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn31-entry-type-underscore.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn32-entry-type-leading-digit.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp6-declared-entry-before-range",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn33-type-1-character.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp13-type-2-characters",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn34-type-65-characters.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp14-type-64-characters",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn35-type-32-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp16-type-31-hex-digits",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn36-type-64-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp16-type-31-hex-digits",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn37-type-32-hex-digits-split-by-hyphens.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "attachment_entry",
+   "twin": "sp17-type-31-hex-digits-split-by-hyphens",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn38-range-over-maximum.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "range",
+   "twin": "sp20-range-at-maximum",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn39-range-from-0.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "range",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn40-range-from-after-to.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "range",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn41-range-from-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "range",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn42-range-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn43-chain-key-empty.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn44-chain-key-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn45-chain-key-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn46-chain-key-31-bytes.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn47-chain-key-33-bytes.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn48-chain-key-zero-bytes.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "chain_key",
+   "twin": "sp21-chain-key-present",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn49-chain-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn50-chain-id-empty.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn51-chain-id-number.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn52-chain-id-missing.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn53-ledger-39-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn54-ledger-41-hex-digits.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn55-ledger-without-0x.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn56-ledger-non-hex-character.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn57-limits-text-altered.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn58-unknown-top-level-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn59-unknown-top-level-member-null.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn60-schema-v2.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn61-commitment-schema-v2.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp3-range-from-genesis-without-anchor",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn62-before-acc-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn63-through-head-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn64-link-versions-v3.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn65-before-seq-not-from-minus-one.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn66-link-versions-miscount.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn67-issuer-counts-miscount.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn68-before-acc-not-the-seed.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp3-range-from-genesis-without-anchor",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn69-before-head-null-after-seq-0.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn70-through-seq-not-range-to.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn71-series-without-bound-record.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn72-missing-number-outside-min-max.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn73-missing-numbers-repeat.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn74-series-ids-repeat.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn75-series-min-above-max.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn76-duplicate-one-ledger-seq.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn77-duplicate-ledger-seq-after-range.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn78-duplicate-correction-seq-negative.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn79-issuer-bound-plus-absent-miscount.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn80-series-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp23-issuer-numbering-report",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn81-list-cap-255.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn82-list-cap-257.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn83-truncated-string.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn84-series-over-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp24-series-at-list-cap",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn85-missing-over-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp25-missing-at-list-cap",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn86-duplicates-over-list-cap.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp26-duplicates-at-list-cap",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn87-bridge-link-replaced.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn88-anchor-subject-digest-wrong.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn89-anchor-anchored-digest-wrong.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn90-anchor-status-outside-set.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn91-anchor-within-cap-without-bridge.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn92-bridge-without-anchor.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp3-range-from-genesis-without-anchor",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn93-anchor-before-range-to.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn94-anchor-id-wrong-prefix.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn95-anchor-proof-url-other-id.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn96-anchor-at-range-to-other-head.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp4-anchor-at-range-to",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn97-anchor-at-range-to-with-empty-bridge.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp4-anchor-at-range-to",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn98-anchor-height-negative.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn99-anchor-batch-root-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp27-pending-anchor-with-batch-root",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn100-anchor-past-bridge-cap-with-bridge.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp28-anchor-past-bridge-cap",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn101-anchor-at-bridge-cap-without-bridge.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp29-anchor-at-bridge-cap",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn102-anchor-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn103-anchor-subject-schema-other.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn104-anchor-subject-schema-other-recomputed.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn105-anchor-head-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn106-bridge-link-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn107-tampered-head-original-digest.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "digest",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn108-tampered-head-recomputed-digest.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn109-signed-by-another-key-naming-ledger.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn110-high-s-twin-of-genuine-signature.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn111-recovery-id-0-or-1.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn112-self-consistent-statement-by-another-key.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signer",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn113-envelope-signer-not-ledger.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn114-envelope-unknown-member.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn115-duplicate-member-first-reads-otherwise.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn116-attachments-version-token-1-0.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn117-integer-beyond-2-53.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn118-lone-high-surrogate-in-chain-id.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp33-surrogate-pair-as-escapes",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn119-lone-low-surrogate-in-proof-url.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "parse",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn120-record-swapped.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn121-record-left-out.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn122-record-of-another-chain.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn123-record-appended-after-range.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn124-record-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "records",
+   "twin": "sp2-anchored-range-records-fold",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn125-signature-0X-prefix.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp34-signature-upper-case-hex-digits",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn126-signature-trailing-newline.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "signature",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn127-statement-digest-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "digest",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn128-envelope-signer-letter-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn129-before-head-upper-case.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "shape",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn130-anchor-height-true.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "anchor",
+   "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  }
+ ]
+}
