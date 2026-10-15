@@ -82,9 +82,9 @@ names what changed: one value; one logical change that moves values bound to eac
 recomputed, a count with the count that must match it, a statement signed by another key); or, for the order vectors,
 two faults. Where the change is to the statement, the test key signs the changed statement again, so the digest and
 signature checks cannot be what rejects it, except in sn107 and sn108, which keep the original digest or signature
-because those checks are what they test. The vectors that change the served text instead (sn115–sn117, sn146–sn149,
-sn188, sn189, sn218) keep the twin's digest and signature, and the rule that rejects each is decided before the digest
-is checked. The runner fails a set in which a twin is missing or not valid, a reason is never exercised, or the
+because those checks are what they test. The vectors that change the served text or the envelope instead (sn113–sn117, sn128, sn146–sn149,
+sn188, sn189, sn218, sn220) keep the twin's digest and signature, and the rule that rejects each is decided before the
+digest is checked. The runner fails a set in which a twin is missing or not valid, a reason is never exercised, or the
 manifest's `format` differs from the runner's constants.
 
 | class | accepts | rejects | reason |
@@ -171,9 +171,9 @@ parse rules; the range test inside each integer type check, which the parse rule
 every number token; the string test on `body_text`, which the input requires; the string test before `scope`,
 `binding` and `status` are compared with their closed sets; the integer test on `bridge.from` and `bridge.to`, each of
 which must equal an integer of at least 2; `position` at least 1, given that positions ascend strictly from 0;
-`1 <= r < n` and `s >= 1` in the signature encoding, which recovery refuses in both engines; and the number of
+`1 <= r < n` and `s >= 1` in the signature encoding, which recovery refuses in both engines; the form tests on `anchor.subjectDigest` and `anchor.anchoredDigest`, which their comparisons with the values computed from the anchor already imply, and on `anchor.acc` for an anchor at most 1,000 records past `range.to`, which the comparison with `through.acc` or the bridge fold already implies; and the number of
 `records`, which the fold to `through.acc` already fixes. (6) The exact low-s bound: no vector carries a signature whose
-`s` is n/2 or n/2 + 1, so a verifier that also refuses s = n/2 passes every vector.
+`s` is n/2 or n/2 + 1, so a verifier that also refuses s = n/2 passes every vector. (7) Clauses no vector isolates, found after (1)–(6): a number token with an exponent (`1e0`; sn116 writes only a fraction); a member name written twice with an escape in one of the two (sn115 writes both alike); a hex value written as a one-element array, which a JavaScript RegExp tests as its text (sn221 covers that for the entry type only); the form of `anchor.acc` on an anchor more than 1,000 records past `range.to`, which no other check reads; a signature of more than 130 hex digits; the tokens `NaN`, `Infinity` and `-Infinity`; and the non-negativity of `unboundRecords`, `absentRecords` and `listCap` taken one at a time (sn176 makes only `boundRecords` negative). This list is not known to be complete.
 
 **What the accepting vectors test.** The accepting vectors test the format's rules, not what a ledger serves today.
 Tersign's ledger code, building statements over the same records (with a stand-in for its database, 2026-10-14),
