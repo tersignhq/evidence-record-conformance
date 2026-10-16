@@ -4,7 +4,7 @@
 The corpus runs of statement/verify_statement.py and tools/cross_check_statement.mjs each compare an engine with
 statement/MANIFEST.json, so their agreement is transitive through the shared expectations, and an input the corpus does
 not carry is never compared. This harness feeds both engines every corpus input PLUS an off-corpus battery built from
-eight accepting vectors, and compares [verdict, reason] directly, with no expectation in between:
+eleven accepting vectors, and compares [verdict, reason] directly, with no expectation in between:
 
   - every member of the statement, at every depth, removed, and replaced by null, true, false, 0, -1, 1, 2**53 - 1,
     "", "x", [] and {}; each hex string also upper-cased, without 0x, one digit short, one digit long and with a
@@ -18,7 +18,7 @@ eight accepting vectors, and compares [verdict, reason] directly, with no expect
     pair written half raw and half as an escape in both orders, and a lone surrogate written raw; a lone high surrogate
     as an escape in scope and in an entry type; the scope value replaced by nested arrays so the body nests 63, 64, 65,
     66, 300, 1,000 and 3,000 deep; the text pretty-printed, padded with whitespace, with a byte-order mark, truncated,
-    and as a top-level array;
+    and as a top-level array; and a body that is not text (null, a number, an array holding the text, an object);
   - the envelope: each member removed, an undefined member, signer in another letter case, statementDigest in upper
     case, and the signature with upper-case digits, a 0X prefix, v = 0, 1 and 29, s = 0, n/2 and n/2 + 1, r = 0 and n, a
     trailing newline, one byte short and a number;
@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.join(ROOT, "statement"))
 import verify_statement as V  # noqa: E402
 import gen_statement_vectors as G  # noqa: E402
 
-BASES = ("sp1-", "sp3-", "sp4-", "sp8-", "sp9-", "sp10-", "sp23-", "sp27-")
+BASES = ("sp1-", "sp3-", "sp4-", "sp8-", "sp9-", "sp10-", "sp23-", "sp27-", "sp35-", "sp41-", "sp42-")
 VALUES = (None, True, False, 0, -1, 1, 2 ** 53 - 1, "", "x", [], {})
 DROP = object()
 
@@ -161,6 +161,8 @@ def battery(vectors):
         cases.append(dict(opts, body_text=chr(0xFEFF) + text))
         cases.append(dict(opts, body_text=text[:-1]))
         cases.append(dict(opts, body_text="[" + text + "]"))
+        for not_text in (None, 7, [text], {"body": text}):
+            cases.append(dict(opts, body_text=not_text))
         # envelope
         for k in V.ENVELOPE:
             cases.append(dict(opts, body_text=G.js_text({m: x for m, x in body.items() if m != k})))

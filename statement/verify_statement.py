@@ -327,6 +327,11 @@ def statement_refusal(st, mut=None):
     list_cap = LIST_CAP - 1 if mut == "list_cap_off_by_one" else LIST_CAP
     if len(series) > list_cap:
         return "consistency"
+    # rules.issuer_report: a series is reported only when a bound record in the range names it, and a record names one
+    # series, so there are at most boundRecords series.
+    if len(series) > iq["boundRecords"]:
+        return "consistency"
+    grouped = set()   # every ledger seq a duplicate names, across all series
     last_series = ""
     for s in series:
         if not (_exactly(s, ("series", "min", "max", "missing", "duplicates")) and _hex32(s["series"])
@@ -343,6 +348,7 @@ def statement_refusal(st, mut=None):
             prev = m
         if len(s["missing"]) > list_cap or len(s["duplicates"]) > list_cap:
             return "consistency"
+        missing = set(s["missing"])
         for d in s["duplicates"]:
             if not (_exactly(d, ("seq", "correctionSeq", "ledgerSeqs")) and _int(d["seq"])
                     and (d["correctionSeq"] is None or (_int(d["correctionSeq"]) and d["correctionSeq"] >= 0))
@@ -352,6 +358,15 @@ def statement_refusal(st, mut=None):
             hi = float("inf") if mut == "duplicate_ledger_seqs_unbounded" else to
             if len(ls) < 2 or not all(_int(q) and 1 <= q <= hi and (i == 0 or q > ls[i - 1]) for i, q in enumerate(ls)):
                 return "consistency"
+            # rules.issuer_report: one of a duplicate's bindings is in the range, over which min and max are taken; an
+            # original binding makes its number present; and a record binds one (series, seq, correctionSeq).
+            if d["seq"] < s["min"] or d["seq"] > s["max"]:
+                return "consistency"
+            if d["correctionSeq"] is None and d["seq"] in missing:
+                return "consistency"
+            if any(q in grouped for q in ls):
+                return "consistency"
+            grouped.update(ls)
 
     a, bridge = st["anchor"], st["bridge"]
     if a is None:

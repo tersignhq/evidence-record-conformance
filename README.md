@@ -193,7 +193,7 @@ them or by rejecting them for another reason.
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
 with its key over one range of one record chain. Tersign's ledger serves one, paid per request over x402, at
 `GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
-record whose digest is presented. The profile has 263 two-sided vectors (40 accept, 223 reject) and 13 reject reasons,
+record whose digest is presented. The profile has 273 two-sided vectors (42 accept, 231 reject) and 13 reject reasons,
 two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors), a
 direct differential (`tools/differential_statement.py`) and a source-mutation run over both engines
 (`tools/mutate_statement.py`). Every rejecting vector names the accepting vector it was built from and what changed.
@@ -260,11 +260,11 @@ issuer-numbering reports computed from link bindings, as the format defines the 
 description lists its bindings or names the vector that does. `statement/README.md` (*What the accepting vectors test*)
 names each accepting vector that carries a value Tersign's ledger would not sign today, and why.
 
-**Measured at this commit.** Both engines return the pinned verdict and reason on all 263 vectors;
-`differential_statement.py` compares 7,381 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
-broken verifiers and `tools/mutate_statement.py` all 105 source mutants, while both comment-only identity mutants
-survive; Python 3.9.6 and 3.14.7 regenerate the set byte for byte from empty directories. No outside implementation has
-run these vectors yet.
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 273 vectors;
+`differential_statement.py` compares 10,745 inputs (10,472 off the corpus) with 0 divergences; `--mutants` fails all 56
+broken verifiers and `tools/mutate_statement.py` all 127 source mutants, while both comment-only identity mutants
+survive; Python 3.10.20, 3.11.15, 3.12.13 and 3.13.13 regenerate the set byte for byte from empty directories. No
+outside implementation has run these vectors yet.
 
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
 

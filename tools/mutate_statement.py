@@ -59,6 +59,10 @@ PY_EXPECTED = ('    if "expected_signer" in inp and mut != "expected_signer_igno
 PY_VALID = '    return "valid", None\n'
 PY_MEMBERS = '    if not _exactly(st, MEMBERS, mut if mut == "extra_members_ignored" else None):\n'
 PY_TEXT_TYPE = '    if not isinstance(text, str):\n        raise Reject("parse")\n'
+PY_SERIES_COUNT = '    if len(series) > iq["boundRecords"]:\n        return "consistency"\n'
+PY_ANCHOR_START = '    a, bridge = st["anchor"], st["bridge"]\n'
+PY_GROUPED = '    grouped = set()   # every ledger seq a duplicate names, across all series\n'
+PY_MISSING_SET = '        missing = set(s["missing"])\n'
 
 
 def superset(site):
@@ -156,9 +160,30 @@ PY = {
                                       '    last_series = ""\n')], ["sn190"]),
     "py-raw-astral-refused": ([(PY_TEXT_TYPE, PY_TEXT_TYPE + '    if any(ord(ch) > 0xFFFF for ch in text):\n'
                                                              '        raise Reject("parse")\n')], ["sp39"]),
+    # ---- the report's definition (rules.issuer_report)
+    "py-series-count-unchecked": ([(PY_SERIES_COUNT, "")], ["sn229", "sn230"]),
+    "py-series-count-inclusive": ([('len(series) > iq["boundRecords"]', 'len(series) >= iq["boundRecords"]')], ["sp42"]),
+    "py-series-count-after-series": ([(PY_SERIES_COUNT, ""), (PY_ANCHOR_START, PY_SERIES_COUNT + PY_ANCHOR_START)],
+                                     ["sn230"]),
+    "py-duplicate-above-max-allowed": ([(' or d["seq"] > s["max"]', "")], ["sn224"]),
+    "py-duplicate-below-min-allowed": ([('d["seq"] < s["min"] or ', "")], ["sn225"]),
+    "py-duplicate-max-exclusive": ([('d["seq"] > s["max"]', 'd["seq"] >= s["max"]')], ["sp35"]),
+    "py-duplicate-min-exclusive": ([('d["seq"] < s["min"]', 'd["seq"] <= s["min"]')], ["sp35"]),
+    "py-original-of-missing-allowed": ([('            if d["correctionSeq"] is None and d["seq"] in missing:\n'
+                                         '                return "consistency"\n', "")], ["sn226"]),
+    "py-correction-of-missing-refused": ([('d["correctionSeq"] is None and d["seq"] in missing', 'd["seq"] in missing')],
+                                         ["sp35"]),
+    "py-ledger-seqs-grouped-per-series": ([(PY_GROUPED, ""), (PY_MISSING_SET, PY_MISSING_SET + "        grouped = set()\n")],
+                                          ["sn228"]),
+    "py-ledger-seqs-grouped-unchecked": ([('            if any(q in grouped for q in ls):\n'
+                                           '                return "consistency"\n', "")], ["sn227", "sn228"]),
 }
 
 TS_SCAN = '    if (scanText(text) || illFormed(body)) return ["reject", "parse"];\n'
+TS_SERIES_COUNT = '  if (iq.series.length > iq.boundRecords) return "consistency";\n'
+TS_ANCHOR_START = '  const a = st.anchor;\n'
+TS_GROUPED = '  const grouped = new Set(); // every ledger seq a duplicate names, across all series\n'
+TS_MISSING_SET = '    const missing = new Set(s.missing);\n'
 TS_ENVELOPE = '  if (!exactly(body, ENVELOPE)) return ["reject", "shape"];\n'
 TS_SCOPE = '  if (typeof st.scope !== "string" || !SCOPES.includes(st.scope)) return "scope";\n'
 TS_SELLER = '  if (typeof chain.sellerId !== "string" || chain.sellerId === "") return "shape";\n'
@@ -296,6 +321,23 @@ TS = {
                                       '  let lastSeries = "";\n')], ["sn190"]),
     "ts-raw-astral-refused": ([('    if (LONE_SURROGATE.test(text)) return ["reject", "parse"];\n',
                                 '    if (/[\\uD800-\\uDFFF]/.test(text)) return ["reject", "parse"];\n')], ["sp39"]),
+    # ---- the report's definition (rules.issuer_report)
+    "ts-series-count-unchecked": ([(TS_SERIES_COUNT, "")], ["sn229", "sn230"]),
+    "ts-series-count-inclusive": ([("iq.series.length > iq.boundRecords", "iq.series.length >= iq.boundRecords")], ["sp42"]),
+    "ts-series-count-after-series": ([(TS_SERIES_COUNT, ""), (TS_ANCHOR_START, TS_SERIES_COUNT + TS_ANCHOR_START)],
+                                     ["sn230"]),
+    "ts-duplicate-above-max-allowed": ([(" || d.seq > s.max", "")], ["sn224"]),
+    "ts-duplicate-below-min-allowed": ([("d.seq < s.min || ", "")], ["sn225"]),
+    "ts-duplicate-max-exclusive": ([("d.seq > s.max", "d.seq >= s.max")], ["sp35"]),
+    "ts-duplicate-min-exclusive": ([("d.seq < s.min", "d.seq <= s.min")], ["sp35"]),
+    "ts-original-of-missing-allowed": ([('      if (d.correctionSeq === null && missing.has(d.seq)) return "consistency";\n', "")],
+                                       ["sn226"]),
+    "ts-correction-of-missing-refused": ([("d.correctionSeq === null && missing.has(d.seq)", "missing.has(d.seq)")],
+                                         ["sp35"]),
+    "ts-ledger-seqs-grouped-per-series": ([(TS_GROUPED, ""), (TS_MISSING_SET, TS_MISSING_SET + "    const grouped = new Set();\n")],
+                                          ["sn228"]),
+    "ts-ledger-seqs-grouped-unchecked": ([('      if (ls.some((q) => grouped.has(q))) return "consistency";\n', "")],
+                                         ["sn227", "sn228"]),
 }
 
 IDENTITY = {   # comment-only edits: each must SURVIVE (no vector may fail)

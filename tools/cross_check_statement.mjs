@@ -177,6 +177,10 @@ function statementRefusal(st) {
   if (iq.unboundRecords !== lv.v1 || iq.boundRecords + iq.absentRecords !== lv.v2) return "consistency";
   if (iq.boundRecords === 0 && iq.series.length !== 0) return "consistency";
   if (iq.series.length > LIST_CAP) return "consistency";
+  // rules.issuer_report: a series is reported only when a bound record in the range names it, and a record names one
+  // series, so there are at most boundRecords series.
+  if (iq.series.length > iq.boundRecords) return "consistency";
+  const grouped = new Set(); // every ledger seq a duplicate names, across all series
   let lastSeries = "";
   for (const s of iq.series) {
     if (!exactly(s, ["series", "min", "max", "missing", "duplicates"]) || !isHex32(s.series) || !isInt(s.min) || !isInt(s.max) ||
@@ -189,11 +193,18 @@ function statementRefusal(st) {
       prev = m;
     }
     if (s.missing.length > LIST_CAP || s.duplicates.length > LIST_CAP) return "consistency";
+    const missing = new Set(s.missing);
     for (const d of s.duplicates) {
       if (!exactly(d, ["seq", "correctionSeq", "ledgerSeqs"]) || !isInt(d.seq) ||
         !(d.correctionSeq === null || (isInt(d.correctionSeq) && d.correctionSeq >= 0)) || !Array.isArray(d.ledgerSeqs)) return "shape";
       const ls = d.ledgerSeqs;
       if (ls.length < 2 || !ls.every((q, k) => isInt(q) && q >= 1 && q <= to && (k === 0 || q > ls[k - 1]))) return "consistency";
+      // rules.issuer_report: one of a duplicate's bindings is in the range, over which min and max are taken; an
+      // original binding makes its number present; and a record binds one (series, seq, correctionSeq).
+      if (d.seq < s.min || d.seq > s.max) return "consistency";
+      if (d.correctionSeq === null && missing.has(d.seq)) return "consistency";
+      if (ls.some((q) => grouped.has(q))) return "consistency";
+      for (const q of ls) grouped.add(q);
     }
   }
 

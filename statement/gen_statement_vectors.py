@@ -220,11 +220,15 @@ REPORT_DUPLICATES_AT_CAP = {q: (SER1, (q + 1) // 2, None) for q in range(1, 513)
 REPORT_MIXED = {1: None, 2: None, 3: None, 4: ABSENT, 5: ABSENT}
 REPORT_NUMBER_0 = dict(REPORT)
 REPORT_NUMBER_0[4] = (SER2, 0, None)
+REPORT_TWO_SERIES_DUPLICATES = {1: (SER1, 1, None), 2: (SER1, 1, None), 3: (SER2, 7, None), 4: (SER2, 7, None),
+                                5: ABSENT}
+REPORT_SERIES_PER_RECORD = {1: None, 2: (SER1, 1, None), 3: (SER2, 7, None), 4: ABSENT, 5: ABSENT}
 # (bindings, range.from, range.to) of every report an accepting vector carries; tools that check the reports read this.
 REPORTS = {"report": (REPORT, 2, 5), "corrections": (REPORT_CORRECTIONS, 2, 5),
            "missing_at_cap": (REPORT_MISSING_AT_CAP, 2, 5), "series_at_cap": (REPORT_SERIES_AT_CAP, 2, 257),
            "duplicates_at_cap": (REPORT_DUPLICATES_AT_CAP, 2, 512), "mixed": (REPORT_MIXED, 2, 5),
-           "number_0": (REPORT_NUMBER_0, 2, 5)}
+           "number_0": (REPORT_NUMBER_0, 2, 5), "two_series_duplicates": (REPORT_TWO_SERIES_DUPLICATES, 2, 5),
+           "series_per_record": (REPORT_SERIES_PER_RECORD, 2, 5)}
 
 # Rules each vector rests on, labelled as the format's own (the rules a ledger serving this format applies before it
 # signs) or as this suite's. The runner pins the constants under "format"; these texts say what the vectors test.
@@ -242,6 +246,12 @@ RULES = {
                       "reader of UTF-16 code units, joins the two halves into a pair. A body served as UTF-8 cannot "
                       "carry a raw surrogate, so the rule changes no verdict on a served body; this suite fixes it so "
                       "that a reader of code points and a reader of UTF-16 code units agree."),
+    "byte_order_mark": ("suite", "A byte-order mark (U+FEFF) before the JSON value is refused: it is not JSON "
+                        "whitespace (RFC 8259 section 2). Otherwise parse. RFC 8259 section 8.1 forbids adding one to "
+                        "a JSON text sent over a network and lets a parser ignore one; this suite refuses it, as "
+                        "JavaScript's JSON.parse and Python's json.loads over text do, so that a reader that strips "
+                        "the mark and one that does not agree. A ledger that follows section 8.1 serves no mark, so "
+                        "the rule changes no verdict on such a body; it decides text a verifier is handed."),
     "depth": ("suite", "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, "
               "counted on the text. Otherwise parse. The format sets no bound; this suite "
               "fixes one so that its engines agree on every input, where a reader without one decides deep nesting by "
@@ -290,6 +300,19 @@ RULES = {
                    "duplicates}: series 0x + 64 lower-case hex, min and max integers, missing and duplicates arrays; a "
                    "duplicate is exactly {seq, correctionSeq, ledgerSeqs}: seq an integer, correctionSeq null or a "
                    "non-negative integer, ledgerSeqs an array (shape)."),
+    "issuer_report": ("format", "The report is computed from the link bindings as the format defines it: the counts, "
+                      "and each series' min and max, over the range; a series reported when a bound record in the range "
+                      "names it; a number missing when no original (correctionSeq null) binding at or before range.to "
+                      "names it; a duplicate a (seq, correctionSeq) named by two or more bindings at or before range.to, "
+                      "one of them in the range. Four consequences of that definition are checked, each otherwise "
+                      "consistency. After the list cap and before the first series: there are at most boundRecords "
+                      "series, since a record names one series. After each duplicate's ledger-seq rule, in this order: "
+                      "its seq lies within its series' [min, max], since one of its bindings is in the range; with "
+                      "correctionSeq null, its seq is not listed missing, since an original binding makes its number "
+                      "present; and none of its ledger seqs is named by an earlier duplicate, in its own series or "
+                      "another, since a record binds one (series, seq, correctionSeq). The four are necessary, not "
+                      "sufficient: a report can keep them and still be one that no bindings produce, for example one "
+                      "bound record and a series whose min and max differ."),
     "anchor": ("format", "anchor is null (and then bridge is null) or exactly the eleven members in "
                "format.anchor_members: subjectSchema = commitmentSchema; seq an integer >= range.to; head, acc, "
                "subjectDigest and anchoredDigest 0x + 64 lower-case hex; batchRoot null or the same; status one of "
@@ -323,8 +346,9 @@ RULES = {
                     "each by the one pair of rules its vector breaks, at the place in the statement where its two faults "
                     "sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the "
                     "first series or in its first duplicate, so they pin the order inside one series or one duplicate; "
-                    "the issuer-counts vector puts its series fault in the second series, and one more vector pins one "
-                    "order across two series (the first series' consistency before the second series' shape). They do "
+                    "the issuer-counts vector and the series-count vector (rules.issuer_report) put their series fault "
+                    "in the second series, and one more vector pins one order across two series (the first series' "
+                    "consistency before the second series' shape). They do "
                     "not pin other pairs of rules across a boundary, any other order across two series or two "
                     "duplicates, the order among rules that share a reason, or the order among the parse rules. Every "
                     "other vector "
@@ -1291,6 +1315,53 @@ def main():
             "another digest and the statement signed again, with the relying party's records: they fold to "
             "through.acc, but the last of them is not through.head (a check that compares only the fold accepts "
             "it).", "records", put(["through", "head"], "0x" + "99" * 32))
+
+    # ---------------------------------------------------------------------------------------------- the report's definition
+    valid_from("issuer-numbering-duplicates-in-two-series", "anchored-range-with-one-link-bridge", "A v2 "
+               "issuer-numbering report over seq 2..5 with a duplicate in each of two series, computed from these link "
+               "bindings: seq 1 and 2 both bind series 0x0a.. number 1, seq 3 and 4 both bind series 0x0b.. number 7, "
+               "and seq 5 is a v2 link that binds no number. So three bound records and one absent; series 0x0a.. has "
+               "min and max 1 and number 1 named by ledger seqs 1 and 2; series 0x0b.. has min and max 7 and number 7 "
+               "named by ledger seqs 3 and 4. No ledger seq is in two duplicates. Signed by the test key.",
+               "issuer_report", report("two_series_duplicates"))
+    valid_from("issuer-numbering-one-series-per-bound-record", "anchored-range-with-one-link-bridge", "A v2 "
+               "issuer-numbering report over seq 2..5 with as many series as bound records, computed from these link "
+               "bindings: seq 1 is a v1 link, seq 2 binds series 0x0a.. number 1, seq 3 binds series 0x0b.. number 7, "
+               "and seq 4 and 5 are v2 links that bind no number. So two bound records, two absent and two series, each "
+               "with min and max equal, nothing missing and no duplicate. Signed by the test key.", "issuer_report",
+               report("series_per_record"))
+
+    def dup_at(i, **kv):
+        return lambda st: st["issuerSeq"]["series"][0]["duplicates"][i].update(kv)
+
+    derived("duplicate-seq-above-max", "issuer-numbering-corrections", "consistency", "The second duplicate's number 3, "
+            "the series' max, replaced by 4, above max 3: one of a duplicate's bindings is in the range, over which "
+            "min and max are taken.", "issuer_report", dup_at(1, seq=4))
+    derived("duplicate-seq-below-min", "issuer-numbering-corrections", "consistency", "The first duplicate's number 2, "
+            "the series' min, replaced by 1, below min 2.", "issuer_report", dup_at(0, seq=1))
+    derived("duplicate-original-of-missing-number", "issuer-numbering-corrections", "consistency", "The first "
+            "duplicate's correctionSeq 0 replaced by null, so it names original bindings of number 2, which the series "
+            "lists as missing: an original binding makes its number present.", "issuer_report",
+            dup_at(0, correctionSeq=None))
+    derived("ledger-seq-in-two-duplicates-of-one-series", "issuer-numbering-corrections", "consistency", "The second "
+            "duplicate's ledger seqs [4, 5] replaced by [3, 5]: ledger seq 3 is also in the first duplicate, [2, 3], "
+            "and a record binds one (series, seq, correctionSeq).", "issuer_report", dup_at(1, ledgerSeqs=[3, 5]))
+    derived("ledger-seq-in-duplicates-of-two-series", "issuer-numbering-duplicates-in-two-series", "consistency",
+            "Series 0x0b..'s duplicate ledger seqs [3, 4] replaced by [2, 4]: ledger seq 2 is also in series 0x0a..'s "
+            "duplicate, [1, 2], and a record binds one series (a check that compares ledger seqs only within one "
+            "series accepts it).", "issuer_report",
+            lambda st: st["issuerSeq"]["series"][1]["duplicates"][0].update(ledgerSeqs=[2, 4]))
+    two_series_one_bound = then(put(["issuerSeq", "boundRecords"], 1), put(["issuerSeq", "absentRecords"], 3))
+    derived("more-series-than-bound-records", "issuer-numbering-one-series-per-bound-record", "consistency", "One "
+            "logical change, a count with the count that must match it: boundRecords 1 and absentRecords 3, so bound + "
+            "absent still equals linkVersions.v2 (4), under two series: a series is reported only when a bound record "
+            "in the range names it.", "issuer_report", two_series_one_bound)
+    ordered("series-count-then-series-shape", "issuer-numbering-one-series-per-bound-record",
+            ("consistency", "boundRecords 1 and absentRecords 3, so two series over one bound record",
+             in_statement(two_series_one_bound)), second_series_member)
+    derived("byte-order-mark-before-body", "anchored-range-with-one-link-bridge", "parse", "The served text with a "
+            "byte-order mark (U+FEFF) before it, with the twin's digest and signature (a reader that strips the mark "
+            "accepts it).", "byte_order_mark", text=chr(0xFEFF) + base_text)
 
     write(acc_rows, rej_rows)
     return verify_written()
