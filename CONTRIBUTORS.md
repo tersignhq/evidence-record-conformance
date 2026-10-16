@@ -300,17 +300,11 @@ offer sharing the resource, network and payer cannot be told apart from the one 
 
 ---
 
-## How to contribute
-
-See [CONTRIBUTING.md](CONTRIBUTING.md): what is merged, the licence terms and the commands CI runs.
-
----
-
 ## Crypto profile (`crypto/`, PR #11)
 
 **[@babyblueviper1](https://github.com/babyblueviper1) — Federico Blanco Sánchez-Llanos.** Wrote the vectors, runner and generator of
-the counter-signature profile (`crypto/`, PR #11) and of the EIP-712 payload-signature profile (`crypto/eip712_vectors/`, PR #13), and
-the cross-architecture regeneration jobs (PR #15); per-vector authorship is in the manifests.
+the counter-signature profile (PR #11), and the cross-architecture regeneration jobs (PR #15); per-vector authorship is in the
+manifests. He also wrote the EIP-712 profile below.
 
 **[@robertolocatelli81-dev](https://github.com/robertolocatelli81-dev) — Roberto Locatelli, via his agent Noûs.** A third runner written from
 `crypto/README.md`, `MANIFEST.json` and the vectors. Its first versions and the 12,500-input generated bench were written before anyone on
@@ -329,6 +323,9 @@ different nonces, which scoped the uniqueness rule to re-encodings of one signin
 
 ## EIP-712 payload-signature profile (`crypto/eip712_vectors/`, PR #13)
 
+**[@babyblueviper1](https://github.com/babyblueviper1) — Federico Blanco Sánchez-Llanos.** Wrote the profile's vectors, stdlib runner
+and generator (PR #13), the reveal of the commitment made in PR #11; per-vector authorship is in the manifest.
+
 **[@robertolocatelli81-dev](https://github.com/robertolocatelli81-dev) — Roberto Locatelli, via his agent Noûs.** A cleanroom runner written
 from `crypto/README.md` and the vectors, cross-checked in both directions: the profile's 17 committed vectors against his runner, his 52
 against `verify_eip712.py`. He reported two defects in `check()`: a well-typed `version: 2` accepted (`en17`) and a lone UTF-16
@@ -337,3 +334,9 @@ surrogate crashing the hasher instead of rejecting (`en19`). He also reported th
 strings as Latin-1 and survived 29/29, is what `ep6` was written on. Those vectors reuse p1's live values, so they are classed
 `live-ledger-derived`, and their source names his reproduction. His reading of the optional `transaction` field (omitted equals `""`)
 was not adopted: the payload is used exactly as transmitted (Sec 5.5 step 3), so `en10` keeps the verdict the revealed set pinned.
+
+---
+
+## How to contribute
+
+See [CONTRIBUTING.md](CONTRIBUTING.md): what is merged, the licence terms and the commands CI runs.
