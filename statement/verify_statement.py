@@ -14,8 +14,9 @@ order) are optional and read by key presence. The check, in this order; the firs
                        member name twice in any object; every number token an integer in [-(2**53 - 1), 2**53 - 1];
                        every string, member names included, well-formed Unicode; and no surrogate code point written
                        raw in the text, an escape next to it not making it half of a pair (a suite rule; a character
-                       outside the BMP written raw is one code point and is accepted)
-  2 shape              the body is an object with exactly the members {statement, statementDigest, signature, signer}
+                       outside the BMP written raw is one code point and is accepted); and no byte-order mark
+                       (U+FEFF) before the value (a suite rule; json.loads over text refuses one)
+  2 shape             the body is an object with exactly the members {statement, statementDigest, signature, signer}
   3 statement rules    the closed sets and consistency rules over `statement` (statement_refusal below), with the
                        reasons shape, scope, chain_key, range, attachments_version, attachment_entry, consistency
                        and anchor

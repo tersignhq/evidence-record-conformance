@@ -177,6 +177,17 @@ PY = {
                                           ["sn228"]),
     "py-ledger-seqs-grouped-unchecked": ([('            if any(q in grouped for q in ls):\n'
                                            '                return "consistency"\n', "")], ["sn227", "sn228"]),
+    # ---- v0.6.1: duplicates that interleave in ledger order (sp43, sn232), and the series count at the first series
+    "py-ledger-seqs-ascending-across-duplicates": ([("if any(q in grouped for q in ls):",
+                                                     "if grouped and ls[0] <= max(grouped):")], ["sp43"]),
+    "py-ledger-seqs-grouped-first-only": ([("if any(q in grouped for q in ls):", "if ls[0] in grouped:")], ["sn232"]),
+    "py-ledger-seqs-grouped-last-only": ([("            grouped.update(ls)\n", "            grouped.add(ls[-1])\n")],
+                                         ["sn232"]),
+    "py-series-count-per-series": ([(PY_SERIES_COUNT, ""),
+                                    ('    last_series = ""\n    for s in series:\n',
+                                     '    last_series = ""\n    for k, s in enumerate(series):\n'
+                                     '        if k + 1 > iq["boundRecords"]:\n            return "consistency"\n')],
+                                   ["sn230"]),
 }
 
 TS_SCAN = '    if (scanText(text) || illFormed(body)) return ["reject", "parse"];\n'
@@ -338,6 +349,18 @@ TS = {
                                           ["sn228"]),
     "ts-ledger-seqs-grouped-unchecked": ([('      if (ls.some((q) => grouped.has(q))) return "consistency";\n', "")],
                                          ["sn227", "sn228"]),
+    # ---- v0.6.1: duplicates that interleave in ledger order (sp43, sn232), and the series count at the first series
+    "ts-ledger-seqs-ascending-across-duplicates": ([("if (ls.some((q) => grouped.has(q))) return",
+                                                     "if (grouped.size && ls[0] <= Math.max(...grouped)) return")],
+                                                   ["sp43"]),
+    "ts-ledger-seqs-grouped-first-only": ([("if (ls.some((q) => grouped.has(q))) return", "if (grouped.has(ls[0])) return")],
+                                          ["sn232"]),
+    "ts-ledger-seqs-grouped-last-only": ([("      for (const q of ls) grouped.add(q);\n",
+                                           "      grouped.add(ls[ls.length - 1]);\n")], ["sn232"]),
+    "ts-series-count-per-series": ([(TS_SERIES_COUNT, ""),
+                                    ('  let lastSeries = "";\n  for (const s of iq.series) {\n',
+                                     '  let lastSeries = "";\n  let seen = 0;\n  for (const s of iq.series) {\n'
+                                     '    if (++seen > iq.boundRecords) return "consistency";\n')], ["sn230"]),
 }
 
 IDENTITY = {   # comment-only edits: each must SURVIVE (no vector may fail)

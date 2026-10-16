@@ -8,7 +8,8 @@
 // into 1, so the duplicate-member, number-token and nesting rules are checked on the text itself (scanText), after
 // JSON.parse has accepted its syntax. JSON.parse also joins a surrogate written raw in the text with an escaped one next
 // to it into a pair, which a code-point reader never does, so a surrogate code unit written raw that is not half of a
-// raw pair is refused on the text before the decoded strings are read.
+// raw pair is refused on the text before the decoded strings are read. A byte-order mark (U+FEFF) before the value is
+// refused as parse (rules.byte_order_mark, a suite rule): it is not JSON whitespace, and JSON.parse refuses it.
 import { concatHex, keccak256, numberToHex, recoverMessageAddress, stringToHex } from "viem";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";

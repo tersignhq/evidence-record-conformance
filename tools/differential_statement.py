@@ -4,7 +4,7 @@
 The corpus runs of statement/verify_statement.py and tools/cross_check_statement.mjs each compare an engine with
 statement/MANIFEST.json, so their agreement is transitive through the shared expectations, and an input the corpus does
 not carry is never compared. This harness feeds both engines every corpus input PLUS an off-corpus battery built from
-eleven accepting vectors, and compares [verdict, reason] directly, with no expectation in between:
+twelve accepting vectors, and compares [verdict, reason] directly, with no expectation in between:
 
   - every member of the statement, at every depth, removed, and replaced by null, true, false, 0, -1, 1, 2**53 - 1,
     "", "x", [] and {}; each hex string also upper-cased, without 0x, one digit short, one digit long and with a
@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.join(ROOT, "statement"))
 import verify_statement as V  # noqa: E402
 import gen_statement_vectors as G  # noqa: E402
 
-BASES = ("sp1-", "sp3-", "sp4-", "sp8-", "sp9-", "sp10-", "sp23-", "sp27-", "sp35-", "sp41-", "sp42-")
+BASES = ("sp1-", "sp3-", "sp4-", "sp8-", "sp9-", "sp10-", "sp23-", "sp27-", "sp35-", "sp41-", "sp42-", "sp43-")
 VALUES = (None, True, False, 0, -1, 1, 2 ** 53 - 1, "", "x", [], {})
 DROP = object()
 

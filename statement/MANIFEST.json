@@ -1,5 +1,5 @@
 {
- "version": "0.6.0",
+ "version": "0.6.1",
  "profile": "chain statement (tersign-chain-statement-v1)",
  "runner": "statement/verify_statement.py",
  "second_engine": "tools/cross_check_statement.mjs",
@@ -75,11 +75,11 @@
   },
   "byte_order_mark": {
    "source": "suite",
-   "rule": "A byte-order mark (U+FEFF) before the JSON value is refused: it is not JSON whitespace (RFC 8259 section 2). Otherwise parse. RFC 8259 section 8.1 forbids adding one to a JSON text sent over a network and lets a parser ignore one; this suite refuses it, as JavaScript's JSON.parse and Python's json.loads over text do, so that a reader that strips the mark and one that does not agree. A ledger that follows section 8.1 serves no mark, so the rule changes no verdict on such a body; it decides text a verifier is handed."
+   "rule": "A byte-order mark (U+FEFF) before the JSON value is refused: it is not JSON whitespace (RFC 8259 section 2). Otherwise parse. RFC 8259 section 8.1 forbids adding one to a JSON text sent over a network and lets a parser ignore one; this suite refuses it, as JavaScript's JSON.parse and Python's json.loads over text do, so that conformant engines give one answer for one text. Whether a decoder removes the mark from served bytes before the text reaches an engine is outside the profile. A ledger that follows section 8.1 serves no mark, so the rule changes no verdict on such a body; it decides text a verifier is handed."
   },
   "depth": {
    "source": "suite",
-   "rule": "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, counted on the text. Otherwise parse. The format sets no bound; this suite fixes one so that its engines agree on every input, where a reader without one decides deep nesting by wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, not between."
+   "rule": "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, counted on the text. Otherwise parse. The format sets no bound; this suite fixes one so that where a body nested past it is refused does not depend on where a parser stops, which differs between parsers and interpreters. At or below the bound the body is still parsed, and statement/verify_statement.py parses with json.loads, which recurses: a caller near its interpreter's recursion limit can get parse there for a body the other engine reads. So the two engines agree on every vector, not for every caller. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, not between."
   },
   "envelope": {
    "source": "format",
@@ -131,7 +131,7 @@
   },
   "issuer_report": {
    "source": "format",
-   "rule": "The report is computed from the link bindings as the format defines it: the counts, and each series' min and max, over the range; a series reported when a bound record in the range names it; a number missing when no original (correctionSeq null) binding at or before range.to names it; a duplicate a (seq, correctionSeq) named by two or more bindings at or before range.to, one of them in the range. Four consequences of that definition are checked, each otherwise consistency. After the list cap and before the first series: there are at most boundRecords series, since a record names one series. After each duplicate's ledger-seq rule, in this order: its seq lies within its series' [min, max], since one of its bindings is in the range; with correctionSeq null, its seq is not listed missing, since an original binding makes its number present; and none of its ledger seqs is named by an earlier duplicate, in its own series or another, since a record binds one (series, seq, correctionSeq). The four are necessary, not sufficient: a report can keep them and still be one that no bindings produce, for example one bound record and a series whose min and max differ."
+   "rule": "The report is computed from the link bindings as the format defines it: the counts, and each series' min and max, over the range; a series reported when a bound record in the range names it; a number missing when no original (correctionSeq null) binding at or before range.to names it; a duplicate a (seq, correctionSeq) named by two or more bindings at or before range.to, one of them in the range. Four consequences of that definition are checked, each otherwise consistency. After the list cap and before the first series: there are at most boundRecords series, since a record names one series. After each duplicate's ledger-seq rule: its seq lies within its series' [min, max], since one of its bindings is in the range; with correctionSeq null, its seq is not listed missing, since an original binding makes its number present; and none of its ledger seqs is named by an earlier duplicate, in its own series or another, whatever their order in the ledger, since a record binds one (series, seq, correctionSeq). Both engines check the last three in that order; all four reject as consistency, so that order is not observable through an engine that returns a reason and no detail, and no vector pins it. The four are necessary, not sufficient: a report can keep them and still be one that no bindings produce, for example one bound record and a series whose min and max differ."
   },
   "anchor": {
    "source": "format",
@@ -159,7 +159,7 @@
   },
   "check_order": {
    "source": "suite",
-   "rule": "The first rule broken decides the reason, in the order the runner lists (parse, envelope, statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, expected signer, records). The order vectors (ids containing \"-order-\") each carry two faults, one from each of two reason groups adjacent in that order, and expect the first group's reason; each fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, each by the one pair of rules its vector breaks, at the place in the statement where its two faults sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the first series or in its first duplicate, so they pin the order inside one series or one duplicate; the issuer-counts vector and the series-count vector (rules.issuer_report) put their series fault in the second series, and one more vector pins one order across two series (the first series' consistency before the second series' shape). They do not pin other pairs of rules across a boundary, any other order across two series or two duplicates, the order among rules that share a reason, or the order among the parse rules. Every other vector breaks one rule, except where its description names a second, and expects that rule's reason."
+   "rule": "The first rule broken decides the reason, in the order the runner lists (parse, envelope, statement rules in the order of statement/verify_statement.py, signer = ledger, digest, signature, expected signer, records). The order vectors (ids containing \"-order-\") each carry two faults, one from each of two reason groups adjacent in that order, and expect the first group's reason; each fault alone rejects with its own reason. Together they pin every adjacent pair of reason groups, each by the one pair of rules its vector breaks, at the place in the statement where its two faults sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the first series or in its first duplicate, so they pin the order inside one series or one duplicate; the issuer-counts vector puts its series fault in the second series and the series-count vector (rules.issuer_report) in the first, and one more vector pins one order across two series (the first series' consistency before the second series' shape). They do not pin other pairs of rules across a boundary, any other order across two series or two duplicates, the order among rules that share a reason, or the order among the parse rules. The engines return a reason and no detail, so the order among rules that share a reason (the four rules.issuer_report rules, all consistency, for example) is not observable through them. Every other vector breaks one rule, except where its description names a second, and expects that rule's reason."
   },
   "input": {
    "source": "suite",
@@ -604,6 +604,16 @@
   },
   {
    "file": "sp42-issuer-numbering-one-series-per-bound-record.json",
+   "kind": "chain_statement",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sp43-issuer-numbering-duplicates-interleaved.json",
    "kind": "chain_statement",
    "expect": "valid",
    "author": "Tersign (@wowlegend)",
@@ -3378,6 +3388,18 @@
    "expect": "reject",
    "reason": "parse",
    "twin": "sp1-anchored-range-with-one-link-bridge",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "synthetic",
+    "source": "statement/gen_statement_vectors.py: synthetic chains, signed by the published test keys"
+   }
+  },
+  {
+   "file": "sn232-ledger-seq-in-two-interleaved-duplicates.json",
+   "kind": "chain_statement",
+   "expect": "reject",
+   "reason": "consistency",
+   "twin": "sp43-issuer-numbering-duplicates-interleaved",
    "author": "Tersign (@wowlegend)",
    "origin": {
     "class": "synthetic",

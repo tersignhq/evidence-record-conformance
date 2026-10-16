@@ -188,12 +188,48 @@ them or by rejecting them for another reason.
 | a boundary member read by value, so a present `null` reads as absent | n158, n171 | `boundary_reject` |
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
 
+## Chain statements: the issuer-numbering report's definition (v0.6.1)
+
+The chain-statement profile ([`statement/`](statement/README.md)) checks four consequences of how the format defines
+the issuer-numbering report (`rules.issuer_report` in `statement/MANIFEST.json`), each refused as `consistency`: at
+most `boundRecords` series; a duplicate's number within its series' `min` and `max`; with `correctionSeq` null, a
+duplicate's number not listed missing; and no ledger seq named by two duplicates, in one series or across two,
+whatever their order in the ledger. They are necessary, not sufficient: a report that no link bindings produce can
+still keep them. A suite rule, `rules.byte_order_mark`, refuses a byte-order mark before the body.
+
+The profile has 275 two-sided vectors (43 accept, 232 reject). The 263 of v0.6.0 are byte-identical; the 12 new ones:
+
+- sp41 (a duplicate in each of two series), sp42 (as many series as bound records) and sp43 (two duplicates whose
+  ledger seqs interleave: the series lists its duplicates in number order, so the second starts below the first),
+  each with its report computed by `issuer_report()` from the link bindings its description lists;
+- sn224, sn225 (a duplicate's number above max, below min); sn226 (an original duplicate of a number listed
+  missing); sn227, sn228, sn232 (a ledger seq in two duplicates: within one series, across two series, and between
+  duplicates that interleave, where the shared seq is the later duplicate's last and the earlier one's first);
+  sn229 (more series than bound records); sn230 (the series count before the first series' shape: two series over
+  one bound record and a sixth member in the first series reject as `consistency`); sn231 (a byte-order mark before
+  the body).
+
+Eight of the nine new rejecting vectors fail on the v0.6.0 engines: they accept sn224–sn229 and sn232 and reject
+sn230 as `shape`. sn231 pins behaviour both v0.6.0 engines already had. The engines return a reason and no detail,
+so the order among the four rules, which share the reason `consistency`, is not observable through them and no
+vector pins it (`statement/README.md`, *Not pinned*). Both manifests are version 0.6.1; the structural, crypto and
+EIP-712 vectors are unchanged.
+
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 275 vectors;
+`differential_statement.py` compares 11,861 inputs (11,586 off the corpus) with 0 divergences; `--mutants` fails all 56
+broken verifiers and `tools/mutate_statement.py` all 135 source mutants, while both comment-only identity mutants
+survive. Eight of the new source mutants (four per engine: ledger seqs required to ascend from one duplicate to the
+next, only a duplicate's first ledger seq compared, only each duplicate's last remembered, and the series count
+checked series by series) pass every v0.6.0 vector and are failed by sp43, sn232 or sn230. Python 3.10.20, 3.11.15,
+3.12.13 and 3.13.13 regenerate the set byte for byte from empty directories. No outside implementation has run these
+vectors yet.
+
 ## Chain statements (v0.6.0)
 
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
 with its key over one range of one record chain. Tersign's ledger serves one, paid per request over x402, at
 `GET https://tersign.ai/v1/receipts/{digest}/statement?from={from}&to={to}`, over a range that ends at or before the
-record whose digest is presented. The profile has 273 two-sided vectors (42 accept, 231 reject) and 13 reject reasons,
+record whose digest is presented. The profile has 263 two-sided vectors (40 accept, 223 reject) and 13 reject reasons,
 two engines (`statement/verify_statement.py`, stdlib only, and `tools/cross_check_statement.mjs`, same authors), a
 direct differential (`tools/differential_statement.py`) and a source-mutation run over both engines
 (`tools/mutate_statement.py`). Every rejecting vector names the accepting vector it was built from and what changed.
@@ -260,11 +296,11 @@ issuer-numbering reports computed from link bindings, as the format defines the 
 description lists its bindings or names the vector that does. `statement/README.md` (*What the accepting vectors test*)
 names each accepting vector that carries a value Tersign's ledger would not sign today, and why.
 
-**Measured at this commit.** Both engines return the pinned verdict and reason on all 273 vectors;
-`differential_statement.py` compares 10,745 inputs (10,472 off the corpus) with 0 divergences; `--mutants` fails all 56
-broken verifiers and `tools/mutate_statement.py` all 127 source mutants, while both comment-only identity mutants
-survive; Python 3.10.20, 3.11.15, 3.12.13 and 3.13.13 regenerate the set byte for byte from empty directories. No
-outside implementation has run these vectors yet.
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 263 vectors;
+`differential_statement.py` compares 7,381 inputs (7,118 off the corpus) with 0 divergences; `--mutants` fails all 56
+broken verifiers and `tools/mutate_statement.py` all 105 source mutants, while both comment-only identity mutants
+survive; Python 3.9.6 and 3.14.7 regenerate the set byte for byte from empty directories. No outside implementation has
+run these vectors yet.
 
 ## Boundary binding, chain continuity and closed crypto inputs (v0.5.9)
 
@@ -903,7 +939,7 @@ file names and the tag's commit message included. Fourteen of the 77 vectors add
 (n107–n117, p63, n153, n165) were written here from inputs that author reported in #17 and #9. No
 outside run of either crypto profile at v0.5.9 has been reported here.
 
-No outside run of the chain-statement profile (`statement/`, v0.6.0) has been reported. A run of it is
+No outside run of the chain-statement profile (`statement/`, v0.6.0 or v0.6.1) has been reported. A run of it is
 reported in the same form, one object per vector in `statement/MANIFEST.json`, and
 `python3 tools/compare_run.py <output.json> --manifest statement/MANIFEST.json` compares it
 (`statement/README.md`, *Reporting a run*).

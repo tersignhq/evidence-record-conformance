@@ -39,7 +39,7 @@ NONCE_DERIVATION = "keccak256(the private key as 32 big-endian bytes || the 32-b
 BASE = "https://ledger.example"
 HEIGHT = 900000
 AUTHOR = "Tersign (@wowlegend)"
-VERSION = "0.6.0"   # the suite release this set belongs to, as MANIFEST.json "version"
+VERSION = "0.6.1"   # the suite release this set belongs to, as MANIFEST.json "version"
 
 
 def address(priv):
@@ -223,12 +223,15 @@ REPORT_NUMBER_0[4] = (SER2, 0, None)
 REPORT_TWO_SERIES_DUPLICATES = {1: (SER1, 1, None), 2: (SER1, 1, None), 3: (SER2, 7, None), 4: (SER2, 7, None),
                                 5: ABSENT}
 REPORT_SERIES_PER_RECORD = {1: None, 2: (SER1, 1, None), 3: (SER2, 7, None), 4: ABSENT, 5: ABSENT}
+REPORT_INTERLEAVED_DUPLICATES = {1: (SER1, 5, None), 2: (SER1, 3, None), 3: (SER1, 3, None), 4: (SER1, 5, None),
+                                 5: ABSENT}
 # (bindings, range.from, range.to) of every report an accepting vector carries; tools that check the reports read this.
 REPORTS = {"report": (REPORT, 2, 5), "corrections": (REPORT_CORRECTIONS, 2, 5),
            "missing_at_cap": (REPORT_MISSING_AT_CAP, 2, 5), "series_at_cap": (REPORT_SERIES_AT_CAP, 2, 257),
            "duplicates_at_cap": (REPORT_DUPLICATES_AT_CAP, 2, 512), "mixed": (REPORT_MIXED, 2, 5),
            "number_0": (REPORT_NUMBER_0, 2, 5), "two_series_duplicates": (REPORT_TWO_SERIES_DUPLICATES, 2, 5),
-           "series_per_record": (REPORT_SERIES_PER_RECORD, 2, 5)}
+           "series_per_record": (REPORT_SERIES_PER_RECORD, 2, 5),
+           "interleaved_duplicates": (REPORT_INTERLEAVED_DUPLICATES, 2, 5)}
 
 # Rules each vector rests on, labelled as the format's own (the rules a ledger serving this format applies before it
 # signs) or as this suite's. The runner pins the constants under "format"; these texts say what the vectors test.
@@ -249,15 +252,18 @@ RULES = {
     "byte_order_mark": ("suite", "A byte-order mark (U+FEFF) before the JSON value is refused: it is not JSON "
                         "whitespace (RFC 8259 section 2). Otherwise parse. RFC 8259 section 8.1 forbids adding one to "
                         "a JSON text sent over a network and lets a parser ignore one; this suite refuses it, as "
-                        "JavaScript's JSON.parse and Python's json.loads over text do, so that a reader that strips "
-                        "the mark and one that does not agree. A ledger that follows section 8.1 serves no mark, so "
+                        "JavaScript's JSON.parse and Python's json.loads over text do, so that conformant engines give "
+                        "one answer for one text. Whether a decoder removes the mark from served bytes before the text "
+                        "reaches an engine is outside the profile. A ledger that follows section 8.1 serves no mark, so "
                         "the rule changes no verdict on such a body; it decides text a verifier is handed."),
     "depth": ("suite", "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, "
-              "counted on the text. Otherwise parse. The format sets no bound; this suite "
-              "fixes one so that its engines agree on every input, where a reader without one decides deep nesting by "
-              "wherever its parser stops, which differs between parsers and interpreters. A statement nests 8 deep at "
-              "most, so the bound changes a reason, never a verdict. The vectors sit at the bound and at 3,000 levels, "
-              "not between."),
+              "counted on the text. Otherwise parse. The format sets no bound; this suite fixes one so that where a "
+              "body nested past it is refused does not depend on where a parser stops, which differs between parsers "
+              "and interpreters. At or below the bound the body is still parsed, and statement/verify_statement.py "
+              "parses with json.loads, which recurses: a caller near its interpreter's recursion limit can get parse "
+              "there for a body the other engine reads. So the two engines agree on every vector, not for every "
+              "caller. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors "
+              "sit at the bound and at 3,000 levels, not between."),
     "envelope": ("format", "The body is an object with exactly the members {statement, statementDigest, signature, "
                  "signer} (a body that is JSON text but not an object, an array for example, is refused here), and "
                  "signer equals statement.ledger byte for byte. Otherwise shape."),
@@ -306,11 +312,14 @@ RULES = {
                       "names it; a duplicate a (seq, correctionSeq) named by two or more bindings at or before range.to, "
                       "one of them in the range. Four consequences of that definition are checked, each otherwise "
                       "consistency. After the list cap and before the first series: there are at most boundRecords "
-                      "series, since a record names one series. After each duplicate's ledger-seq rule, in this order: "
-                      "its seq lies within its series' [min, max], since one of its bindings is in the range; with "
-                      "correctionSeq null, its seq is not listed missing, since an original binding makes its number "
-                      "present; and none of its ledger seqs is named by an earlier duplicate, in its own series or "
-                      "another, since a record binds one (series, seq, correctionSeq). The four are necessary, not "
+                      "series, since a record names one series. After each duplicate's ledger-seq rule: its seq lies "
+                      "within its series' [min, max], since one of its bindings is in the range; with correctionSeq "
+                      "null, its seq is not listed missing, since an original binding makes its number present; and "
+                      "none of its ledger seqs is named by an earlier duplicate, in its own series or another, "
+                      "whatever their order in the ledger, since a record binds one (series, seq, correctionSeq). Both "
+                      "engines check the last three in that order; all four reject as consistency, so that order is not "
+                      "observable through an engine that returns a reason and no detail, and no vector pins it. The "
+                      "four are necessary, not "
                       "sufficient: a report can keep them and still be one that no bindings produce, for example one "
                       "bound record and a series whose min and max differ."),
     "anchor": ("format", "anchor is null (and then bridge is null) or exactly the eleven members in "
@@ -346,11 +355,13 @@ RULES = {
                     "each by the one pair of rules its vector breaks, at the place in the statement where its two faults "
                     "sit. The order vectors from a series' shape to a duplicate's consistency put both faults in the "
                     "first series or in its first duplicate, so they pin the order inside one series or one duplicate; "
-                    "the issuer-counts vector and the series-count vector (rules.issuer_report) put their series fault "
-                    "in the second series, and one more vector pins one order across two series (the first series' "
-                    "consistency before the second series' shape). They do "
+                    "the issuer-counts vector puts its series fault in the second series and the series-count vector "
+                    "(rules.issuer_report) in the first, and one more vector pins one order across two series (the "
+                    "first series' consistency before the second series' shape). They do "
                     "not pin other pairs of rules across a boundary, any other order across two series or two "
-                    "duplicates, the order among rules that share a reason, or the order among the parse rules. Every "
+                    "duplicates, the order among rules that share a reason, or the order among the parse rules. The "
+                    "engines return a reason and no detail, so the order among rules that share a reason (the four "
+                    "rules.issuer_report rules, all consistency, for example) is not observable through them. Every "
                     "other vector "
                     "breaks one rule, except where its description names a second, and expects that rule's reason."),
     "input": ("suite", "A vector's input is {body_text, expected_signer?, records?}: the served body as text, and the "
@@ -1358,10 +1369,25 @@ def main():
             "in the range names it.", "issuer_report", two_series_one_bound)
     ordered("series-count-then-series-shape", "issuer-numbering-one-series-per-bound-record",
             ("consistency", "boundRecords 1 and absentRecords 3, so two series over one bound record",
-             in_statement(two_series_one_bound)), second_series_member)
+             in_statement(two_series_one_bound)), first_series_member)
     derived("byte-order-mark-before-body", "anchored-range-with-one-link-bridge", "parse", "The served text with a "
             "byte-order mark (U+FEFF) before it, with the twin's digest and signature (a reader that strips the mark "
             "accepts it).", "byte_order_mark", text=chr(0xFEFF) + base_text)
+    # v0.6.1: duplicates that interleave in ledger order, which issuer_report() orders by number
+    valid_from("issuer-numbering-duplicates-interleaved", "anchored-range-with-one-link-bridge", "A v2 "
+               "issuer-numbering report over seq 2..5 whose two duplicates interleave in ledger order, computed from "
+               "these link bindings: seq 1 and 4 both bind series 0x0a.. number 5, seq 2 and 3 both bind number 3, and "
+               "seq 5 is a v2 link that binds no number. So three bound records and one absent; the series has min 3 "
+               "and max 5, number 4 missing, and its duplicates in number order: number 3 named by ledger seqs [2, 3], "
+               "then number 5 by [1, 4]. The second duplicate's ledger seqs start below the first's (a check that "
+               "requires ledger seqs to ascend from one duplicate to the next refuses it), and no ledger seq is in two "
+               "duplicates. Signed by the test key.", "issuer_report", report("interleaved_duplicates"))
+    derived("ledger-seq-in-two-interleaved-duplicates", "issuer-numbering-duplicates-interleaved", "consistency", "The "
+            "second duplicate's ledger seqs [1, 4] replaced by [1, 2]: ledger seq 2 is also in the first duplicate, "
+            "[2, 3], and a record binds one (series, seq, correctionSeq). The shared seq is the second duplicate's "
+            "last and the first duplicate's first (a check that compares only each duplicate's first ledger seq with "
+            "the ones before it, or remembers only each duplicate's last, accepts it).", "issuer_report",
+            dup_at(1, ledgerSeqs=[1, 2]))
 
     write(acc_rows, rej_rows)
     return verify_written()
