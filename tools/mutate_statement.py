@@ -4,9 +4,11 @@
 Each mutant is one change to statement/verify_statement.py or tools/cross_check_statement.mjs, applied in a scratch
 copy of the repository with tools/mutate_members.py's copy. Most edit one site. A change of order moves one check past
 another: it swaps two adjacent blocks in one edit, deletes the check at one site and inserts it at another, or (the
-envelope-signer and every-series-shape moves) inserts a copy of the check ahead of the other; and the two "anchor
-before range.to read like one at it" mutants edit two lines, the seq rule and the at-range.to branch. A mutant is KILLED when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for
-it fails; the unmutated copy must pass first and again at the end. Each engine also runs one comment-only IDENTITY
+envelope-signer and every-series-shape moves) inserts a copy of the check ahead of the other; and the two "anchor before
+range.to read like one at it" mutants edit two lines, the seq rule and the at-range.to branch, as do the two that
+compare ledger seqs only within one series, the shared set's declaration and a fresh set per series. A mutant is KILLED
+when the engine's run over statement/MANIFEST.json exits non-zero AND every vector named for it fails; the unmutated
+copy must pass first and again at the end. Each engine also runs one comment-only IDENTITY
 mutant, which must survive: a run in which it is killed measures something other than the change. The TypeScript
 mutants need `node` and `viem` (`npm i viem` in the repository root, as CI does). These complement
 `statement/verify_statement.py --mutants`, whose mutants are switched inside the Python engine.
@@ -188,6 +190,9 @@ PY = {
                                      '    last_series = ""\n    for k, s in enumerate(series):\n'
                                      '        if k + 1 > iq["boundRecords"]:\n            return "consistency"\n')],
                                    ["sn230"]),
+    # ---- v0.6.1: the byte-order mark (rules.byte_order_mark)
+    "py-byte-order-mark-stripped": ([(PY_TEXT_TYPE, PY_TEXT_TYPE + '    if text.startswith("\\ufeff"):\n'
+                                                                   '        text = text[1:]\n')], ["sn231"]),
 }
 
 TS_SCAN = '    if (scanText(text) || illFormed(body)) return ["reject", "parse"];\n'
@@ -361,6 +366,10 @@ TS = {
                                     ('  let lastSeries = "";\n  for (const s of iq.series) {\n',
                                      '  let lastSeries = "";\n  let seen = 0;\n  for (const s of iq.series) {\n'
                                      '    if (++seen > iq.boundRecords) return "consistency";\n')], ["sn230"]),
+    # ---- v0.6.1: the byte-order mark (rules.byte_order_mark)
+    "ts-byte-order-mark-stripped": ([("  const text = input.body_text;\n",
+                                      '  const text = typeof input.body_text === "string" ? '
+                                      'input.body_text.replace(/^\\uFEFF/, "") : input.body_text;\n')], ["sn231"]),
 }
 
 IDENTITY = {   # comment-only edits: each must SURVIVE (no vector may fail)

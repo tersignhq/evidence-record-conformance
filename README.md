@@ -204,20 +204,21 @@ The profile has 275 two-sided vectors (43 accept, 232 reject). The 263 of v0.6.0
   each with its report computed by `issuer_report()` from the link bindings its description lists;
 - sn224, sn225 (a duplicate's number above max, below min); sn226 (an original duplicate of a number listed
   missing); sn227, sn228, sn232 (a ledger seq in two duplicates: within one series, across two series, and between
-  duplicates that interleave, where the shared seq is the later duplicate's last and the earlier one's first);
-  sn229 (more series than bound records); sn230 (the series count before the first series' shape: two series over
-  one bound record and a sixth member in the first series reject as `consistency`); sn231 (a byte-order mark before
-  the body).
+  duplicates that interleave, where the shared seq is the second-listed duplicate's last and the first-listed one's
+  first); sn229 (more series than bound records); sn230 (the series count before the first series' shape: two series
+  over one bound record and a sixth member in the first series reject as `consistency`); sn231 (a byte-order mark
+  before the body).
 
 Eight of the nine new rejecting vectors fail on the v0.6.0 engines: they accept sn224–sn229 and sn232 and reject
 sn230 as `shape`. sn231 pins behaviour both v0.6.0 engines already had. The engines return a reason and no detail,
 so the order among the four rules, which share the reason `consistency`, is not observable through them and no
-vector pins it (`statement/README.md`, *Not pinned*). Both manifests are version 0.6.1; the structural, crypto and
-EIP-712 vectors are unchanged.
+vector pins it (`statement/README.md`, *Not pinned*). `MANIFEST.json` and `statement/MANIFEST.json` are version
+0.6.1; the structural, crypto and EIP-712 vectors are unchanged. The v0.6.0 section below is kept as it shipped: its
+figures, *Measured at this commit* included, are those of the v0.6.0 tag.
 
 **Measured at this commit.** Both engines return the pinned verdict and reason on all 275 vectors;
 `differential_statement.py` compares 11,861 inputs (11,586 off the corpus) with 0 divergences; `--mutants` fails all 56
-broken verifiers and `tools/mutate_statement.py` all 135 source mutants, while both comment-only identity mutants
+broken verifiers and `tools/mutate_statement.py` all 137 source mutants, while both comment-only identity mutants
 survive. Eight of the new source mutants (four per engine: ledger seqs required to ascend from one duplicate to the
 next, only a duplicate's first ledger seq compared, only each duplicate's last remembered, and the series count
 checked series by series) pass every v0.6.0 vector and are failed by sp43, sn232 or sn230. Python 3.10.20, 3.11.15,

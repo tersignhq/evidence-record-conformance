@@ -1,7 +1,7 @@
 # Chain-statement profile: `tersign-chain-statement-v1`
 
 A chain statement is an object a ledger signs over one range of one record chain. What a valid statement establishes,
-and what it does not, is in the top-level README (*Chain statements*); this file is the check and the vectors.
+and what it does not, is in the top-level README (*Chain statements (v0.6.0)*); this file is the check and the vectors.
 
 The runner is pure standard library: the suite's `keccak.py`, the core's canonical form (`verify.py` `canonical`, the
 form `digest_recompute` pins) and the counter-signature profile's recovery (`crypto/secp256k1_recover.py`). The second
@@ -14,7 +14,7 @@ python3 statement/verify_statement.py --mutants  # 56 plausible broken verifiers
 python3 statement/gen_statement_vectors.py       # regenerates every vector and statement/MANIFEST.json byte for byte (CI checks this)
 node tools/cross_check_statement.mjs             # the TypeScript engine over the same 275 vectors
 python3 tools/differential_statement.py          # both engines, the corpus plus an off-corpus battery, no manifest oracle
-python3 tools/mutate_statement.py                # 135 source mutants in the two engines, each failed by its named vectors
+python3 tools/mutate_statement.py                # 137 source mutants in the two engines, each failed by its named vectors
 ```
 
 Licence: Apache-2.0, as the repository (`LICENSE`).
@@ -68,11 +68,13 @@ exercised by at least one vector): `parse`, `shape`, `scope`, `attachments_versi
 **The nesting bound is this suite's rule, not the format's.** The format sets no bound, and a reader without one decides
 deep nesting by wherever its parser stops, which differs between parsers and interpreters; the suite fixes 64 so that
 where a body nested past it is refused does not depend on a parser's limit. At or below the bound the body is still
-parsed: `verify_statement.py` parses with `json.loads`, which recurses, so a caller near its interpreter's recursion
-limit can get `parse` there for a body the TypeScript engine reads (sn148 gave `parse` to a caller 180 frames below
-the limit on CPython 3.10.20 and 120 on 3.12.13, and `scope` at 200 and 140). The two engines agree on every vector,
-not for every caller. The bound changes a reason, never a verdict, since a statement nests 8 deep at most. The two depth
-vectors sit at the bound (64 levels, read and refused as `scope`) and at 3,000 levels (`parse`).
+parsed and walked: `verify_statement.py` reads it with `json.loads`, then checks every string, member names included,
+with a recursive walk (`_ill_formed`), and reports a `RecursionError` from either as `parse`, so a caller near its
+interpreter's recursion limit can get `parse` there for a body the TypeScript engine reads (sn148 gave `parse` to a
+caller 180 frames below the limit on CPython 3.10.20 and 120 on 3.12.13, and `scope` at 200 and 140; the walk, not
+`json.loads`, sets those figures). The two engines agree on every vector, not for every caller. The bound changes a
+reason, never a verdict, since a statement nests 8 deep at most. The two depth vectors sit at the bound (64 levels,
+read and refused as `scope`) and at 3,000 levels (`parse`).
 
 **The byte-order-mark rule is this suite's rule, not the format's.** RFC 8259 forbids adding a byte-order mark to a
 JSON text sent over a network and lets a parser ignore one. A reader that strips it reads sn231 as sp1; JSON.parse and
@@ -156,10 +158,11 @@ two equal member names kept, `1.0` read as 1, no integer bound, undefined member
 (`before.seq`, the seed, the link-version count, the issuer counts, `listCap`) and two bounds lifted, the range, list
 and bridge caps one off, the bridge not folded, the digest not compared or compared case-insensitively, high-s accepted,
 the raw recovery id normalized, the expected signer ignored or compared case-sensitively, records not checked or extra
-records ignored. `tools/mutate_statement.py` edits the source of both engines instead, one change per mutant: 65 Python
-and 70 TypeScript mutants. Most edit one site; a move of one check past the next swaps two adjacent blocks, deletes
+records ignored. `tools/mutate_statement.py` edits the source of both engines instead, one change per mutant: 66 Python
+and 71 TypeScript mutants. Most edit one site; a move of one check past the next swaps two adjacent blocks, deletes
 the check at one site and inserts it at another, or (the envelope-signer and every-series-shape moves) inserts a copy of
-the check ahead of the other; and the two that read an anchor before `range.to` like one at it edit two lines. Among
+the check ahead of the other; and the two that read an anchor before `range.to` like one at it, and the two that
+compare ledger seqs only within one series, edit two lines. Among
 them: a head at seq 0 read in one direction only, an anchor at `range.to` compared on its head only, the bridge link
 count dropped, a missing number not allowed to equal min or max, `correctionSeq` read as null
 only or as positive only, undefined members ignored in `before`, `through`, `range`, `issuerSeq`, a series, a duplicate
@@ -167,8 +170,9 @@ and the bridge, absent members read as null (in `before`, the anchor, a duplicat
 themselves), the bridge's `from` or `to` not compared, an anchor before `range.to` read like one at it, `anchor.seq`
 read without its type, height 0 refused, the integer bound made exclusive, the parse rule's lower bound made exclusive
 or removed, the parse rules made to require an object, every surrogate code unit of the text refused, the halves of a
-pair joined, the nesting bound one lower or (TypeScript) removed, negative issuer counts allowed, a negative `min`
-allowed or a `min` of 0 refused, a missing number below `min` allowed, ledger seqs from 0, series ids, missing numbers
+pair joined, the nesting bound one lower or (TypeScript) removed, a leading byte-order mark stripped before parsing,
+negative issuer counts allowed, a negative `min` allowed or a `min` of 0 refused, a missing number below `min` allowed,
+ledger seqs from 0, series ids, missing numbers
 and ledger seqs checked only for repeats, ledger seqs allowed to repeat, the series id form not checked, each of the four
 `rules.issuer_report` rules removed (the min-and-max rule one side at a time) or made one off (as many series as bound
 records refused; a duplicate's number refused at min or at max), a correction of a missing number refused, ledger

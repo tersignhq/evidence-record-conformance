@@ -259,11 +259,12 @@ RULES = {
     "depth": ("suite", "The body nests objects and arrays at most format.max_depth deep, the body object counting 1, "
               "counted on the text. Otherwise parse. The format sets no bound; this suite fixes one so that where a "
               "body nested past it is refused does not depend on where a parser stops, which differs between parsers "
-              "and interpreters. At or below the bound the body is still parsed, and statement/verify_statement.py "
-              "parses with json.loads, which recurses: a caller near its interpreter's recursion limit can get parse "
-              "there for a body the other engine reads. So the two engines agree on every vector, not for every "
-              "caller. A statement nests 8 deep at most, so the bound changes a reason, never a verdict. The vectors "
-              "sit at the bound and at 3,000 levels, not between."),
+              "and interpreters. At or below the bound the body is still parsed and walked: "
+              "statement/verify_statement.py reads it with json.loads, then checks its strings with a recursive walk, "
+              "and reports a RecursionError from either as parse, so a caller near its interpreter's recursion limit "
+              "can get parse there for a body the other engine reads. So the two engines agree on every vector, "
+              "not for every caller. A statement nests 8 deep at most, so the bound changes a reason, never a "
+              "verdict. The vectors sit at the bound and at 3,000 levels, not between."),
     "envelope": ("format", "The body is an object with exactly the members {statement, statementDigest, signature, "
                  "signer} (a body that is JSON text but not an object, an array for example, is refused here), and "
                  "signer equals statement.ledger byte for byte. Otherwise shape."),
