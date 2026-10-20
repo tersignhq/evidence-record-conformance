@@ -225,6 +225,20 @@ checked series by series) pass every v0.6.0 vector and are failed by sp43, sn232
 3.12.13 and 3.13.13 regenerate the set byte for byte from empty directories. No outside implementation has run these
 vectors yet.
 
+## Chain statements: any kind of record (added 2026-10-20)
+
+The chain-statement profile ([`statement/`](statement/README.md)) reads a chain's records only as digests: artifact
+digests for the range, chain links past it (`rules.bridge`). The `records` check folds one `0x` + 64 lower-case hex
+digest per record of the range (`rules.records` in `statement/MANIFEST.json`) and opens nothing behind a digest. No rule
+names a kind of record, and the only member that labels one, an attachment entry's `type`, is constrained in form only
+(`rules.entry_type`). The vectors are built on synthetic chains whose record digests are keccak256 hashes of fixed
+labels (`statement/gen_statement_vectors.py`); rejecting vectors that substitute a digest use fixed byte patterns. No
+verdict here rests on record content. A valid verdict therefore means the same whatever each digest stands for: a
+payment receipt, an invoice, a log entry or any other record. Which kinds of record a ledger accepts onto a chain, and
+what any record says, are outside this profile: with `records`, a valid verdict fixes which digests the statement
+commits to at seq `from` to `to`, not what they stand for (*What a valid verdict establishes* and *What it does not
+establish*, in the v0.6.0 section below).
+
 ## Chain statements (v0.6.0)
 
 A new profile, [`statement/`](statement/README.md), checks `tersign-chain-statement-v1`: a statement a ledger signs
