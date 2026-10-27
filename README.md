@@ -52,6 +52,13 @@ A reject counts only with its reason, and reasons compare as exact strings: `ind
 matches itself and nothing else, with no case folding, no whitespace trimming and no prefix match.
 `verify.py`, `tools/cross_check_ts.mjs` and `tools/compare_run.py` all compare this way.
 
+When an input carries a member the suite does not define and also fails another rule, the member
+decides the reason. In every kind of `MANIFEST.json`, and inside each closed object, the reason is
+`unknown_member_reject` (`defined_members`; n133–n145, n150–n152); a closed object that is not a
+JSON object has no members, and the kind's criterion decides it (n16, p62). In the crypto profiles
+the reason is `malformed_input`, decided before the signature is read and, in `crypto/MANIFEST.json`,
+before the link version (`defined_fields`; cn37, cn39, en36, en37).
+
 ## Vector classes
 
 | class | accepts | rejects | reason code |
@@ -184,6 +191,7 @@ them or by rejecting them for another reason.
 | a number outside the vector domain (I-JSON integers) read as a number | n10, n11, n35, n103 | `number_domain_reject` |
 | duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
 | a member the suite does not define read as absent | n107–n152 | `unknown_member_reject` |
+| the kind's criterion decided before the member check, so an input that fails both keeps the criterion's reason | n133–n145, n150–n152 | `unknown_member_reject` |
 | an attested prefix length read only beside claimed coverage | n154, n156–n159, n170 | `boundary_reject` |
 | a boundary member read by value, so a present `null` reads as absent | n158, n171 | `boundary_reject` |
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
