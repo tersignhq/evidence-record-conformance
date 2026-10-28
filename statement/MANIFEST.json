@@ -1,5 +1,5 @@
 {
- "version": "0.6.1",
+ "version": "0.6.2",
  "profile": "chain statement (tersign-chain-statement-v1)",
  "runner": "statement/verify_statement.py",
  "second_engine": "tools/cross_check_statement.mjs",

@@ -212,7 +212,7 @@ reasons.
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
 | a reading of `composition_independence` (each one named under *Composition: findings and the counterparty's decision*, **Measured at this commit**) | the vectors named there for it | `independence_reject`, `binding_reject`, `unknown_member_reject` |
 
-## Composition: findings and the counterparty's decision (unreleased)
+## Composition: findings and the counterparty's decision (v0.6.2)
 
 A new kind, `composition_independence`, with forty-five vectors: p68–p86 and n173–n198. A verifier
 that runs this suite has to implement it: `verify.py` fails a run that leaves any of its kinds
@@ -1306,6 +1306,17 @@ to v0.5.9 (n107–n117, p63, n153, n165), were written here from inputs that aut
 and #9, and n176, added with composition_independence, carries the member and value of that
 author's #17 probe. No
 outside run of either crypto profile at v0.5.9 has been reported here.
+
+At v0.6.1 the author of the v0.5.6 runners reported a run of an engine of his whose rules come from
+the manifests and the vector files only, without per-vector output
+([#16, 2026-10-21](https://github.com/tersignhq/evidence-record-conformance/issues/16#issuecomment-6327878566)):
+182/239 structural vectors on verdict and reason (200/239 on verdict alone) and 46/50
+counter-signature vectors. By his account, 49 of the 57 structural disagreements, and the four
+counter-signature ones (cn36–cn39), come from one rule his engine does not implement, the member
+check (`defined_members`; `defined_fields` in the counter-signature profile), and 8 from which
+reason an input that fails both that check and another rule rejects with; the member check decides it
+(the reply on [#16, 2026-10-27](https://github.com/tersignhq/evidence-record-conformance/issues/16#issuecomment-6439744114)
+cites the rule and the vectors that pin it at v0.6.1).
 
 No outside run of the chain-statement profile (`statement/`, v0.6.0 or v0.6.1) has been reported. A run of it is
 reported in the same form, one object per vector in `statement/MANIFEST.json`, and

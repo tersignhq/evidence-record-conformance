@@ -39,7 +39,7 @@ NONCE_DERIVATION = "keccak256(the private key as 32 big-endian bytes || the 32-b
 BASE = "https://ledger.example"
 HEIGHT = 900000
 AUTHOR = "Tersign (@wowlegend)"
-VERSION = "0.6.1"   # the suite release this set belongs to, as MANIFEST.json "version"
+VERSION = "0.6.2"   # the suite release this set belongs to, as MANIFEST.json "version"
 
 
 def address(priv):
