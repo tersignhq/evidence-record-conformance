@@ -282,7 +282,8 @@ control showing the probe sees a change when one happens; no sentence or vector 
 does with such a member. v0.5.8 rejects it (`unknown_member_reject`; `defined_members` in
 `MANIFEST.json`). `n107`–`n117` carry the probe's member and value verbatim, one per kind, and are
 classed `contributed` (`n112`, on p5's live anchor, `live-ledger-derived`); the other v0.5.8 vectors
-were written here.
+were written here. `n176`, added with `composition_independence` after v0.6.1, carries the same
+member and value on that kind's p68 and is `contributed` too.
 
 **Full-set run at v0.5.9** —
 [#16](https://github.com/tersignhq/evidence-record-conformance/issues/16#issuecomment-6163463968)

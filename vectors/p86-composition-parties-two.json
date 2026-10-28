@@ -1,0 +1,39 @@
+{
+  "id": "p86-composition-parties-two",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p68's input with `parties` listing two identifiers, 0x3333...3333 and 0x5555...5555, in that order: the findings are attested by the counterparty and by 0x4444...4444, which is neither `counterparty` nor an identifier `parties` lists, so the claim holds and the record is valid. The accepting twin of n196. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333",
+      "0x5555555555555555555555555555555555555555"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

@@ -33,6 +33,11 @@ adversarial vector for its known failure class:
                         no phase verifies as none)
   independence_claim    a record attested only by parties to the transaction MUST NOT
                         count as an independent/neutral finding
+  composition_independence
+                        two records joined by digest, findings about a party's work and the
+                        counterparty's decision on it: the join is decided first, then a claim
+                        is read off the findings' attestations against the parties `parties`
+                        declares together with the counterparty
   offer_binding         a receipt that does not commit to the accepted offer's canonical
                         digest MUST NOT be evaluated as proof that a specific offer's
                         terms were paid (the offer-substitution class)
@@ -48,8 +53,9 @@ adversarial vector for its known failure class:
                         prefix length, wherever present, is an integer in [0, len(prefix)]
 
 DEFINED MEMBERS (v0.5.8, issue #17): every kind's `input` is a closed object, and so are the
-objects DEFINED_MEMBERS lists for that kind (the chain `head` and each `records` entry, and each
-independence `attestations` entry). A member whose name is not listed rejects the record with
+objects DEFINED_MEMBERS lists for that kind (the chain `head` and each `records` entry, each
+independence `attestations` entry, and each composition `findings_attestations` and
+`decision_attestations` entry). A member whose name is not listed rejects the record with
 unknown_member_reject, whatever its value, before the kind's criterion runs. Names compare as
 exact strings. The lists are pinned here and in tools/cross_check_ts.mjs, and the run fails if
 MANIFEST.json's `defined_members` differs from them.
@@ -81,7 +87,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # releases) refuses to convert one longer than 4300 digits by default, so this verifier's loader
 # raised on such a token and reported the input malformed, where the TypeScript engine reads it as
 # a number past the domain and lets the criterion reject it (an `attestedPrefixLength` of 5001
-# digits: boundary_reject; v0.5.9 review). The limit is lifted for this process, so the loader reads
+# digits: boundary_reject; since v0.5.9). The limit is lifted for this process, so the loader reads
 # the token as the integer it is. No vector carries one; tools/differential.py compares both engines.
 if hasattr(sys, "set_int_max_str_digits"):
     sys.set_int_max_str_digits(0)
@@ -722,7 +728,7 @@ def check_boundary_binding(inp):
 
     # The downgrade: coverage claimed over an empty attested prefix. A verifier that reports
     # success here has checked nothing and said so in the same breath.
-    # Key PRESENCE here too (v0.5.9 review), so a present `covered_through: null` is a value, not
+    # Key PRESENCE here too (since v0.5.9), so a present `covered_through: null` is a value, not
     # absence, and rejects (n171): the same rule as for `attestedPrefixLength` (n158).
     if "covered_through" in inp:
         covered = inp["covered_through"]
@@ -914,18 +920,58 @@ def check_independence_claim(inp):
     return "valid", None, f"{outside} non-party attestation(s)"
 
 
+def check_composition_independence(inp):
+    """Two records joined by digest: `findings`, a record of findings about a party's work, and
+    `decision`, the counterparty's decision on that work, which commits to the findings by
+    `findings_digest`. The join is decided first: unless `decision` and `findings` are JSON objects
+    and decision.findings_digest, whitespace-stripped and lowercased, equals the digest of the
+    presented findings, the record rejects with binding_reject.
+
+    Then the findings are read as independence_claim reads a record, with `findings_attestations` as
+    its attestations and, as its parties, `parties` followed by `counterparty` (when `parties` is a
+    non-empty array). Of the decision only `findings_digest` is read here, and
+    `decision_attestations` is not read.
+
+    It compares the identifiers declared beside the two records (`parties`, `counterparty`, each
+    findings attestor); no digest binds them to either record, and an identifier declared only as
+    the decision's attestor is not compared, so whether `counterparty` names the decision's attestor
+    is not checked. README.md's composition_independence section states what the vectors pin."""
+    verdict, reason, detail = _check_object_binding(
+        inp.get("decision"),
+        "findings_digest",
+        inp["findings"] if "findings" in inp else _MISSING,
+        "findings",
+        carrier_label="decision",
+        object_required=True,
+        valid_detail="decision binds the presented findings",
+    )
+    if verdict != "valid":
+        return verdict, reason, detail
+    parties = inp.get("parties")
+    if isinstance(parties, list) and parties:
+        parties = parties + [inp.get("counterparty")]
+    verdict, reason, detail = check_independence_claim({
+        "claimed": inp.get("claimed"),
+        "parties": parties,
+        "attestations": inp.get("findings_attestations"),
+    })
+    return verdict, reason, f"findings, the counterparty counted among the parties: {detail}"
+
+
 # ------------------------------------------------------------------- defined members
 # v0.5.8 (issue #17, 2026-10-11): every `valid` vector stayed valid with a member the suite does
 # not define added to its input, and nothing said what a verifier does with one. The ruling:
 # reject it. Per kind, the closed objects and the exact names each one defines. `input` is
 # closed in every kind; inside it, the chain `head` and each object in `records` (chain_set,
-# chain_commitment) and each object in `attestations` (independence_claim) are closed too.
+# chain_commitment), each object in `attestations` (independence_claim) and each object in
+# `findings_attestations` and `decision_attestations` (composition_independence) are closed too.
 # Members permitted and not read are listed and their contents are not examined: `witness` and
 # `attestations` beside a chain set, an attestation's `role`, `deliverable_signer` and `payTo`.
+# `decision_attestations` is permitted and not read, and each object in it is closed.
 # `record_commits` is listed because the suite defines it: in a record that claims independence
 # its presence is the independence reject (n22-n24). Every other object is open: digested whole (payload, offer,
-# decision_evidence, each prefix entry), or another protocol's or the record's own (a phase or
-# decision `record`, `receipt`, `settlement_result`, `boundary_event`).
+# decision_evidence, `findings`, each prefix entry), or another protocol's or the record's own (a phase or
+# decision `record`, `receipt`, `settlement_result`, `boundary_event`, the composition's `decision`).
 # Pinned in code, as the reject-reason closure is; main() fails if MANIFEST.json says otherwise.
 _CHAIN_INPUT = frozenset({"head", "records", "witness", "attestations"})
 _CHAIN_ROW = frozenset({"seq", "artifact_digest", "prev_digest", "link"})
@@ -948,6 +994,15 @@ DEFINED_MEMBERS = {
     "offer_binding": {"input": frozenset({"offer", "receipt"})},
     "decision_evidence_binding": {"input": frozenset({"record", "decision_evidence"})},
     "boundary_binding": {"input": frozenset({"prefix", "boundary_event", "covered_through"})},
+    # composition_independence: each object in `findings_attestations` and in `decision_attestations`
+    # is closed; `findings` (digested whole) and `decision` (the record's own) are open, and
+    # `decision_attestations` are permitted and not read.
+    "composition_independence": {
+        "input": frozenset({"claimed", "parties", "counterparty", "findings", "findings_attestations",
+                            "decision", "decision_attestations"}),
+        "input.findings_attestations[]": frozenset({"by", "role"}),
+        "input.decision_attestations[]": frozenset({"by", "role"}),
+    },
 }
 
 
@@ -977,7 +1032,9 @@ def check_defined_members(kind, inp):
     other value (n123-n125). Names compare as exact strings — no case folding, no trimming, no
     Unicode normalization, no confusable mapping (n126-n128, n149) — against the list for THIS
     kind and THIS object (n129, n130). Decided before the criterion, in every kind and inside the
-    closed objects too (n133-n145, n150-n152)."""
+    closed objects too: at the top level n133-n143 and n179, one per kind, and inside the closed
+    objects of chain_set, chain_commitment and independence_claim n144, n145 and n150-n152; no vector
+    pins it inside a composition_independence attestation."""
     if not isinstance(inp, dict):
         return None
     for path, obj, names in _closed_objects(kind, inp):
@@ -1000,6 +1057,7 @@ CRITERIA = {
     "offer_binding": check_offer_binding,
     "decision_evidence_binding": check_decision_evidence_binding,
     "boundary_binding": check_boundary_binding,
+    "composition_independence": check_composition_independence,
 }
 
 

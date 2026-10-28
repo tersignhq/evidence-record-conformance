@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from verify import canonical, digest_of, chain_link_digest, chain_acc_step, ACC_GENESIS, check_chain_set  # noqa: E402
-from verify import CHECKS, CRITERIA, defined_members_table  # noqa: E402
+from verify import CHECKS, CRITERIA, defined_members_table, _norm_addr, _address_key  # noqa: E402
 from keccak import keccak256  # noqa: E402  (vendored, self-checked at import)
 
 V = os.path.join(ROOT, "vectors")
@@ -348,7 +348,7 @@ LONE_NAME_PAYLOAD = {chr(0xFF61): 1, chr(0xD800): 2}
 LONE_NAME_JS_TEXT = '{"' + BS + 'ud800":2,"' + chr(0xFF61) + '":1}'
 assert list(SUPP_PAYLOAD) == [chr(0xFF61), chr(0x10000)]
 
-# v0.5.5, review round — each clause of the new MANIFEST text pinned by a vector. _js_text is the
+# v0.5.5 — each clause of the new MANIFEST text pinned by a vector. _js_text is the
 # text a JSON.stringify-based canonicalizer emits when it does not check for unpaired surrogates:
 # canonical() as written, except that an unpaired surrogate becomes a lowercase \u escape (ES2019
 # JSON.stringify) instead of failing. Integer numbers only, as in the corpus.
@@ -421,7 +421,7 @@ LONE_BOUNDARY_PREFIX = [
     {"event": "record", "seq": 3},
 ]
 
-# v0.5.5, second review round — clauses a mutant could still break without failing a vector.
+# v0.5.5 — clauses a mutant could still break without failing a vector.
 # A number token json.dump cannot write (an exponent form: Python writes the float 1.0 as 1.0)
 # is carried in the vector as RAW_TOKEN + the token, a string, and the writer below replaces
 # that quoted string with the bare token, then checks that the file parses and that no
@@ -2207,7 +2207,7 @@ vectors = [
         "description": "p14's payload with the second name's low half dropped: the name U+10000 (D800 DC00) becomes a lone high surrogate, D800, in the digest domain. expected_digest is computed over the text JSON.stringify emits for it, with that name escaped and sorted first by UTF-16 code unit. A name holding an unpaired surrogate has no canonical form (RFC 7493 section 2.1 covers member names; RFC 8785 section 3.2.2.2), so it rejects with canonicalization_reject, as n83 does for a value; p14 is the accepting twin. An engine that checks values and not names reads this vector valid when it is built on JSON.stringify, and rejects it with number_domain_reject when, as v0.5.4's Python engine did, its UTF-16 sort key raises on the name.",
         "input": {"payload": LONE_NAME_PAYLOAD, "expected_digest": _keccak_hex(LONE_NAME_JS_TEXT.encode("utf-8"))},
     },
-    # ------------- v0.5.5, review round: every clause the new MANIFEST text states, pinned
+    # ------------- v0.5.5: every clause the new MANIFEST text states, pinned
     # Line and paragraph separators, and a decomposed NAME, in the digest domain (2-sided).
     {
         "id": "p45-digest-line-separators-value",
@@ -2402,7 +2402,7 @@ vectors = [
             "covered_through": 3,
         },
     },
-    # v0.5.5, second review round: a clause each, which a mutant broke without failing a vector.
+    # v0.5.5: a clause each, which a mutant broke without failing a vector.
     # The exponent form of a number token, in chain_link's seq and in the digest domain.
     {
         "id": "n97-chain-link-exponent-seq-token",
@@ -2921,7 +2921,7 @@ vectors += defined_member_vectors
 # removed (his generate_variants.py at afbd40a, seed 20260928: mut0038, mut0492, mut0359, mut0375);
 # n165 is p6's. His audit listed eleven coverage gaps, rules whose own ablation flipped no vector or
 # that no vector carried; five of them get one rejecting vector each here (n160-n164, each with an
-# accepting twin). The review round adds p67, n169-n172. Every vector below rejects or accepts on
+# accepting twin). p67 and n169-n172 pin clauses no vector reached alone. Every vector below rejects or accepts on
 # the clause its description names; the generation gate checks the verdict and reason under verify.py.
 _N26 = _input_of("n26-coverage-claimed-over-empty-attestation")
 _P63_INPUT = {k: v for k, v in _N26.items() if k != "covered_through"}
@@ -3105,7 +3105,7 @@ v059_vectors = [
         "description": "p6's input with `digest` removed from `head`. A head with no parseable digest commits to no final record, and chain_set rejects it with completeness_reject, its reason for a head it cannot read, before any record is read. It is one of the two inputs (p6's and p28's, each without its head digest) on which @robertolocatelli81-dev's differential (#9) found his verifier naming continuity_reject where verify.py names completeness_reject; MANIFEST.json's chain_set now states the reason. An engine that reads the head's digest only when it compares it with the final record names continuity_reject. p6 is the accepting twin.",
         "input": _p6_with(lambda inp: inp["head"].pop("digest")),
     },
-    # ---- review round: clauses of the new text that no vector reached alone
+    # ---- clauses of the new text that no vector reached alone
     {
         "id": "p67-boundary-position-without-attested-length",
         "kind": _BD, "expect": "valid",
@@ -3144,6 +3144,576 @@ for _v in v059_vectors:
     if _got != (_v["expect"], _v.get("reason")):
         sys.exit(f"v0.5.9: {_v['id']} reads {_got}, expected {(_v['expect'], _v.get('reason'))}")
 vectors += v059_vectors
+
+# ------------------------------------------------------------------ composition_independence
+# Two records joined by digest: `findings`, a record of findings about a party's work, and
+# `decision`, the counterparty's decision on that work, which commits to the findings by
+# `findings_digest`. verify.py's check_composition_independence decides the join first, then reads a
+# claim off the findings' attestations against the parties `parties` declares together with
+# `counterparty`. Synthetic identities: the party whose work the findings are about is p8/n7's payee
+# (ISSUER, 0x3333...3333), the counterparty is their payer, 0x2222...2222, and the attestor outside
+# the parties is 0x4444...4444, p37's address; p79 and n192 exchange the two addresses, p82, n195 and
+# p86 use a third, 0x5555...5555 (an attestor outside the parties in p82, the one party `parties`
+# lists in n195, the second in p86), and n196's `parties` lists 0x5555...5555, 0x3333...3333 and
+# 0x7777...7777.
+# `_comp_input` labels the counterparty's attestation of each record with a `role`; other vectors
+# place a label on another attestor, or on none, and put the counterparty's attestation after another
+# one. Most vectors of the kind are p68's input with one change (p83 has two: the findings
+# substituted and `findings_digest` recomputed over them); n175, n179, n181, n184 and n190 are n173's
+# input with one change, and p81 is n173's with the counterparty's attestation of the findings
+# replaced by an unlabelled one by 0x4444...4444; n185 and p74 are n173's and p68's inputs without
+# their two `role` members, n183, p77, p82 and n192 are n174's input with one change, and n187 is
+# n174's with the decision's attestations reordered and labelled; n186, n189, n191 and n196 are
+# n180's input with one change, and n195 is n180's with another address for the party `parties`
+# lists, there and in its attestation; p75 is n187's input with one change, and p80 is n187's with
+# the counterparty's attestation of the findings replaced by one by 0x4444...4444 labelled
+# `counterparty`; n193 is n189's, p84 is p83's, n194 is p76's and n198 is p73's.
+# Each rejecting vector's description names its accepting twin or accepting side, or says it has no
+# accepting twin (generation gate 5 checks that it contains one of those phrases). Descriptions and
+# comments here state inputs, verdicts and mechanics; README.md's composition_independence section
+# states what the vectors pin.
+COMP = "composition_independence"
+COMP_WORKER = ISSUER
+COMP_COUNTERPARTY = "0x2222222222222222222222222222222222222222"
+COMP_OUTSIDE = "0x4444444444444444444444444444444444444444"
+COMP_ROLE = {"findings": "auditor", "decision": "counterparty"}  # labels; read by no criterion
+COMP_FINDINGS = {"work_digest": SCOPE_DELIVERABLE_DIGEST, "result": "meets the stated terms",
+                 "note": "synthetic findings record"}
+COMP_FINDINGS_SUBSTITUTED = {**COMP_FINDINGS, "result": "does not meet the stated terms"}
+COMP_DECISION = {"findings_digest": digest_of(COMP_FINDINGS), "decision": "accepted",
+                 "note": "synthetic decision record"}
+assert digest_of(COMP_FINDINGS_SUBSTITUTED) != COMP_DECISION["findings_digest"], "substitution did not change the digest"
+
+
+def _comp_attestation(by, record):
+    return {"by": by, "role": COMP_ROLE[record]} if by == COMP_COUNTERPARTY else {"by": by}
+
+
+def _comp_input(findings_by, decision_by, findings=COMP_FINDINGS):
+    return {
+        "claimed": "independent",
+        "parties": [COMP_WORKER],
+        "counterparty": COMP_COUNTERPARTY,
+        "findings": copy.deepcopy(findings),
+        "findings_attestations": [_comp_attestation(b, "findings") for b in findings_by],
+        "decision": copy.deepcopy(COMP_DECISION),
+        "decision_attestations": [_comp_attestation(b, "decision") for b in decision_by],
+    }
+
+
+_COMP_BASE = _comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY])
+_COMP_PARTY_ONLY = _comp_input([COMP_COUNTERPARTY], [COMP_COUNTERPARTY])
+
+
+def _comp_with(base, edit):
+    inp = copy.deepcopy(base)
+    edit(inp)
+    return inp
+
+
+def _comp_unlabelled(inp):
+    """`inp` with the `role` member removed from every attestation of either record."""
+    for record in ("findings_attestations", "decision_attestations"):
+        for a in inp.get(record, []):
+            a.pop("role", None)
+
+
+def _comp_decision_outside_first(inp):
+    """`inp` with the decision attested first by the outside address and then by the counterparty,
+    both labelled with the label `_comp_input` gives the counterparty's attestation of the decision."""
+    inp["decision_attestations"] = [{"by": by, "role": COMP_ROLE["decision"]} for by in (COMP_OUTSIDE, COMP_COUNTERPARTY)]
+
+
+def _comp_exchanged(inp):
+    """`inp` with the counterparty's address and the outside address exchanged, in `counterparty` and
+    in every attestation of either record."""
+    swap = {COMP_COUNTERPARTY: COMP_OUTSIDE, COMP_OUTSIDE: COMP_COUNTERPARTY}
+    inp["counterparty"] = swap.get(inp["counterparty"], inp["counterparty"])
+    for record in ("findings_attestations", "decision_attestations"):
+        for a in inp.get(record, []):
+            a["by"] = swap.get(a["by"], a["by"])
+
+
+_COMP_N174 = _comp_input([COMP_COUNTERPARTY], [COMP_COUNTERPARTY, COMP_OUTSIDE])
+_COMP_N180 = _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__("by", COMP_WORKER))
+COMP_FINDINGS_OTHER_WORK = {**COMP_FINDINGS, "work_digest": "0x" + "ab" * 32}
+assert digest_of(COMP_FINDINGS_OTHER_WORK) != COMP_DECISION["findings_digest"], "replacing the work digest did not change the digest"
+COMP_OTHER = "0x5555555555555555555555555555555555555555"  # a third address (outside the parties in p82, a party in n195 and p86)
+COMP_SEVENTH = "0x7777777777777777777777777777777777777777"  # a fourth address, listed in n196's `parties`
+_COMP_N187 = _comp_with(_COMP_N174, _comp_decision_outside_first)
+_COMP_N189 = _comp_with(_COMP_N180, lambda inp: inp["findings_attestations"].reverse())
+_COMP_P76 = _comp_with(_COMP_BASE, lambda inp: inp["decision"].__setitem__("decision", "rejected"))
+_COMP_P83 = _comp_with(_comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY], findings=COMP_FINDINGS_SUBSTITUTED),
+                       lambda inp: inp["decision"].__setitem__("findings_digest", digest_of(COMP_FINDINGS_SUBSTITUTED)))
+
+
+composition_vectors = [
+    {
+        "id": "p68-composition-findings-outside-attestor",
+        "kind": COMP, "expect": "valid",
+        "description": "Two records joined by digest: `findings`, a record of findings about the work of 0x3333...3333, the one identifier `parties` lists, and `decision`, the counterparty's decision on that work, which records `accepted` and commits to the findings by `findings_digest`. `counterparty` is 0x2222...2222, which attests both records, each attestation with a `role` (`auditor` on the findings, `counterparty` on the decision). The findings carry a second attestation, by 0x4444...4444, with no `role`; `parties` does not list 0x4444...4444 and it is not `counterparty`. The claim holds and the record is valid. The accepting twin of n173 (the same input without the attestation by 0x4444...4444), n174 (that attestation moved to the decision), n176-n178, n180 (that attestation by 0x3333...3333), n182 (the findings substituted), n188 (the findings' `work_digest` replaced) and n197 (`x_undefined: 1` in the counterparty's attestation of the findings). README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": copy.deepcopy(_COMP_BASE),
+    },
+    {
+        "id": "n173-composition-findings-attested-by-counterparty-only",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "p68's input without the findings' attestation by 0x4444...4444: the findings are attested only by the counterparty, 0x2222...2222, whose attestation is labelled `role: auditor` and which also attests the decision; `parties` lists only 0x3333...3333. The findings are attested only by parties, and the record rejects with independence_reject. p68 is the accepting twin. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": copy.deepcopy(_COMP_PARTY_ONLY),
+    },
+    {
+        "id": "n174-composition-outside-attestation-on-decision-only",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "p68's input with the attestation by 0x4444...4444 moved from the findings to the decision: the findings are attested only by the counterparty, and the decision by the counterparty and then by 0x4444...4444. The record rejects with independence_reject. p68 is the accepting twin. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_COUNTERPARTY], [COMP_COUNTERPARTY, COMP_OUTSIDE]),
+    },
+    {
+        "id": "n175-composition-decision-binds-other-findings",
+        "kind": COMP, "expect": "reject", "reason": "binding_reject",
+        "description": "n173's input with the findings substituted, their `result` changed to \"does not meet the stated terms\", while `findings_digest` is still the digest of the findings n173 presents. The decision does not commit to the presented findings, and the record rejects with binding_reject, not with n173's independence_reject. p68 is the accepting twin of the join: the same decision beside the findings it commits to. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_COUNTERPARTY], [COMP_COUNTERPARTY], findings=COMP_FINDINGS_SUBSTITUTED),
+    },
+    {
+        "id": "n176-unknown-member-composition-independence",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"p68's input with one member added at its top level, `{PROBE}: 1`, a name {COMP} does not define, so the record rejects with unknown_member_reject. p68 is the accepting twin: the same input without the member. The member and its value are the probe published in issue #17, which added it to every valid vector's input at 9be9eec, before this kind existed, and found all of them still valid. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, _set(PROBE, 1)),
+    },
+    {
+        "id": "n177-unknown-member-in-findings-attestation",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"p68's input with `{UNDEFINED}: 1` added to the findings' attestation by 0x4444...4444. Each object in `findings_attestations` is closed in {COMP}, defining `by` and `role`, so the record rejects with unknown_member_reject. p68 is the accepting twin. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__(UNDEFINED, 1)),
+    },
+    {
+        "id": "n178-unknown-member-in-decision-attestation",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"p68's input with `{UNDEFINED}: 1` added to the decision's attestation. Each object in `decision_attestations` is closed in {COMP}, defining `by` and `role`, so the record rejects with unknown_member_reject. p68 is the accepting twin. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["decision_attestations"][0].__setitem__(UNDEFINED, 1)),
+    },
+    {
+        "id": "n179-unknown-member-before-criterion-composition-independence",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"n173's input, which rejects with independence_reject, with `{UNDEFINED}: 1` added at its top level. The member check is decided before the kind's criterion, so the record rejects with unknown_member_reject, not independence_reject. Like the order vectors of the other kinds, it has no accepting twin. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_PARTY_ONLY, _set(UNDEFINED, 1)),
+    },
+    {
+        "id": "n180-composition-findings-attested-by-counterparty-and-worker",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "p68's input with the findings' attestation by 0x4444...4444 replaced by one by 0x3333...3333, the one identifier `parties` lists: the findings are attested by the counterparty and by 0x3333...3333. The findings are attested only by parties, and the record rejects with independence_reject. p68 is the accepting twin. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__("by", COMP_WORKER)),
+    },
+    {
+        "id": "p69-composition-outside-attestor-did-pkh",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the findings' attestation by 0x4444...4444 written as the did:pkh did:pkh:eip155:1:0x4444...4444. Under identifier_normalization it names 0x4444...4444, which is neither `counterparty` nor an identifier `parties` lists, so the claim holds and the record is valid. The accepting side of n181, n184, n186 and n191. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__("by", "did:pkh:eip155:1:" + COMP_OUTSIDE)),
+    },
+    {
+        "id": "n181-composition-counterparty-attestation-caip10",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n173's input with the counterparty's attestation of the findings written as the CAIP-10 account eip155:8453:0x2222...2222, while `counterparty` is written 0x2222...2222. Under identifier_normalization both name 0x2222...2222, so the findings are attested only by parties, and the record rejects with independence_reject. p69, a scheme-qualified form of an address that is not a party's, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_PARTY_ONLY, lambda inp: inp["findings_attestations"][0].__setitem__("by", "eip155:8453:" + COMP_COUNTERPARTY)),
+    },
+    {
+        "id": "n182-composition-findings-substituted-outside-attestor",
+        "kind": COMP, "expect": "reject", "reason": "binding_reject",
+        "description": "p68's input with the findings substituted, their `result` changed to \"does not meet the stated terms\", while `findings_digest` is still the digest of the findings p68 presents; the findings still carry the attestation by 0x4444...4444. The decision does not commit to the presented findings, and the record rejects with binding_reject. p68 is the accepting twin: the same decision beside the findings it commits to. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY], findings=COMP_FINDINGS_SUBSTITUTED),
+    },
+    {
+        "id": "n183-composition-findings-unattested-outside-on-decision",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n174's input without `findings_attestations`: the findings carry no attestation, and the decision is attested by the counterparty and then by 0x4444...4444. The record rejects with independence_reject. It has no accepting twin; p68, where the attestation by 0x4444...4444 is on the findings, is the nearest accepting vector. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_comp_input([COMP_COUNTERPARTY], [COMP_COUNTERPARTY, COMP_OUTSIDE]),
+                            lambda inp: inp.pop("findings_attestations")),
+    },
+    {
+        "id": "p70-composition-decision-unattested",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input without `decision_attestations`: the decision carries no attestation. The record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp.pop("decision_attestations")),
+    },
+    {
+        "id": "n184-composition-counterparty-caip10",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n173's input with `counterparty` written as the CAIP-10 account eip155:8453:0x2222...2222, while the counterparty's attestations stay 0x2222...2222: n181 with the two forms exchanged. Under identifier_normalization both name 0x2222...2222, so the findings are attested only by parties, and the record rejects with independence_reject. p69, a scheme-qualified form of an address that is not a party's, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_PARTY_ONLY, lambda inp: inp.__setitem__("counterparty", "eip155:8453:" + COMP_COUNTERPARTY)),
+    },
+    {
+        "id": "p71-composition-outside-attestor-urn",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the findings' attestation by 0x4444...4444 replaced by one by org:example-outside, a scheme-qualified identifier that names no 0x-address. It parses under identifier_normalization and names neither `counterparty` nor an identifier `parties` lists, so the claim holds and the record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__("by", "org:example-outside")),
+    },
+    {
+        "id": "n185-composition-counterparty-attestation-unlabelled",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n173's input without its two `role` members: the findings are attested only by the counterparty, and no attestation of either record carries a label. The record rejects with independence_reject. p74, the same input with an attestation by 0x4444...4444 on the findings, is the accepting twin. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_PARTY_ONLY, _comp_unlabelled),
+    },
+    {
+        "id": "p72-composition-outside-attestor-labelled",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the findings' attestation by 0x4444...4444 labelled `role: auditor`, the label the counterparty's attestation of the findings also carries. The record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][1].__setitem__("role", COMP_ROLE["findings"])),
+    },
+    {
+        "id": "p73-composition-outside-attestor-on-both-records",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with 0x4444...4444 also attesting the decision: the findings are attested as in p68, and the decision by the counterparty and then by 0x4444...4444. The record is valid. The accepting twin of n174, whose findings lack the attestation by 0x4444...4444, and of n198, which adds `x_undefined: 1` to the counterparty's attestation of the decision. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY, COMP_OUTSIDE]),
+    },
+    {
+        "id": "n186-composition-parties-caip10",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n180's input with `parties` written as [eip155:8453:0x3333...3333], while the attestation by that party stays 0x3333...3333. Under identifier_normalization both name 0x3333...3333, so the findings are attested only by parties, and the record rejects with independence_reject. p69, a scheme-qualified form of an address that is not a party's, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp.update(
+            parties=["eip155:8453:" + COMP_WORKER],
+            findings_attestations=[inp["findings_attestations"][0], {"by": COMP_WORKER}])),
+    },
+    {
+        "id": "p74-composition-unlabelled",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input without its two `role` members: no attestation of either record carries a label, and the findings are attested by the counterparty and by 0x4444...4444. The record is valid. The accepting twin of n185, which is the same input without the attestation by 0x4444...4444. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, _comp_unlabelled),
+    },
+    {
+        "id": "n187-composition-decision-outside-attestor-labelled-first",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n174's input with the decision's attestations in the other order and both labelled `role: counterparty`: the decision is attested first by 0x4444...4444 and then by the counterparty, and the findings only by the counterparty. The record rejects with independence_reject. p75 is the accepting twin: the same input with 0x4444...4444 also attesting the findings. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N174, _comp_decision_outside_first),
+    },
+    {
+        "id": "p75-composition-outside-attestor-labelled-on-decision",
+        "kind": COMP, "expect": "valid",
+        "description": "n187's input with 0x4444...4444 also attesting the findings: the findings are attested by the counterparty and then by 0x4444...4444, and the decision first by 0x4444...4444 and then by the counterparty, both labelled `role: counterparty`. The record is valid. The accepting twin of n187, and p73's input with the decision's attestations in that order and with that label. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, _comp_decision_outside_first),
+    },
+    {
+        "id": "p76-composition-decision-rejected",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the decision's `decision` member set to \"rejected\"; `findings_digest` is the digest of the presented findings. The record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["decision"].__setitem__("decision", "rejected")),
+    },
+    {
+        "id": "n188-composition-findings-other-work",
+        "kind": COMP, "expect": "reject", "reason": "binding_reject",
+        "description": "p68's input with the findings' `work_digest` replaced and their `result` unchanged, while `findings_digest` is still the digest of the findings p68 presents. The decision does not commit to the presented findings, and the record rejects with binding_reject. p68 is the accepting twin: the same decision beside the findings it commits to. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY], findings=COMP_FINDINGS_OTHER_WORK),
+    },
+    {
+        "id": "p77-composition-findings-attested-outside-only",
+        "kind": COMP, "expect": "valid",
+        "description": "n174's input with the findings' attestation by the counterparty replaced by one by 0x4444...4444, which keeps its label `role: auditor`: the findings are attested only by 0x4444...4444, and the decision by the counterparty and then by 0x4444...4444. The record is valid. The accepting twin of n174. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N174, lambda inp: inp["findings_attestations"][0].__setitem__("by", COMP_OUTSIDE)),
+    },
+    {
+        "id": "n189-composition-findings-attestations-reversed",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n180's input with the findings' two attestations in the other order: 0x3333...3333 attests first and the counterparty second. The findings are attested only by parties, and the record rejects with independence_reject. It has no accepting twin; p77, whose findings' first and only attestation is by 0x4444...4444, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N180, lambda inp: inp["findings_attestations"].reverse()),
+    },
+    {
+        "id": "n190-composition-decision-attested-outside-only",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n173's input with the decision's attestation by the counterparty replaced by one by 0x4444...4444, labelled `role: counterparty`: the decision is attested only by 0x4444...4444, and the findings only by the counterparty. The record rejects with independence_reject. It has no accepting twin; p68 is the nearest accepting vector. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_PARTY_ONLY, lambda inp: inp.__setitem__(
+            "decision_attestations", [{"by": COMP_OUTSIDE, "role": COMP_ROLE["decision"]}])),
+    },
+    {
+        "id": "n191-composition-party-attestation-caip10",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n180's input with the findings' attestation by 0x3333...3333 written as the CAIP-10 account eip155:8453:0x3333...3333, while `parties` lists 0x3333...3333: n186 with the two forms exchanged. Under identifier_normalization both name 0x3333...3333, so the findings are attested only by parties, and the record rejects with independence_reject. p69, a scheme-qualified form of an address that is not a party's, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N180, lambda inp: inp["findings_attestations"][1].__setitem__("by", "eip155:8453:" + COMP_WORKER)),
+    },
+    {
+        "id": "p78-composition-parties-and-counterparty-caip10",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with `parties` written as [eip155:8453:0x3333...3333] and `counterparty` as eip155:8453:0x2222...2222, while every attestation stays a 0x-address. Under identifier_normalization they name 0x3333...3333 and 0x2222...2222, 0x4444...4444 names neither, and the record is valid. The accepting side of n184 and n186. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp.update(
+            parties=["eip155:8453:" + COMP_WORKER], counterparty="eip155:8453:" + COMP_COUNTERPARTY)),
+    },
+    {
+        "id": "p79-composition-counterparty-and-outside-exchanged",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with 0x2222...2222 and 0x4444...4444 exchanged throughout: `counterparty` names 0x4444...4444, which attests both records with the labels p68's counterparty carries, and 0x2222...2222 attests the findings with no label. The record is valid. The accepting side of n192. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, _comp_exchanged),
+    },
+    {
+        "id": "n192-composition-counterparty-and-outside-exchanged",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n174's input with 0x2222...2222 and 0x4444...4444 exchanged throughout: `counterparty` names 0x4444...4444, the findings' only attestor, and 0x2222...2222 attests the decision after it. The findings are attested only by parties, and the record rejects with independence_reject. p79, the same exchange on p68's input, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N174, _comp_exchanged),
+    },
+    {
+        "id": "p80-composition-outside-attestor-first-and-labelled-counterparty-on-both-records",
+        "kind": COMP, "expect": "valid",
+        "description": "n187's input with the counterparty's attestation of the findings replaced by one by 0x4444...4444 labelled `role: counterparty`: 0x4444...4444 attests the findings alone and the decision first, labelled `counterparty` on both, and the counterparty, 0x2222...2222, attests only the decision, second, also labelled `counterparty`. The record is valid. n187 and n193 are the rejecting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N187, lambda inp: inp.__setitem__(
+            "findings_attestations", [{"by": COMP_OUTSIDE, "role": COMP_ROLE["decision"]}])),
+    },
+    {
+        "id": "p81-composition-findings-attested-outside-only-unlabelled",
+        "kind": COMP, "expect": "valid",
+        "description": "n173's input with the counterparty's attestation of the findings replaced by one by 0x4444...4444, with no label: the findings are attested only by 0x4444...4444, and the decision only by the counterparty. The record is valid. An accepting twin of n173. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_input([COMP_OUTSIDE], [COMP_COUNTERPARTY]),
+    },
+    {
+        "id": "n193-composition-party-first-on-both-records-labelled-counterparty",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n189's input with the decision attested first by 0x3333...3333 and then by the counterparty, both labelled `role: counterparty`: 0x3333...3333 is first in both lists, unlabelled on the findings and labelled `counterparty` on the decision. The findings are attested only by parties, and the record rejects with independence_reject. It has no accepting twin; p80, where the identifier first in both lists and labelled `counterparty` on the decision is 0x4444...4444, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N189, lambda inp: inp.__setitem__(
+            "decision_attestations", [{"by": by, "role": COMP_ROLE["decision"]} for by in (COMP_WORKER, COMP_COUNTERPARTY)])),
+    },
+    {
+        "id": "p82-composition-decision-attested-by-another-outside-address",
+        "kind": COMP, "expect": "valid",
+        "description": "n174's input with a second attestation of the findings, by 0x5555...5555: the findings are attested by the counterparty and then by 0x5555...5555, and the decision by the counterparty and then by 0x4444...4444, which attests only the decision. The record is valid. An accepting twin of n174. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N174, lambda inp: inp["findings_attestations"].append({"by": COMP_OTHER})),
+    },
+    {
+        "id": "p83-composition-decision-on-findings-not-meeting-terms",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the findings substituted, their `result` changed to \"does not meet the stated terms\" as in n182, and `findings_digest` recomputed over them; the decision still records `accepted`. The record is valid. The accepting twin of n182, which keeps p68's digest. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": copy.deepcopy(_COMP_P83),
+    },
+    {
+        "id": "p84-composition-decision-rejected-on-findings-not-meeting-terms",
+        "kind": COMP, "expect": "valid",
+        "description": "p83's input with the decision's `decision` member set to \"rejected\". The record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_P83, lambda inp: inp["decision"].__setitem__("decision", "rejected")),
+    },
+    {
+        "id": "n194-composition-decision-rejected-binds-other-findings",
+        "kind": COMP, "expect": "reject", "reason": "binding_reject",
+        "description": "p76's input with the findings' `work_digest` replaced, as in n188: the decision records `rejected`, and `findings_digest` is still the digest of the findings p76 presents. The decision does not commit to the presented findings, and the record rejects with binding_reject. p76 is the accepting twin: the same decision beside the findings it commits to. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_P76, lambda inp: inp.__setitem__("findings", copy.deepcopy(COMP_FINDINGS_OTHER_WORK))),
+    },
+    {
+        "id": "p85-composition-findings-digest-upper-case",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with the hex digits of `findings_digest` written in upper case, its 0x prefix unchanged. Compared lowercased, it equals the digest of the presented findings, and the record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["decision"].__setitem__(
+            "findings_digest", "0x" + inp["decision"]["findings_digest"][2:].upper())),
+    },
+    {
+        "id": "n195-composition-parties-other-address",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n180's input with the one identifier `parties` lists at 0x5555...5555 in place of 0x3333...3333, in `parties` and in its attestation of the findings: the findings are attested by the counterparty and by 0x5555...5555. The findings are attested only by parties, and the record rejects with independence_reject. p82, where 0x5555...5555 attests the findings and `parties` lists 0x3333...3333, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N180, lambda inp: inp.update(
+            parties=[COMP_OTHER], findings_attestations=[inp["findings_attestations"][0], {"by": COMP_OTHER}])),
+    },
+    {
+        "id": "n196-composition-parties-three-second-attests",
+        "kind": COMP, "expect": "reject", "reason": "independence_reject",
+        "description": "n180's input with `parties` listing three identifiers, 0x5555...5555, 0x3333...3333 and 0x7777...7777, in that order: the findings are attested by the counterparty and by 0x3333...3333, the second identifier `parties` lists. The findings are attested only by parties, and the record rejects with independence_reject. p86, p68's input with `parties` listing 0x3333...3333 and 0x5555...5555, is its accepting twin. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_N180, lambda inp: inp.__setitem__("parties", [COMP_OTHER, COMP_WORKER, COMP_SEVENTH])),
+    },
+    {
+        "id": "p86-composition-parties-two",
+        "kind": COMP, "expect": "valid",
+        "description": "p68's input with `parties` listing two identifiers, 0x3333...3333 and 0x5555...5555, in that order: the findings are attested by the counterparty and by 0x4444...4444, which is neither `counterparty` nor an identifier `parties` lists, so the claim holds and the record is valid. The accepting twin of n196. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp.__setitem__("parties", [COMP_WORKER, COMP_OTHER])),
+    },
+    {
+        "id": "n197-unknown-member-in-counterparty-findings-attestation",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"p68's input with `{UNDEFINED}: 1` added to the findings' attestation by the counterparty, the first of their two attestations; the second is by 0x4444...4444. Each object in `findings_attestations` is closed in {COMP}, defining `by` and `role`, so the record rejects with unknown_member_reject. p68 is the accepting twin. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_COMP_BASE, lambda inp: inp["findings_attestations"][0].__setitem__(UNDEFINED, 1)),
+    },
+    {
+        "id": "n198-unknown-member-in-first-decision-attestation",
+        "kind": COMP, "expect": "reject", "reason": _UM,
+        "description": f"p73's input with `{UNDEFINED}: 1` added to the decision's attestation by the counterparty, the first of its two attestations; the second is by 0x4444...4444. Each object in `decision_attestations` is closed in {COMP}, defining `by` and `role`, so the record rejects with unknown_member_reject. p73 is the accepting twin. {_RULE} README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+        "input": _comp_with(_comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY, COMP_OUTSIDE]),
+                            lambda inp: inp["decision_attestations"][0].__setitem__(UNDEFINED, 1)),
+    },
+]
+
+# Generation gate. (1) Each verdict and reason under verify.py's CHECKS. (2) For the member vectors,
+# the criterion alone reads valid (taken from p68, or from p73 for n198) or n173's independence_reject
+# (n179), so none
+# can land rejecting for another reason. (3) The deciding attestation flips the verdict: n173 with
+# its one findings attestor replaced by the outside address reads valid, and by the party whose work
+# the findings are about (findings attested only by that party) reads independence_reject; p68 with
+# its outside attestor replaced by the counterparty reads independence_reject (n180 ships the same
+# replacement by that party); n174 with its outside attestor moved back to the findings reads valid.
+# (4) No vector of the kind carries the live ledger's signer: its attestor outside the parties is
+# a neutral address, never a key any party to this suite operates. Checked on the raw bytes and on
+# every string the identifier rule reads as naming that address (a CAIP-10 or did:pkh form, a
+# percent-encoded or padded one), so a form the raw test misses fails too. (5) Each rejecting
+# vector's description contains "accepting twin" or "accepting side", the phrases it uses to name its
+# accepting twin or side or to say it has no accepting twin; the test is on the words, not on the
+# vector named. (6) Each single feature of the attestations listed here, read in place of the
+# identifier `counterparty` declares, mispredicts the counterparty in some vector of the kind; the
+# gate checks these single features only. The features, each read on the identifiers the attestations
+# name: on each list, a `role` member, each `role` value that list carries in some vector of the kind,
+# and no `role`; the first, the last and the only place in each list; attesting both records,
+# attesting the decision, attesting more than once and attesting most often; an attestation written
+# as a 0x-address, and one written scheme-qualified; and naming each address some vector of the kind
+# declares as `counterparty`. For each feature, (a) among the vectors whose verdict depends on which
+# identifiers are parties (it changes when `counterparty` names a fresh address or another attestor,
+# or when an attestor is added to `parties`), an accepting one and a rejecting one each carry an
+# identifier the feature marks that is not the counterparty, or leave the counterparty's attestation
+# unmarked; and (b) four engines that read the feature in place of `counterparty` (the Python
+# reference reading a rewritten input) each fail at least one vector of the kind: the first identifier the feature marks (findings first, then the decision,
+# each in list order) taken as the counterparty, with `counterparty` read when it marks none (R1) or
+# the claim failing closed then (R1c); every identifier it marks taken as the counterparty and
+# `counterparty` not read (Rall); and every identifier it marks counted as a party beside
+# `counterparty` (Aall). One pair is exempt, and the gate fails if a vector ever kills it, so the
+# exemption cannot outlive its reason: the decision's only attestor counted as a party (Aall) differs
+# from the reference only on an accepting input whose decision is attested only by an identifier
+# other than `counterparty`. A feature this list does not name, a `role` value no vector carries on
+# that list, a combination of listed features, and any other engine are not checked here. README.md's
+# composition_independence section states what the vectors pin.
+
+
+def _named_addresses(node):
+    """Every 0x-address a string anywhere in `node` (member names included) names under
+    identifier_normalization."""
+    if isinstance(node, str):
+        ident = _norm_addr(node)
+        key = _address_key(ident) if ident else None
+        return {key} if key else set()
+    if isinstance(node, dict):
+        return set().union(set(), *(_named_addresses(k) | _named_addresses(v) for k, v in node.items()))
+    if isinstance(node, list):
+        return set().union(set(), *(_named_addresses(v) for v in node))
+    return set()
+
+
+assert LEDGER_SIGNER.lower() in _named_addresses({"by": "eip155:8453:" + LEDGER_SIGNER.replace("B", "%42", 1)})
+for _v in composition_vectors:
+    _got = tuple(CHECKS[_v["kind"]](_v["input"])[:2])
+    if _got != (_v["expect"], _v.get("reason")):
+        sys.exit(f"composition: {_v['id']} reads {_got}, expected {(_v['expect'], _v.get('reason'))}")
+    if _v.get("reason") == _UM:
+        _crit = tuple(CRITERIA[COMP](_v["input"])[:2])
+        _crit_want = ("reject", "independence_reject") if _v["id"].startswith("n179-") else ("valid", None)
+        if _crit != _crit_want:
+            sys.exit(f"composition: {_v['id']}'s criterion alone reads {_crit}, expected {_crit_want}")
+    if LEDGER_SIGNER.lower() in json.dumps(_v).lower() or LEDGER_SIGNER.lower() in _named_addresses(_v):
+        sys.exit(f"composition: {_v['id']} carries the live ledger's signer; its outside attestor must be a neutral address")
+    if _v["expect"] == "reject" and not ("accepting twin" in _v["description"] or "accepting side" in _v["description"]):
+        sys.exit(f"composition: {_v['id']}'s description names no accepting twin or side and does not say it has none")
+_COMP_LISTS = ("findings_attestations", "decision_attestations")
+_COMP_FRESH = "0x6666666666666666666666666666666666666666"  # an address no vector of the kind carries
+assert all(_COMP_FRESH not in _named_addresses(_v) for _v in composition_vectors), "the fresh address is in a vector"
+
+
+def _comp_identity(s):
+    """The identifier `s` names under identifier_normalization: its 0x-address, else its normal form."""
+    ident = _norm_addr(s)
+    return (_address_key(ident) or ident) if ident else None
+
+
+def _comp_entries(inp, record):
+    entries = inp.get(record)
+    return entries if isinstance(entries, list) else []
+
+
+def _comp_marked(inp, test):
+    """The identifiers whose attestation `test(record, place, count, attestation, identifier, inp)`
+    marks, once each, findings first and then the decision, each in list order."""
+    out = []
+    for record in _COMP_LISTS:
+        entries = _comp_entries(inp, record)
+        for place, a in enumerate(entries):
+            ident = _comp_identity(a.get("by")) if isinstance(a, dict) else None
+            if ident and test(record, place, len(entries), a, ident, inp) and ident not in out:
+                out.append(ident)
+    return out
+
+
+def _comp_count(inp, ident, records=_COMP_LISTS):
+    return sum(1 for record in records for a in _comp_entries(inp, record)
+               if isinstance(a, dict) and _comp_identity(a.get("by")) == ident)
+
+
+def _comp_written_address(a):
+    ident = _norm_addr(a.get("by"))
+    return ident is not None and re.fullmatch(r"0x[0-9a-f]{40}", ident) is not None
+
+
+def _comp_sensitive(inp):
+    """Whether the verdict depends on which identifiers are parties."""
+    base = tuple(CHECKS[COMP](inp)[:2])
+    for other in [_COMP_FRESH] + _comp_marked(inp, lambda *_: True):
+        if tuple(CHECKS[COMP]({**inp, "counterparty": other})[:2]) != base:
+            return True
+        parties = inp.get("parties")
+        if isinstance(parties, list) and parties and tuple(CHECKS[COMP]({**inp, "parties": parties + [other]})[:2]) != base:
+            return True
+    return False
+
+
+def _comp_proxy_reading(inp, marked, form):
+    """`inp` rewritten so that the reference reads it as an engine of `form` reads `inp`."""
+    parties = inp.get("parties")
+    listed = isinstance(parties, list) and len(parties) > 0
+    if form == "R1":
+        return {**inp, "counterparty": marked[0] if marked else inp.get("counterparty")}
+    if form == "R1c":
+        return {**inp, "counterparty": marked[0] if marked else None}
+    if form == "Rall":
+        return {**inp, "parties": parties + marked[1:], "counterparty": marked[0] if marked else parties[0]} if listed else inp
+    return {**inp, "parties": parties + marked} if listed else inp
+
+
+_comp_roles = sorted({(record, a["role"]) for _v in composition_vectors for record in _COMP_LISTS
+                      for a in _comp_entries(_v["input"], record) if isinstance(a, dict) and isinstance(a.get("role"), str)})
+_comp_features = {}
+for _record in _COMP_LISTS:
+    _r = _record.split("_")[0]
+    _comp_features[f"{_r}: a role"] = lambda rec, k, n, a, i, inp, _rec=_record: rec == _rec and "role" in a
+    _comp_features[f"{_r}: no role"] = lambda rec, k, n, a, i, inp, _rec=_record: rec == _rec and "role" not in a
+    for _rr, _val in _comp_roles:
+        if _rr == _record:
+            _comp_features[f"{_r}: role {_val}"] = (
+                lambda rec, k, n, a, i, inp, _rec=_record, _val=_val: rec == _rec and a.get("role") == _val)
+    _comp_features[f"{_r}: first"] = lambda rec, k, n, a, i, inp, _rec=_record: rec == _rec and k == 0
+    _comp_features[f"{_r}: last"] = lambda rec, k, n, a, i, inp, _rec=_record: rec == _rec and k == n - 1
+    _comp_features[f"{_r}: only attestor"] = lambda rec, k, n, a, i, inp, _rec=_record: rec == _rec and n == 1
+_comp_features["attests both records"] = lambda rec, k, n, a, i, inp: all(_comp_count(inp, i, (r,)) for r in _COMP_LISTS)
+_comp_features["attests the decision"] = lambda rec, k, n, a, i, inp: _comp_count(inp, i, ("decision_attestations",)) > 0
+_comp_features["attests more than once"] = lambda rec, k, n, a, i, inp: _comp_count(inp, i) > 1
+_comp_features["attests most often"] = lambda rec, k, n, a, i, inp: _comp_count(inp, i) == max(
+    _comp_count(inp, j) for j in _comp_marked(inp, lambda *_: True))
+_comp_features["written as a 0x-address"] = lambda rec, k, n, a, i, inp: _comp_written_address(a)
+_comp_features["written scheme-qualified"] = lambda rec, k, n, a, i, inp: not _comp_written_address(a)
+for _addr in sorted({_comp_identity(_v["input"].get("counterparty")) for _v in composition_vectors} - {None}):
+    _comp_features[f"names {_addr}"] = lambda rec, k, n, a, i, inp, _addr=_addr: i == _addr
+_COMP_EXEMPT = {("decision: only attestor", "Aall")}
+_comp_sensitive_vectors = [_v for _v in composition_vectors if _comp_sensitive(_v["input"])]
+for _name, _test in _comp_features.items():
+    _broken = set()
+    for _v in _comp_sensitive_vectors:
+        _cp = _comp_identity(_v["input"].get("counterparty"))
+        _marked = _comp_marked(_v["input"], _test)
+        if any(_i != _cp for _i in _marked) or (_cp in _comp_marked(_v["input"], lambda *_: True) and _cp not in _marked):
+            _broken.add(_v["expect"])
+    if _broken != {"valid", "reject"}:
+        sys.exit(f"composition: '{_name}' marks the counterparty, and only it, in every "
+                 f"{'accepting' if 'valid' not in _broken else 'rejecting'} vector whose verdict depends on the parties")
+    for _form in ("R1", "R1c", "Rall", "Aall"):
+        _killed = [_v["id"] for _v in composition_vectors if tuple(CHECKS[COMP](_comp_proxy_reading(
+            _v["input"], _comp_marked(_v["input"], _test), _form))[:2]) != (_v["expect"], _v.get("reason"))]
+        if (_name, _form) in _COMP_EXEMPT and _killed:
+            sys.exit(f"composition: the exempt reading ({_name}, {_form}) now fails {_killed[:3]}; drop its exemption")
+        if (_name, _form) not in _COMP_EXEMPT and not _killed:
+            sys.exit(f"composition: an engine reading '{_name}' in place of `counterparty` ({_form}) passes every vector of the kind")
+_flips = [
+    ("n173 deciding attestor -> outside", _comp_input([COMP_OUTSIDE], [COMP_COUNTERPARTY]), ("valid", None)),
+    ("n173 deciding attestor -> worker", _comp_input([COMP_WORKER], [COMP_COUNTERPARTY]), ("reject", "independence_reject")),
+    ("p68 outside attestor -> counterparty", _comp_input([COMP_COUNTERPARTY, COMP_COUNTERPARTY], [COMP_COUNTERPARTY]),
+     ("reject", "independence_reject")),
+    ("n174 outside attestor -> findings", _comp_input([COMP_COUNTERPARTY, COMP_OUTSIDE], [COMP_COUNTERPARTY]), ("valid", None)),
+]
+for _label, _inp, _want in _flips:
+    _got = tuple(CHECKS[COMP](_inp)[:2])
+    if _got != _want:
+        sys.exit(f"composition flip: {_label} reads {_got}, expected {_want}")
+vectors += composition_vectors
 
 # ------------------------------------------------------------------ per-vector provenance
 # v0.5.3. MANIFEST-only metadata: every vector file stays byte-identical. Each manifest entry
@@ -3310,7 +3880,7 @@ PROVENANCE = {
     "n82-canonical-bytes-lone-low-surrogate-in-name": _SYN,
     "n83-digest-lone-surrogate-in-value": _SYN,
     "n84-digest-lone-surrogate-in-name": _SYN,
-    # v0.5.5, review round. n87-n89 carry p4's live-ledger genesis digest.
+    # v0.5.5: every clause the new MANIFEST text states. n87-n89 carry p4's live-ledger genesis digest.
     "p45-digest-line-separators-value": _SYN,
     "n85-digest-line-separators-escaped": _SYN,
     "p46-digest-decomposed-name": _SYN,
@@ -3329,7 +3899,7 @@ PROVENANCE = {
     "n94-offer-binding-lone-surrogate": _SYN,
     "n95-decision-evidence-binding-lone-surrogate": (TERSIGN, "contributed", "p19's decision-evidence object from @mohammedmessaoudene-cmd's PR #5 (commit c23a985), with a lone surrogate appended to policy.id; written here"),
     "n96-boundary-binding-lone-surrogate-in-prefix": _SYN,
-    # v0.5.5, second review round. n97 carries p4's live-ledger genesis digest.
+    # v0.5.5: the clauses a mutant broke without failing a vector. n97 carries p4's live-ledger genesis digest.
     "n97-chain-link-exponent-seq-token": (TERSIGN, "live-ledger-derived", "p4's genesis link with seq written as the token 1e0"),
     "n103-canonical-bytes-exponent-token": _SYN,
     "p51-digest-html-significant-value": _SYN,
@@ -3413,12 +3983,61 @@ PROVENANCE = {
     "p66-digest-integer-negative-bound": _SYN,
     "n164-digest-integer-past-negative-bound": _SYN,
     "n165-chain-set-head-digest-absent": (TERSIGN, "contributed", f"{_D9}: p6's input with `head.digest` removed, written here"),
-    # v0.5.9 review round: each distinguishing value constructed here.
+    # v0.5.9, the clauses no vector reached alone: each distinguishing value constructed here.
     "p67-boundary-position-without-attested-length": _SYN,
     "n169-chain-set-head-digest-unparseable": _SYN,
     "n170-boundary-attested-length-string": _SYN,
     "n171-boundary-coverage-null": _SYN,
     "n172-independence-non-object-attestation-beside-outside-attestor": _SYN,
+    # composition_independence: inputs constructed here; the attestor outside the parties is p37's
+    # address, and no vector of the kind carries the live ledger's signer (generation gate). n176
+    # carries the probe published in issue #17 (member and value verbatim), so it is contributed, as
+    # the v0.5.8 top-level vectors are.
+    "p68-composition-findings-outside-attestor": _SYN,
+    "n173-composition-findings-attested-by-counterparty-only": _SYN,
+    "n174-composition-outside-attestation-on-decision-only": _SYN,
+    "n175-composition-decision-binds-other-findings": _SYN,
+    "n176-unknown-member-composition-independence": (TERSIGN, "contributed", f"{_R17}: the member added to p68's input, written here"),
+    "n177-unknown-member-in-findings-attestation": _SYN,
+    "n178-unknown-member-in-decision-attestation": _SYN,
+    "n179-unknown-member-before-criterion-composition-independence": _SYN,
+    "n180-composition-findings-attested-by-counterparty-and-worker": _SYN,
+    "p69-composition-outside-attestor-did-pkh": _SYN,
+    "n181-composition-counterparty-attestation-caip10": _SYN,
+    "n182-composition-findings-substituted-outside-attestor": _SYN,
+    "n183-composition-findings-unattested-outside-on-decision": _SYN,
+    "p70-composition-decision-unattested": _SYN,
+    "n184-composition-counterparty-caip10": _SYN,
+    "p71-composition-outside-attestor-urn": _SYN,
+    "n185-composition-counterparty-attestation-unlabelled": _SYN,
+    "p72-composition-outside-attestor-labelled": _SYN,
+    "p73-composition-outside-attestor-on-both-records": _SYN,
+    "n186-composition-parties-caip10": _SYN,
+    "p74-composition-unlabelled": _SYN,
+    "n187-composition-decision-outside-attestor-labelled-first": _SYN,
+    "p75-composition-outside-attestor-labelled-on-decision": _SYN,
+    "p76-composition-decision-rejected": _SYN,
+    "n188-composition-findings-other-work": _SYN,
+    "p77-composition-findings-attested-outside-only": _SYN,
+    "n189-composition-findings-attestations-reversed": _SYN,
+    "n190-composition-decision-attested-outside-only": _SYN,
+    "n191-composition-party-attestation-caip10": _SYN,
+    "p78-composition-parties-and-counterparty-caip10": _SYN,
+    "p79-composition-counterparty-and-outside-exchanged": _SYN,
+    "n192-composition-counterparty-and-outside-exchanged": _SYN,
+    "p80-composition-outside-attestor-first-and-labelled-counterparty-on-both-records": _SYN,
+    "p81-composition-findings-attested-outside-only-unlabelled": _SYN,
+    "n193-composition-party-first-on-both-records-labelled-counterparty": _SYN,
+    "p82-composition-decision-attested-by-another-outside-address": _SYN,
+    "p83-composition-decision-on-findings-not-meeting-terms": _SYN,
+    "p84-composition-decision-rejected-on-findings-not-meeting-terms": _SYN,
+    "n194-composition-decision-rejected-binds-other-findings": _SYN,
+    "p85-composition-findings-digest-upper-case": _SYN,
+    "n195-composition-parties-other-address": _SYN,
+    "n196-composition-parties-three-second-attests": _SYN,
+    "p86-composition-parties-two": _SYN,
+    "n197-unknown-member-in-counterparty-findings-attestation": _SYN,
+    "n198-unknown-member-in-first-decision-attestation": _SYN,
 }
 
 # Values from the live ledger, and from the contributed fixtures Tersign-written vectors reuse
@@ -3494,18 +4113,28 @@ DEFINED_MEMBERS_SPEC = {
     "offer_binding": {"input": ["offer", "receipt"]},
     "decision_evidence_binding": {"input": ["decision_evidence", "record"]},
     "boundary_binding": {"input": ["boundary_event", "covered_through", "prefix"]},
+    "composition_independence": {
+        "input": ["claimed", "counterparty", "decision", "decision_attestations", "findings",
+                  "findings_attestations", "parties"],
+        "input.decision_attestations[]": ["by", "role"],
+        "input.findings_attestations[]": ["by", "role"],
+    },
 }
 if DEFINED_MEMBERS_SPEC != defined_members_table():
     sys.exit("defined members: the spec lists in tools/gen_vectors.py differ from verify.py's DEFINED_MEMBERS")
 DEFINED_MEMBERS_RULE = (
     "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each "
-    "object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. Each "
+    "object in `records` in chain_set and chain_commitment, each object in `attestations` in independence_claim, and each object in "
+    "`findings_attestations` and in `decision_attestations` in composition_independence. Each "
     "member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may "
-    "be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at "
-    "the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its "
+    "be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117 and n176, one per kind, at "
+    "the top level of `input`; n118-n122, n177 and n178, one inside each closed object). The vector each of these inputs was taken from is its "
     "accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, "
     "wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation "
     "by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. "
+    "In composition_independence, n177 adds a member to the findings' attestation by the attestor outside the parties and n197 "
+    "to the one by the counterparty, before it; n178 adds one to the decision's only attestation, by the counterparty, and n198 "
+    "to the decision's attestation by the counterparty, before one by the attestor outside the parties. "
     "A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject "
     "like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode "
     "normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `sеq` written with U+0435 is not "
@@ -3516,8 +4145,8 @@ DEFINED_MEMBERS_RULE = (
     "like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's "
     "prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input "
     "that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member "
-    "added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and in each closed object inside "
-    "`input`, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first "
+    "added at its top level (n133 on n4 in chain_set; n134-n143 and n179 in the other eleven kinds), and in each closed object inside "
+    "`input` in chain_set, chain_commitment and independence_claim, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first "
     "record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first "
     "attestation). A closed object inside `input` that is not a JSON object has no members "
     "to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose "
@@ -3526,18 +4155,47 @@ DEFINED_MEMBERS_RULE = (
     "permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a "
     "chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an "
     "undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in "
-    "independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: in a record that "
+    "independence_claim (p22, p23). `decision_attestations` in composition_independence is read by no criterion, and each "
+    "object in it is closed like any attestation. `record_commits` is listed because commitment_derivation defines it: in a record that "
     "claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the "
     "criterion does not read it. Every other object is open: its members are the record's own or another protocol's "
     "(field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open "
-    "objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each "
+    "objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence`, `findings` and each "
     "entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in "
-    "decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result "
-    "and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added "
+    "decision_evidence_binding, `receipt`, `settlement_result`, `boundary_event` and `decision` in composition_independence; p59 adds `payer` to a settlement result "
+    "and p60 adds `issuedAt` to a receipt, and both accept). README.md's composition_independence section states what that "
+    "kind's vectors pin. No extension member is defined; if one is ever needed, it is added "
     "through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; "
     "each crypto profile states its own (`defined_fields` in crypto/MANIFEST.json and in crypto/EIP712_MANIFEST.json, v0.5.9), "
     "where a field it does not define rejects as malformed_input. Each engine pins the lists in its code, and its run fails if "
     "`closed` differs from them"
+)
+
+COMPOSITION_RULE = (
+    "two records joined by digest: `findings`, a record of findings about the work of a party to a transaction, and "
+    "`decision`, the counterparty's decision on that work, which commits to the findings by `findings_digest`. Both are "
+    "open objects (defined_members); of the decision the criterion reads only `findings_digest`. The join is decided "
+    "first: `decision` and `findings` must be JSON objects, and decision.findings_digest, after the whitespace strip of "
+    "identifier_normalization and lowercased, must be 0x and 64 hex digits equal to keccak256(utf8(canonical(findings))); "
+    "otherwise the record rejects with binding_reject. This instantiates the general match/missing/mismatch binding "
+    "property within this suite and does not prescribe a digest, canonicalization, or field location for any protocol. "
+    "The decision is a record of a party to the transaction: it evidences that party's decision and its link to the "
+    "findings (structure), never an independent finding. `claimed` is then read as in independence_claim, and under a "
+    "claim the findings are evaluated as an independence_claim record whose `attestations` are `findings_attestations` "
+    "and whose `parties` are `parties` followed by `counterparty`: the parties `parties` declares and the "
+    "counterparty are all parties to the transaction, and every identifier, in `parties`, in `counterparty` and in each "
+    "findings attestation, is normalized and compared by identifier_normalization. As in independence_claim, `parties` "
+    "must be a non-empty array, `findings_attestations` a non-empty array, each of its entries a JSON object carrying "
+    "`by`, every identifier in `parties`, `counterparty` and every `by` must parse under identifier_normalization, and "
+    "at least one findings attestor must name no party; otherwise the record rejects with independence_reject. The "
+    "counterparty is the identifier `counterparty` "
+    "declares, and an attestor is a party only when its identifier names one `parties` declares or the counterparty; an "
+    "attestation's `role` and `decision_attestations` are read by no criterion. The criterion compares the identifiers "
+    "declared beside the two records (`parties`, `counterparty`, each findings attestor); no digest binds them to either "
+    "record, and an identifier declared only as the decision's attestor is not compared, so whether `counterparty` names "
+    "the decision's attestor is not checked. Each vector's description states its input and verdict; README.md's "
+    "section Composition: findings and the counterparty's decision states what each vector pins, names the engines shown "
+    "to fail one, and lists readings known to pass every vector"
 )
 
 manifest = {
@@ -3555,6 +4213,7 @@ manifest = {
     "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))) (p15 accepts; n19, a substituted offer, rejects); a receipt that commits to no offer digest cannot bind terms and fails closed (n163, p60's receipt without its offerDigest, rejects; p60 accepts). Each of these rejects with binding_reject",
     "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for any protocol; producer truth and decision semantics remain out of scope",
     "independence_claim": "`claimed` is read against a closed vocabulary of exact strings, letter case included. Absent, null, or one of the silence tokens \"\", none and issuer_attested, it claims nothing, and the record is valid: the criterion does not read its parties or attestations (p9; p62 carries a string in place of an attestation and accepts), though defined_members still checks each attestation object (n147). independent is the claim. An array of strings is a claim set: its silence tokens are dropped, a set with nothing left claims nothing (p11), and a set whose every remaining member is independent is the claim (p10). Every other value fails closed with independence_reject, so a token the verifier does not know is never read as no claim: an unrecognized token, a stronger property included (n8, effect_corroborated, attested only by parties), and a claim set holding a member outside the vocabulary beside a silence token, which rejects even with an attestor outside the parties (n9; p11, the nearest set that accepts, holds the silence token alone, and both its attestors are parties). A record that claims independence is then evaluated: `parties` must be a non-empty array, `attestations` a non-empty array (n15 carries none), each attestation a JSON object carrying `by` (n16 carries a string in its place, and so does n172 beside p8's attestor outside the parties: both reject), every party and every `by` must parse under identifier_normalization (n14), and at least one attestor must be outside the parties (n7 rejects; p8 accepts). `record_commits` and `covers` are then read as commitment_derivation states. Each of these rejects with independence_reject. No vector pins an absent or null `claimed`, the silence tokens \"\" and issuer_attested as a single string, independent in another letter case, a `claimed` that is neither a string nor an array of strings, an empty `parties` or `attestations` array, a party that does not parse, or an attestation object without `by`",
+    "composition_independence": COMPOSITION_RULE,
     "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate). Every identifier, whether in `parties` or an attestation's `by`, is normalized by one rule and compared only after it; the rule folds toward SAME PARTY, and an identifier it cannot decide does not parse. (1) Strip leading and trailing characters with the Unicode White_Space property, U+0009-U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000-U+200A, U+2028, U+2029, U+202F, U+205F and U+3000, and no others (n13/p33); a character without the property is not stripped, so an identifier padded with U+FEFF (a format character) or U+001C (a control character without the property) does not parse (n52/n53). (2) A 0x-address (the prefix 0x or 0X, then 40 hex digits in either case) compares lowercased, its prefix included, so an EIP-55 checksum variant, the all-lowercase form and 0X with upper-case digits are one address (n106; p56 accepts an outside attestor written 0X with upper-case digits). (3) Otherwise the identifier must be a scheme-qualified identifier in ASCII: a letter, then letters, digits, `+`, `.` or `-`, then one colon, then one or more printable non-space ASCII characters, letters in either case. Every percent-encoded triplet (either hex case) that encodes an unreserved character (A-Z a-z 0-9 `-` `.` `_` `~`) is decoded, in one left-to-right pass that is never repeated (RFC 3986 sections 6.2.2.2 and 2.4; n48/n49/n54/p32/p34); if any `%` remains, the identifier does not parse (n50/n55/n56). If it contains `?` (a query component), or its path, from the colon to the first `?` or `#`, has a segment that is exactly `.` or `..` (a dot-segment, RFC 3986 section 3.3), it does not parse (n59/n60/n61/n67/n70; neither class has an accepting twin, and p36, dots within segments, is the near-miss that accepts beside the dot-segments). The result is lowercased, the scheme included (n45/n58/p31), and every trailing `/`, `.` and `#` is removed (n31/n46/n47/p31); if a `#` remains (a fragment with content), it does not parse (n62; p31's trailing `#` alone is the near-miss that accepts); and it must still match the grammar with a lowercase scheme and a non-empty path (n51). (4) Anything else does not parse (n14). (5) Two identifiers name the same party when they are equal after normalization, or when both name the same 0x-address: a 0x-address names itself, and a scheme-qualified identifier whose final colon-separated component is a 0x-address (a CAIP-10 account such as eip155:8453:0x..., a did:pkh such as did:pkh:eip155:1:0x...) names that address, whatever the scheme (did:ethr:0x..., ethereum:0x..., acct:0x... as well), on either side and whatever the chain reference (n63/n64/p37 for CAIP-10 and did:pkh; n65/n66/n69/p38 for other schemes, acct: included). An identifier that does not parse after normalization fails the claim closed: it is never counted outside the parties. Not folded, and pinned by no vector: scheme-specific equivalences beyond these (RFC 3986 section 6.2.3, such as a default port) and names that resolve to an address (an ENS name, a did:web); two such identifiers compare as distinct. Digests compare after the same whitespace strip, lowercased",
     "witnessed_inclusion": "witness material (a cosigned checkpoint, inclusion proofs) presented beside a chain set is permitted and NOT load-bearing for completeness: it evidences existence and the log's consistency, never no-omission; a set with a gap rejects on the gap regardless of how many parties cosigned the log (p24/n34). Completeness requires a non-party attestation over the sequence itself, made at issuance",
     "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",

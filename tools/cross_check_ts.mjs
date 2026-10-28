@@ -296,6 +296,12 @@ const DEFINED_MEMBERS = {
   offer_binding: { input: ["offer", "receipt"] },
   decision_evidence_binding: { input: ["decision_evidence", "record"] },
   boundary_binding: { input: ["boundary_event", "covered_through", "prefix"] },
+  composition_independence: {
+    input: ["claimed", "counterparty", "decision", "decision_attestations", "findings",
+      "findings_attestations", "parties"],
+    "input.decision_attestations[]": ["by", "role"],
+    "input.findings_attestations[]": ["by", "role"],
+  },
 };
 const DEFINED = new Map(Object.entries(DEFINED_MEMBERS).map(([kind, table]) =>
   [kind, Object.entries(table).map(([path, names]) => [path, new Set(names)])]));
@@ -469,7 +475,7 @@ const CRITERIA = {
       if (!Number.isInteger(attested) || attested < 0 || attested > prefix.length) return ["reject", "boundary_reject"];
     }
 
-    // Key presence here too (v0.5.9 review), as in verify.py: a present null rejects (n171).
+    // Key presence here too (since v0.5.9), as in verify.py: a present null rejects (n171).
     if ("covered_through" in inp) {
       const covered = inp.covered_through;
       if (!Number.isInteger(covered) || covered < 0) return ["reject", "boundary_reject"];
@@ -549,6 +555,22 @@ const CRITERIA = {
       if (covers.some((c) => !committedSet.has(c))) return ["reject", "independence_reject"];
     }
     return ["valid", null];
+  },
+
+  // Mirrors verify.py's check_composition_independence: the join first (the decision must commit
+  // to the presented findings by `findings_digest`), then the findings read as an independence
+  // claim whose parties are those `parties` declares TOGETHER WITH the counterparty, and whose
+  // attestations are the findings' alone; `decision_attestations` are not read.
+  composition_independence(inp) {
+    const joined = checkObjectBinding(inp.decision, "findings_digest", inp.findings, { objectRequired: true });
+    if (joined[0] !== "valid") return joined;
+    let parties = inp.parties;
+    if (Array.isArray(parties) && parties.length > 0) parties = [...parties, inp.counterparty];
+    return CRITERIA.independence_claim({
+      claimed: inp.claimed,
+      parties,
+      attestations: inp.findings_attestations,
+    });
   },
 };
 

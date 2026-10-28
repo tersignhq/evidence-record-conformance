@@ -1,0 +1,38 @@
+{
+  "id": "p71-composition-outside-attestor-urn",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p68's input with the findings' attestation by 0x4444...4444 replaced by one by org:example-outside, a scheme-qualified identifier that names no 0x-address. It parses under identifier_normalization and names neither `counterparty` nor an identifier `parties` lists, so the claim holds and the record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "org:example-outside"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

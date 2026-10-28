@@ -25,15 +25,15 @@ def ids(lo, hi, prefix="n"):
     return [f"{prefix}{i}" for i in range(lo, hi + 1)]
 
 
-ALL_REJECTS = ids(107, 152)
+ALL_REJECTS = ids(107, 152) + ids(176, 179) + ids(197, 198)
 ORDER = {"chain_set": "n133", "digest_recompute": "n134", "canonical_bytes": "n135", "chain_link": "n136",
          "chain_commitment": "n137", "anchor_relation": "n138", "phase_claim": "n139",
          "independence_claim": "n140", "offer_binding": "n141", "decision_evidence_binding": "n142",
-         "boundary_binding": "n143"}
+         "boundary_binding": "n143", "composition_independence": "n179"}
 TOP = {"digest_recompute": "n107", "canonical_bytes": "n108", "chain_link": "n109", "chain_set": "n110",
        "chain_commitment": "n111", "anchor_relation": "n112", "phase_claim": "n113",
        "independence_claim": "n114", "offer_binding": "n115", "decision_evidence_binding": "n116",
-       "boundary_binding": "n117"}
+       "boundary_binding": "n117", "composition_independence": "n176"}
 
 # ---------------------------------------------------------------- verify.py: (old, new, killers)
 PY_CHECK = ("    if not isinstance(inp, dict):\n        return None\n"
@@ -45,20 +45,26 @@ PY_ENTRY = ("                    if isinstance(entry, dict):\n"
 PY_COMPOSE = "        return check_defined_members(kind, inp) or criterion(inp)\n"
 PY_CRITERION_FIRST = ("        r = criterion(inp)\n"
                       "        return r if r[0] != 'valid' else (check_defined_members(kind, inp) or r)\n")
+PY_COMP_INPUT = "                            \"decision\", \"decision_attestations\"}),\n"
+PY_COMP_FA = "        \"input.findings_attestations[]\": frozenset({\"by\", \"role\"}),\n"
+PY_COMP_DA = "        \"input.decision_attestations[]\": frozenset({\"by\", \"role\"}),\n"
+TS_COMP_FA = "    \"input.findings_attestations[]\": [\"by\", \"role\"],\n"
+TS_COMP_DA = "    \"input.decision_attestations[]\": [\"by\", \"role\"],\n"
 PY = {
     "disable": (PY_CHECK, "    return None\n" + PY_CHECK, ALL_REJECTS),
     "top-level-only": ("        if path == \"input\":\n            yield path, inp, names\n            continue\n",
                        "        if path == \"input\":\n            yield path, inp, names\n        continue\n",
                        ["n118", "n119", "n120", "n121", "n122", "n127", "n128", "n130", "n144", "n145",
-                        "n146", "n147", "n148", "n150", "n151", "n152"]),
+                        "n146", "n147", "n148", "n150", "n151", "n152", "n177", "n178", "n197", "n198"]),
     "no-array-entries": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "enumerate(entries[:0])"),
-                         ["n119", "n121", "n122", "n127", "n128", "n145", "n146", "n147", "n148", "n150", "n152"]),
+                         ["n119", "n121", "n122", "n127", "n128", "n145", "n146", "n147", "n148", "n150", "n152",
+                          "n177", "n178", "n197", "n198"]),
     "first-entry-only": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "enumerate(entries[:1])"),
-                         ["n119", "n121", "n122", "n128"]),
+                         ["n119", "n121", "n122", "n128", "n177"]),
     "last-entry-only": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "list(enumerate(entries))[-1:]"),
-                        ["n127", "n145", "n146", "n147"]),
+                        ["n127", "n145", "n146", "n147", "n197", "n198"]),
     "skip-first-entry": (PY_LOOP, PY_LOOP.replace("enumerate(entries)", "list(enumerate(entries))[1:]"),
-                         ["n127", "n145", "n146", "n147"]),
+                         ["n127", "n145", "n146", "n147", "n178", "n197", "n198"]),
     "attestations-last-only": (PY_LOOP, PY_LOOP.replace(
         "enumerate(entries)", "(list(enumerate(entries))[-1:] if key == 'attestations[]' else enumerate(entries))"),
         ["n145", "n146", "n147"]),
@@ -86,7 +92,7 @@ PY = {
     "one-list-for-all": (PY_NAMES,
                          "if name not in frozenset().union(*(s for t in DEFINED_MEMBERS.values() for s in t.values()))]",
                          ["n129", "n130"]),
-    "criterion-first": (PY_COMPOSE, PY_CRITERION_FIRST, ids(133, 145) + ids(150, 152)),
+    "criterion-first": (PY_COMPOSE, PY_CRITERION_FIRST, ids(133, 145) + ids(150, 152) + ["n179"]),
     "nested-after-criterion": (PY_COMPOSE,
                                "        if isinstance(inp, dict) and any(n not in DEFINED_MEMBERS[kind]['input'] for n in inp):\n"
                                "            return check_defined_members(kind, inp)\n" + PY_CRITERION_FIRST,
@@ -115,6 +121,29 @@ PY = {
                       "    \"offer_binding\": {\"input\": frozenset({\"offer\", \"receipt\"}), "
                       "\"input.receipt\": frozenset({\"offerDigest\"})},",
                       ["p60"]),
+    # composition_independence: both attestation lists closed, `decision_attestations` permitted though not
+    # read, `findings` and `decision` open
+    "comp-findings-attestations-open": (PY_COMP_FA, "", ["n177"]),
+    "comp-decision-attestations-open": (PY_COMP_DA, "", ["n178"]),
+    "comp-omits-decision-attestations": (PY_COMP_INPUT, PY_COMP_INPUT.replace(", \"decision_attestations\"", ""), ["p68"]),
+    "comp-closes-findings": (PY_COMP_FA, PY_COMP_FA + "        \"input.findings\": frozenset({\"work_digest\"}),\n", ["p68"]),
+    "comp-closes-decision": (PY_COMP_FA, PY_COMP_FA + "        \"input.decision\": frozenset({\"findings_digest\"}),\n", ["p68"]),
+    # `role` defined in each attestation list: the counterparty's attestations carry one (p68, n173)
+    "comp-findings-role-undefined": (PY_COMP_FA, PY_COMP_FA.replace("{\"by\", \"role\"}", "{\"by\"}"), ["p68", "n173"]),
+    "comp-decision-role-undefined": (PY_COMP_DA, PY_COMP_DA.replace("{\"by\", \"role\"}", "{\"by\"}"), ["p68"]),
+    # each attestation list checked only in its last entry; the findings checked only in the entries of attestors
+    # that are not parties
+    "comp-findings-attestations-last-only": (PY_LOOP, PY_LOOP.replace(
+        "enumerate(entries)", "(list(enumerate(entries))[-1:] if key == 'findings_attestations[]' else enumerate(entries))"),
+        ["n197"]),
+    "comp-decision-attestations-last-only": (PY_LOOP, PY_LOOP.replace(
+        "enumerate(entries)", "(list(enumerate(entries))[-1:] if key == 'decision_attestations[]' else enumerate(entries))"),
+        ["n198"]),
+    "comp-findings-attestations-outside-only": (PY_ENTRY, PY_ENTRY.replace(
+        "if isinstance(entry, dict):",
+        "if isinstance(entry, dict) and not (key == 'findings_attestations[]' "
+        "and entry.get('by') in [*(inp.get('parties') or []), inp.get('counterparty')]):"),
+        ["n197"]),
 }
 for _kind, _vid in ORDER.items():
     PY[f"criterion-first:{_kind}"] = (
@@ -142,11 +171,11 @@ TS = {
                               ["n132"]),
     "ts-criterion-first": (TS_COMPOSE,
                            "[kind, (inp) => ((r) => (r[0] !== \"valid\" ? r : checkDefinedMembers(kind, inp) ?? r))(criterion(inp))]",
-                           ids(133, 145) + ids(150, 152)),
+                           ids(133, 145) + ids(150, 152) + ["n179"]),
     "ts-first-entry-only": (TS_ENTRIES, TS_ENTRIES.replace("entries.filter(isObject)", "entries.filter(isObject).slice(0, 1)"),
-                            ["n119", "n121", "n122", "n128"]),
+                            ["n119", "n121", "n122", "n128", "n177"]),
     "ts-last-entry-only": (TS_ENTRIES, TS_ENTRIES.replace("entries.filter(isObject)", "entries.filter(isObject).slice(-1)"),
-                           ["n127", "n145", "n146", "n147"]),
+                           ["n127", "n145", "n146", "n147", "n197", "n198"]),
     "ts-stop-at-non-object-entry": (TS_ENTRIES, TS_ENTRIES.replace(
         "entries.filter(isObject)",
         "entries.slice(0, entries.findIndex((e) => !isObject(e)) < 0 ? entries.length : entries.findIndex((e) => !isObject(e)))"),
@@ -155,6 +184,18 @@ TS = {
         "!names.has(name)", "![...names].some((n) => n.toLowerCase() === name.toLowerCase())"), ["n126"]),
     "ts-nfkc-names": (TS_LINE, TS_LINE.replace("!names.has(name)", "!names.has(name.normalize(\"NFKC\"))"), ["n128"]),
     "ts-strip-names": (TS_LINE, TS_LINE.replace("!names.has(name)", "!names.has(name.trim())"), ["n149"]),
+    "ts-comp-findings-role-undefined": (TS_COMP_FA, TS_COMP_FA.replace("[\"by\", \"role\"]", "[\"by\"]"), ["p68", "n173"]),
+    "ts-comp-decision-role-undefined": (TS_COMP_DA, TS_COMP_DA.replace("[\"by\", \"role\"]", "[\"by\"]"), ["p68"]),
+    "ts-comp-findings-attestations-last-only": (TS_ENTRIES, TS_ENTRIES.replace(
+        "entries.filter(isObject)",
+        "(key === \"findings_attestations[]\" ? entries.filter(isObject).slice(-1) : entries.filter(isObject))"), ["n197"]),
+    "ts-comp-decision-attestations-last-only": (TS_ENTRIES, TS_ENTRIES.replace(
+        "entries.filter(isObject)",
+        "(key === \"decision_attestations[]\" ? entries.filter(isObject).slice(-1) : entries.filter(isObject))"), ["n198"]),
+    "ts-comp-findings-attestations-outside-only": (TS_ENTRIES, TS_ENTRIES.replace(
+        "entries.filter(isObject)",
+        "(key === \"findings_attestations[]\" ? entries.filter((e) => isObject(e) && ![...(Array.isArray(inp.parties) ? inp.parties : []), inp.counterparty].includes(e.by)) : entries.filter(isObject))"),
+        ["n197"]),
 }
 
 

@@ -1,0 +1,38 @@
+{
+  "id": "p83-composition-decision-on-findings-not-meeting-terms",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p68's input with the findings substituted, their `result` changed to \"does not meet the stated terms\" as in n182, and `findings_digest` recomputed over them; the decision still records `accepted`. The record is valid. The accepting twin of n182, which keeps p68's digest. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "does not meet the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0xfca78070324fb5e8c03730b9f74de60c00364e15ae337eb58811ff176da392c1",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

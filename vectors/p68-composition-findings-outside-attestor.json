@@ -1,0 +1,38 @@
+{
+  "id": "p68-composition-findings-outside-attestor",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "Two records joined by digest: `findings`, a record of findings about the work of 0x3333...3333, the one identifier `parties` lists, and `decision`, the counterparty's decision on that work, which records `accepted` and commits to the findings by `findings_digest`. `counterparty` is 0x2222...2222, which attests both records, each attestation with a `role` (`auditor` on the findings, `counterparty` on the decision). The findings carry a second attestation, by 0x4444...4444, with no `role`; `parties` does not list 0x4444...4444 and it is not `counterparty`. The claim holds and the record is valid. The accepting twin of n173 (the same input without the attestation by 0x4444...4444), n174 (that attestation moved to the decision), n176-n178, n180 (that attestation by 0x3333...3333), n182 (the findings substituted), n188 (the findings' `work_digest` replaced) and n197 (`x_undefined: 1` in the counterparty's attestation of the findings). README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

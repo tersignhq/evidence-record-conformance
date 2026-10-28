@@ -1,0 +1,38 @@
+{
+  "id": "p84-composition-decision-rejected-on-findings-not-meeting-terms",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p83's input with the decision's `decision` member set to \"rejected\". The record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "does not meet the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0xfca78070324fb5e8c03730b9f74de60c00364e15ae337eb58811ff176da392c1",
+      "decision": "rejected",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

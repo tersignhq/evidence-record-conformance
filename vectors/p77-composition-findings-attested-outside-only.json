@@ -1,0 +1,38 @@
+{
+  "id": "p77-composition-findings-attested-outside-only",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "n174's input with the findings' attestation by the counterparty replaced by one by 0x4444...4444, which keeps its label `role: auditor`: the findings are attested only by 0x4444...4444, and the decision by the counterparty and then by 0x4444...4444. The record is valid. The accepting twin of n174. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x4444444444444444444444444444444444444444",
+        "role": "auditor"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ]
+  }
+}

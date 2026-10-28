@@ -32,8 +32,8 @@ each array, closed, not read or open; since v0.5.9 (#9) `attestedPrefixLength` u
 values beside four coverage forms and absent, `covered_through` and `position` at their
 fork-prone shapes, the chain head's digest absent, null, malformed, a number, empty, zero bytes
 and the first record's, a first record naming a predecessor (outside, and as zero bytes), the
-links removed with the prevs intact and broken, and a receipt with no `offerDigest`; since the
-v0.5.9 review an `attestedPrefixLength` and a `position` of 5001 digits, past CPython's default
+links removed with the prevs intact and broken, and a receipt with no `offerDigest`; also since
+v0.5.9, an `attestedPrefixLength` and a `position` of 5001 digits, past CPython's default
 4300-digit conversion limit, and a non-object attestation appended beside the others), run
 through BOTH engines,
 verdict and reason-code compared directly. A form not on the list is not compared.
@@ -493,6 +493,69 @@ def mutations(kind, inp):
         m.pop("offer", None)
         m.setdefault("receipt", {})["offerDigest"] = digest_of(None)
         out.append(("offer=absent-with-null-commitment", kind, m))
+    if kind == "composition_independence":
+        # The join, the counterparty and the two attestation lists at the shapes the two languages
+        # read differently: absent against null, containers of the wrong shape, a digest in another
+        # case or padded with whitespace either strip disagrees on, the counterparty in the
+        # cross-namespace and whitespace forms the identifier rule folds, and attestations moved,
+        # pooled or swapped between the two records.
+        for key, value in (("counterparty", None), ("counterparty", 1), ("counterparty", ""),
+                           ("counterparty", "not an identifier"), ("parties", []), ("parties", None),
+                           ("parties", "0x3333333333333333333333333333333333333333"),
+                           ("findings_attestations", []), ("findings_attestations", None),
+                           ("decision_attestations", []), ("decision_attestations", None),
+                           ("decision_attestations", ["not an attestation"]),
+                           ("findings", None), ("findings", []), ("findings", "not an object"),
+                           ("decision", None), ("decision", []), ("claimed", None), ("claimed", "none"),
+                           ("claimed", ["independent"]), ("claimed", "Independent")):
+            with_key(key, value, f"{key}={json.dumps(value)}")
+        for key in ("counterparty", "parties", "findings", "findings_attestations", "decision",
+                    "decision_attestations", "claimed"):
+            without_key(key, f"{key}-absent")
+        if isinstance(inp.get("counterparty"), str):
+            c = inp["counterparty"]
+            for tag, form in (("upper", "0x" + c[2:].upper()), ("caip10", "eip155:8453:" + c),
+                              ("did-pkh", "did:pkh:eip155:1:" + c), ("did-ethr", "did:ethr:" + c),
+                              ("ws-0085", c + "\u0085"), ("ws-feff", c + "\ufeff"), ("ws-001c", "\u001c" + c),
+                              ("outside", "0x5555555555555555555555555555555555555555")):
+                with_key("counterparty", form, f"counterparty=alias-{tag}")
+            # the counterparty also listed among `parties`, and listed there alone
+            if isinstance(inp.get("parties"), list):
+                with_key("parties", inp["parties"] + [c], "parties+=counterparty")
+                with_key("parties", [c], "parties=[counterparty]")
+        if isinstance(inp.get("decision"), dict):
+            d = inp["decision"]
+            for tag, value in (("absent", None), ("null", None), ("short", "0x1234"),
+                               ("zero", "0x" + "00" * 32)):
+                m = json.loads(json.dumps(inp))
+                if tag == "absent":
+                    m["decision"].pop("findings_digest", None)
+                else:
+                    m["decision"]["findings_digest"] = value
+                out.append((f"decision.findings_digest={tag}", kind, m))
+            if isinstance(d.get("findings_digest"), str):
+                for tag, value in (("upper", "0x" + d["findings_digest"][2:].upper()),
+                                   ("ws-0085", "\u0085" + d["findings_digest"]),
+                                   ("ws-feff", "\ufeff" + d["findings_digest"])):
+                    m = json.loads(json.dumps(inp))
+                    m["decision"]["findings_digest"] = value
+                    out.append((f"decision.findings_digest={tag}", kind, m))
+        fa, da = inp.get("findings_attestations"), inp.get("decision_attestations")
+        if isinstance(fa, list) and isinstance(da, list):
+            for tag, new_fa, new_da in (("swapped", da, fa), ("pooled-into-findings", fa + da, da),
+                                        ("pooled-into-decision", fa, fa + da), ("findings-to-decision", [], da + fa)):
+                m = json.loads(json.dumps(inp))
+                m["findings_attestations"], m["decision_attestations"] = json.loads(json.dumps(new_fa)), json.loads(json.dumps(new_da))
+                out.append((f"attestations={tag}", kind, m))
+            if fa and isinstance(fa[0], dict) and isinstance(fa[0].get("by"), str):
+                for tag, by in (("caip10", "eip155:1:" + fa[0]["by"]), ("upper", "0x" + fa[0]["by"][2:].upper()),
+                                ("ws-0085", fa[0]["by"] + "\u0085"), ("ws-feff", fa[0]["by"] + "\ufeff")):
+                    m = json.loads(json.dumps(inp))
+                    m["findings_attestations"][0]["by"] = by
+                    out.append((f"findings_attestations[0].by=alias-{tag}", kind, m))
+            m = json.loads(json.dumps(inp))
+            m["findings_attestations"].append("0x5555555555555555555555555555555555555555")
+            out.append(("findings_attestations+=non-object", kind, m))
     out += _member_mutations(kind, inp)
     return out
 

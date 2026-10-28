@@ -13,6 +13,7 @@
   "offer_binding": "receipt.offerDigest = keccak256(utf8(canonical(offer))) (p15 accepts; n19, a substituted offer, rejects); a receipt that commits to no offer digest cannot bind terms and fails closed (n163, p60's receipt without its offerDigest, rejects; p60 accepts). Each of these rejects with binding_reject",
   "decision_evidence_binding": "within this suite, record.decisionEvidenceDigest = keccak256(utf8(canonical(decision_evidence))); a record presented as authority-decision evidence must bind the exact object. This instantiates the general match/missing/mismatch binding property and does not prescribe a digest, canonicalization, or field location for any protocol; producer truth and decision semantics remain out of scope",
   "independence_claim": "`claimed` is read against a closed vocabulary of exact strings, letter case included. Absent, null, or one of the silence tokens \"\", none and issuer_attested, it claims nothing, and the record is valid: the criterion does not read its parties or attestations (p9; p62 carries a string in place of an attestation and accepts), though defined_members still checks each attestation object (n147). independent is the claim. An array of strings is a claim set: its silence tokens are dropped, a set with nothing left claims nothing (p11), and a set whose every remaining member is independent is the claim (p10). Every other value fails closed with independence_reject, so a token the verifier does not know is never read as no claim: an unrecognized token, a stronger property included (n8, effect_corroborated, attested only by parties), and a claim set holding a member outside the vocabulary beside a silence token, which rejects even with an attestor outside the parties (n9; p11, the nearest set that accepts, holds the silence token alone, and both its attestors are parties). A record that claims independence is then evaluated: `parties` must be a non-empty array, `attestations` a non-empty array (n15 carries none), each attestation a JSON object carrying `by` (n16 carries a string in its place, and so does n172 beside p8's attestor outside the parties: both reject), every party and every `by` must parse under identifier_normalization (n14), and at least one attestor must be outside the parties (n7 rejects; p8 accepts). `record_commits` and `covers` are then read as commitment_derivation states. Each of these rejects with independence_reject. No vector pins an absent or null `claimed`, the silence tokens \"\" and issuer_attested as a single string, independent in another letter case, a `claimed` that is neither a string nor an array of strings, an empty `parties` or `attestations` array, a party that does not parse, or an attestation object without `by`",
+  "composition_independence": "two records joined by digest: `findings`, a record of findings about the work of a party to a transaction, and `decision`, the counterparty's decision on that work, which commits to the findings by `findings_digest`. Both are open objects (defined_members); of the decision the criterion reads only `findings_digest`. The join is decided first: `decision` and `findings` must be JSON objects, and decision.findings_digest, after the whitespace strip of identifier_normalization and lowercased, must be 0x and 64 hex digits equal to keccak256(utf8(canonical(findings))); otherwise the record rejects with binding_reject. This instantiates the general match/missing/mismatch binding property within this suite and does not prescribe a digest, canonicalization, or field location for any protocol. The decision is a record of a party to the transaction: it evidences that party's decision and its link to the findings (structure), never an independent finding. `claimed` is then read as in independence_claim, and under a claim the findings are evaluated as an independence_claim record whose `attestations` are `findings_attestations` and whose `parties` are `parties` followed by `counterparty`: the parties `parties` declares and the counterparty are all parties to the transaction, and every identifier, in `parties`, in `counterparty` and in each findings attestation, is normalized and compared by identifier_normalization. As in independence_claim, `parties` must be a non-empty array, `findings_attestations` a non-empty array, each of its entries a JSON object carrying `by`, every identifier in `parties`, `counterparty` and every `by` must parse under identifier_normalization, and at least one findings attestor must name no party; otherwise the record rejects with independence_reject. The counterparty is the identifier `counterparty` declares, and an attestor is a party only when its identifier names one `parties` declares or the counterparty; an attestation's `role` and `decision_attestations` are read by no criterion. The criterion compares the identifiers declared beside the two records (`parties`, `counterparty`, each findings attestor); no digest binds them to either record, and an identifier declared only as the decision's attestor is not compared, so whether `counterparty` names the decision's attestor is not checked. Each vector's description states its input and verdict; README.md's section Composition: findings and the counterparty's decision states what each vector pins, names the engines shown to fail one, and lists readings known to pass every vector",
   "identifier_normalization": "two identity syntaxes, both evaluated by every criterion that compares identity (pinned by one accepting vector each under the per-kind two-sided gate). Every identifier, whether in `parties` or an attestation's `by`, is normalized by one rule and compared only after it; the rule folds toward SAME PARTY, and an identifier it cannot decide does not parse. (1) Strip leading and trailing characters with the Unicode White_Space property, U+0009-U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000-U+200A, U+2028, U+2029, U+202F, U+205F and U+3000, and no others (n13/p33); a character without the property is not stripped, so an identifier padded with U+FEFF (a format character) or U+001C (a control character without the property) does not parse (n52/n53). (2) A 0x-address (the prefix 0x or 0X, then 40 hex digits in either case) compares lowercased, its prefix included, so an EIP-55 checksum variant, the all-lowercase form and 0X with upper-case digits are one address (n106; p56 accepts an outside attestor written 0X with upper-case digits). (3) Otherwise the identifier must be a scheme-qualified identifier in ASCII: a letter, then letters, digits, `+`, `.` or `-`, then one colon, then one or more printable non-space ASCII characters, letters in either case. Every percent-encoded triplet (either hex case) that encodes an unreserved character (A-Z a-z 0-9 `-` `.` `_` `~`) is decoded, in one left-to-right pass that is never repeated (RFC 3986 sections 6.2.2.2 and 2.4; n48/n49/n54/p32/p34); if any `%` remains, the identifier does not parse (n50/n55/n56). If it contains `?` (a query component), or its path, from the colon to the first `?` or `#`, has a segment that is exactly `.` or `..` (a dot-segment, RFC 3986 section 3.3), it does not parse (n59/n60/n61/n67/n70; neither class has an accepting twin, and p36, dots within segments, is the near-miss that accepts beside the dot-segments). The result is lowercased, the scheme included (n45/n58/p31), and every trailing `/`, `.` and `#` is removed (n31/n46/n47/p31); if a `#` remains (a fragment with content), it does not parse (n62; p31's trailing `#` alone is the near-miss that accepts); and it must still match the grammar with a lowercase scheme and a non-empty path (n51). (4) Anything else does not parse (n14). (5) Two identifiers name the same party when they are equal after normalization, or when both name the same 0x-address: a 0x-address names itself, and a scheme-qualified identifier whose final colon-separated component is a 0x-address (a CAIP-10 account such as eip155:8453:0x..., a did:pkh such as did:pkh:eip155:1:0x...) names that address, whatever the scheme (did:ethr:0x..., ethereum:0x..., acct:0x... as well), on either side and whatever the chain reference (n63/n64/p37 for CAIP-10 and did:pkh; n65/n66/n69/p38 for other schemes, acct: included). An identifier that does not parse after normalization fails the claim closed: it is never counted outside the parties. Not folded, and pinned by no vector: scheme-specific equivalences beyond these (RFC 3986 section 6.2.3, such as a default port) and names that resolve to an address (an ENS name, a did:web); two such identifiers compare as distinct. Digests compare after the same whitespace strip, lowercased",
   "witnessed_inclusion": "witness material (a cosigned checkpoint, inclusion proofs) presented beside a chain set is permitted and NOT load-bearing for completeness: it evidences existence and the log's consistency, never no-omission; a set with a gap rejects on the gap regardless of how many parties cosigned the log (p24/n34). Completeness requires a non-party attestation over the sequence itself, made at issuance",
   "duplicate_sequence": "a sequence attested only by its issuer evidences ordering, not that no other record carries the same `seq` and `correctionSeq`. Two records at one seq in a presented set reject on the duplicate, whatever the issuer attests (p28/n39; the issuer's `attestations` are permitted and not read). A record the issuer did not present is not in the bytes: the other record presented alone passes the structural chain_set predicate under the same head, and only a commitment over every link rejects it (p29/n40)",
@@ -20,7 +21,7 @@
   "boundary_binding": "a boundary event changes a stream's verification parameters (a witness, a signature suite, a canonical form) inside the stream, and must bind the prefix it extends and its own position in that prefix's continuation. `boundary_event` must be a JSON object; its members are the record's own (defined_members), and the suite reads `prefixDigest`, `position` and `attestedPrefixLength`. `prefix` must be a non-empty array, and `prefixDigest` must equal keccak256(utf8(canonical(prefix))), the digest of the prefix as written, across a suite transition too: p18 accepts, and so does p20, a transition; n29, the successor suite's digest of the same bytes, rejects, and so does n96, a prefix with no canonical form. `position` must be an integer equal to the number of entries in `prefix`: n25 carries none and n168 carries 2 for a three-entry prefix, and both reject. `attestedPrefixLength`, the number of prefix entries the event's attestation reaches, may be absent (p67, n25's input with its position, carries none and accepts); when the member is present, whatever its value, it must be an integer token from 0 to the number of entries in `prefix`, inclusive, whether or not coverage is claimed. 0 with no coverage claimed accepts (p63, an attestation that reaches nothing and claims nothing), and so does the prefix's own length (p18, p20; p64 on a two-entry prefix); -1 (n154), a length past the prefix (n153, one past, beside coverage; n155, 99; n159, 3 for a two-entry prefix) and a value that is not an integer token (n156, the token 0.0; n157, false; n158, null; n170, the string \"0\") reject. `covered_through`, the position through which coverage is claimed, may be absent; when the member is present, whatever its value, it must be a non-negative integer token (n171, a null, rejects), the event must carry `attestedPrefixLength` (n167 carries none and rejects), and the coverage may not exceed it: n26 claims coverage through 3 over an empty attestation and n166 over an attestation that reaches 2, and both reject. Each of these rejects with boundary_reject. No vector pins a `boundary_event` that is not an object, a `prefix` that is empty or not an array, an unparseable `prefixDigest`, a `position` that is not an integer, an `attestedPrefixLength` that is an array, an object or an exponent-form token, or a `covered_through` that is negative or is neither an integer token nor null",
   "field_naming": "harness-level input keys are snake_case (settlement_result, deliverable_bytes, decision_evidence, boundary_event); a key that quotes a protocol's own field keeps that protocol's wire spelling wherever it sits (payTo, resourceUrl, offerDigest, decisionEvidenceDigest). Contributed vectors follow the same two rules; the suite does not rename a protocol's fields to match its own, and does not camelCase its own",
   "defined_members": {
-    "rule": "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each object in `records` in chain_set and chain_commitment, and each object in `attestations` in independence_claim. Each member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117, one per kind, at the top level of `input`; n118-n122, one inside each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `s\u0435q` written with U+0435 is not `seq` (n127), `\uff42\uff59` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128), and `covered_through ` with a trailing space is not `covered_through` (n149); no vector pins any other near-spelling. Each kind and each closed object has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member added at its top level (n133 on n4 in chain_set; n134-n143 in the other ten kinds), and in each closed object inside `input`, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first attestation). A closed object inside `input` that is not a JSON object has no members to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `record_commits` is listed because commitment_derivation defines it: in a record that claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the criterion does not read it. Every other object is open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence` and each entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result` and `boundary_event`; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). No extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; each crypto profile states its own (`defined_fields` in crypto/MANIFEST.json and in crypto/EIP712_MANIFEST.json, v0.5.9), where a field it does not define rejects as malformed_input. Each engine pins the lists in its code, and its run fails if `closed` differs from them",
+    "rule": "Every kind's `input` is a closed object, and so are the objects `closed` lists for that kind inside it: `head` and each object in `records` in chain_set and chain_commitment, each object in `attestations` in independence_claim, and each object in `findings_attestations` and in `decision_attestations` in composition_independence. Each member of a closed object must have one of the names `closed` lists for that kind and that object, and a listed name may be absent; a member with any other name makes the record invalid, with unknown_member_reject (n107-n117 and n176, one per kind, at the top level of `input`; n118-n122, n177 and n178, one inside each closed object). The vector each of these inputs was taken from is its accepting twin, the same bytes without the member. Every object in `attestations` in independence_claim is closed, whoever the attestor, wherever the entry sits and whether or not the record claims independence: n122 and n128 add a member to the attestation by the attestor outside the parties, n146 to the one by a party, and n147 to an attestation in a record that claims none. In composition_independence, n177 adds a member to the findings' attestation by the attestor outside the parties and n197 to the one by the counterparty, before it; n178 adds one to the decision's only attestation, by the counterparty, and n198 to the decision's attestation by the counterparty, before one by the attestor outside the parties. A member counts by its name, whatever its value: null (n123), an empty string (n124) and an empty object (n125) reject like any other value. Names compare as exact strings, with no case folding, no whitespace trimming, no Unicode normalization and no confusable mapping: `Presented_as` is not `presented_as` (n126), `s\u0435q` written with U+0435 is not `seq` (n127), `\uff42\uff59` in fullwidth letters, which NFKC folds to `by`, is not `by` (n128), and `covered_through ` with a trailing space is not `covered_through` (n149); no vector pins any other near-spelling. Each kind and each closed object has its own list, so a name defined for one is unknown in another: `payload_text` in a digest_recompute input (n129), and `acc` in a chain_set `head` (n130, p26's input read as chain_set). A name every JavaScript object inherits is a member like any other: `constructor` (n131), and `__proto__` (n132), which a loader keeps as a member, never as the object's prototype. The member check, the objects inside `input` included, is decided before the kind's criterion, so an input that also fails the criterion rejects with unknown_member_reject: in every kind, a rejecting vector's input with a member added at its top level (n133 on n4 in chain_set; n134-n143 and n179 in the other eleven kinds), and in each closed object inside `input` in chain_set, chain_commitment and independence_claim, a rejecting vector's input with a member added to that object (n144 and n150 inside n4's `head` and first record in chain_set, n151 and n152 inside n36's `head` and first record in chain_commitment, n145 inside n7's first attestation). A closed object inside `input` that is not a JSON object has no members to read, and the kind's criterion decides it as before (n16 under a claim; p62 in a record that claims none, whose attestations the criterion does not read); the entries after it are still checked (n148). An `input` that is not a JSON object is outside the suite, and no vector pins what a verifier does with one. The lists include the members the suite permits and does not read, and the contents of those members are not examined: `witness` and `attestations` beside a chain set, in chain_set and in chain_commitment (p24, p28, p57; p58 in chain_set and p61 in chain_commitment carry an undefined member inside each and accept), an attestation's `role`, and `deliverable_signer` and `payTo` in independence_claim (p22, p23). `decision_attestations` in composition_independence is read by no criterion, and each object in it is closed like any attestation. `record_commits` is listed because commitment_derivation defines it: in a record that claims independence its presence rejects with independence_reject (n22-n24), and in a record that claims none the criterion does not read it. Every other object is open: its members are the record's own or another protocol's (field_naming), the suite does not define them, and a member the suite does not name in one decides nothing. The open objects are those digested whole, whose every member the digest binds (`payload`, `offer`, `decision_evidence`, `findings` and each entry of `prefix`), and those a criterion reads named members of (`record` in phase_claim and in decision_evidence_binding, `receipt`, `settlement_result`, `boundary_event` and `decision` in composition_independence; p59 adds `payer` to a settlement result and p60 adds `issuedAt` to a receipt, and both accept). README.md's composition_independence section states what that kind's vectors pin. No extension member is defined; if one is ever needed, it is added through a versioned field, not by reading a member these lists do not name. The rule covers the kinds of this manifest; each crypto profile states its own (`defined_fields` in crypto/MANIFEST.json and in crypto/EIP712_MANIFEST.json, v0.5.9), where a field it does not define rejects as malformed_input. Each engine pins the lists in its code, and its run fails if `closed` differs from them",
     "closed": {
       "digest_recompute": {
         "input": [
@@ -127,6 +128,25 @@
           "boundary_event",
           "covered_through",
           "prefix"
+        ]
+      },
+      "composition_independence": {
+        "input": [
+          "claimed",
+          "counterparty",
+          "decision",
+          "decision_attestations",
+          "findings",
+          "findings_attestations",
+          "parties"
+        ],
+        "input.decision_attestations[]": [
+          "by",
+          "role"
+        ],
+        "input.findings_attestations[]": [
+          "by",
+          "role"
         ]
       }
     }
@@ -2693,6 +2713,482 @@
       "origin": {
         "class": "synthetic",
         "source": "inputs constructed in tools/gen_vectors.py; the live ledger's signer address appears as sample data"
+      }
+    },
+    {
+      "file": "p68-composition-findings-outside-attestor.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n173-composition-findings-attested-by-counterparty-only.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n174-composition-outside-attestation-on-decision-only.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n175-composition-decision-binds-other-findings.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "binding_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n176-unknown-member-composition-independence.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "contributed",
+        "source": "@robertolocatelli81-dev's probe in issue #17 (2026-10-11), `x_unknown_2026: 1`: the member added to p68's input, written here"
+      }
+    },
+    {
+      "file": "n177-unknown-member-in-findings-attestation.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n178-unknown-member-in-decision-attestation.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n179-unknown-member-before-criterion-composition-independence.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n180-composition-findings-attested-by-counterparty-and-worker.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p69-composition-outside-attestor-did-pkh.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n181-composition-counterparty-attestation-caip10.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n182-composition-findings-substituted-outside-attestor.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "binding_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n183-composition-findings-unattested-outside-on-decision.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p70-composition-decision-unattested.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n184-composition-counterparty-caip10.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p71-composition-outside-attestor-urn.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n185-composition-counterparty-attestation-unlabelled.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p72-composition-outside-attestor-labelled.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p73-composition-outside-attestor-on-both-records.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n186-composition-parties-caip10.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p74-composition-unlabelled.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n187-composition-decision-outside-attestor-labelled-first.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p75-composition-outside-attestor-labelled-on-decision.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p76-composition-decision-rejected.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n188-composition-findings-other-work.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "binding_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p77-composition-findings-attested-outside-only.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n189-composition-findings-attestations-reversed.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n190-composition-decision-attested-outside-only.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n191-composition-party-attestation-caip10.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p78-composition-parties-and-counterparty-caip10.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p79-composition-counterparty-and-outside-exchanged.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n192-composition-counterparty-and-outside-exchanged.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p80-composition-outside-attestor-first-and-labelled-counterparty-on-both-records.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p81-composition-findings-attested-outside-only-unlabelled.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n193-composition-party-first-on-both-records-labelled-counterparty.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p82-composition-decision-attested-by-another-outside-address.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p83-composition-decision-on-findings-not-meeting-terms.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p84-composition-decision-rejected-on-findings-not-meeting-terms.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n194-composition-decision-rejected-binds-other-findings.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "binding_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p85-composition-findings-digest-upper-case.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n195-composition-parties-other-address.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n196-composition-parties-three-second-attests.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "independence_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "p86-composition-parties-two.json",
+      "kind": "composition_independence",
+      "expect": "valid",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n197-unknown-member-in-counterparty-findings-attestation.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
+      }
+    },
+    {
+      "file": "n198-unknown-member-in-first-decision-attestation.json",
+      "kind": "composition_independence",
+      "expect": "reject",
+      "reason": "unknown_member_reject",
+      "author": "Tersign (@wowlegend)",
+      "origin": {
+        "class": "synthetic",
+        "source": "inputs constructed in tools/gen_vectors.py"
       }
     }
   ]

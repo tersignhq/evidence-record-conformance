@@ -1,0 +1,38 @@
+{
+  "id": "p85-composition-findings-digest-upper-case",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p68's input with the hex digits of `findings_digest` written in upper case, its 0x prefix unchanged. Compared lowercased, it equals the digest of the presented findings, and the record is valid. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405BAF8EB624D17CB0FC8D6C1059392E21498AF94C9CE023FBF148B4C1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "n179-unknown-member-before-criterion-composition-independence",
+  "kind": "composition_independence",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "n173's input, which rejects with independence_reject, with `x_undefined: 1` added at its top level. The member check is decided before the kind's criterion, so the record rejects with unknown_member_reject, not independence_reject. Like the order vectors of the other kinds, it has no accepting twin. Rests on `defined_members` in MANIFEST.json. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ],
+    "x_undefined": 1
+  }
+}

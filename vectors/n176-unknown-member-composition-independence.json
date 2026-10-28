@@ -1,0 +1,40 @@
+{
+  "id": "n176-unknown-member-composition-independence",
+  "kind": "composition_independence",
+  "expect": "reject",
+  "reason": "unknown_member_reject",
+  "description": "p68's input with one member added at its top level, `x_unknown_2026: 1`, a name composition_independence does not define, so the record rejects with unknown_member_reject. p68 is the accepting twin: the same input without the member. The member and its value are the probe published in issue #17, which added it to every valid vector's input at 9be9eec, before this kind existed, and found all of them still valid. Rests on `defined_members` in MANIFEST.json. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ],
+    "x_unknown_2026": 1
+  }
+}

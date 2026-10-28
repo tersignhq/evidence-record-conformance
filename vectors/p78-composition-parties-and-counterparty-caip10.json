@@ -1,0 +1,38 @@
+{
+  "id": "p78-composition-parties-and-counterparty-caip10",
+  "kind": "composition_independence",
+  "expect": "valid",
+  "description": "p68's input with `parties` written as [eip155:8453:0x3333...3333] and `counterparty` as eip155:8453:0x2222...2222, while every attestation stays a 0x-address. Under identifier_normalization they name 0x3333...3333 and 0x2222...2222, 0x4444...4444 names neither, and the record is valid. The accepting side of n184 and n186. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "eip155:8453:0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "eip155:8453:0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

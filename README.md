@@ -43,7 +43,7 @@ python3 verify.py
 
 stdlib-only, no dependencies, no network. Exit 0 only if every vector produces its expected
 verdict **and** the run observed both verdicts **and** the pinned closure of 11 reject reasons
-and 11 vector kinds was fully exercised, **and every kind produced both verdicts** — the closure is pinned in the verifier, not derived
+and 12 vector kinds was fully exercised, **and every kind produced both verdicts** — the closure is pinned in the verifier, not derived
 from the manifest, so a fork that quietly drops a class goes red. The lists of members each kind
 defines are pinned the same way, and the run fails if `MANIFEST.json` says otherwise (v0.5.8). A green run demonstrates
 the verifier discriminates, not merely accepts.
@@ -54,7 +54,9 @@ matches itself and nothing else, with no case folding, no whitespace trimming an
 
 When an input carries a member the suite does not define and also fails another rule, the member
 decides the reason. In every kind of `MANIFEST.json`, and inside each closed object, the reason is
-`unknown_member_reject` (`defined_members`; n133–n145, n150–n152); a closed object that is not a
+`unknown_member_reject` (`defined_members`; at the top level n133–n143 and n179, one per kind, and inside
+the closed objects of chain_set, chain_commitment and independence_claim n144, n145 and n150–n152; no
+vector pins it inside an attestation of composition_independence); a closed object that is not a
 JSON object has no members, and the kind's criterion decides it (n16, p62). In the crypto profiles
 the reason is `malformed_input`, decided before the signature is read and, in `crypto/MANIFEST.json`,
 before the link version (`defined_fields`; cn37, cn39, en36, en37).
@@ -81,13 +83,18 @@ before the link version (`defined_fields`; cn37, cn39, en36, en37).
 | offer binding (receipt commits to the accepted offer's canonical digest) | p15, p60 | n19 **offer substitution** (same resource/network, different amount/payTo), n94 **lone surrogate in the offer**, n163 **receipt with no `offerDigest`** (p60's receipt without it) | `binding_reject` |
 | decision-evidence binding (protected record commits to the canonical authority reduction) | p19 | n27 **unbound reduction**, n28 **reduction substitution**, n95 **lone surrogate in the evidence** | `binding_reject` |
 | boundary binding | p18 (binds prefix **and** position), p20 (**suite transition** preserves the prefix under the suite in force when written), p63 (**an empty attestation claiming no coverage**, #9), p64 (**attested length equal to a two-entry prefix**), p67 (**no attested length**, n25's twin) | n25 **fabricated boundary** (prefix-only binding), n26 **downgrade** (coverage over an empty attestation), n29 **retroactive re-digest** (transition binds the successor-suite digest of the same bytes — the engine that re-hashes history agrees with it, so it discriminates), n96 **lone surrogate in the prefix**, n168 **position short of the prefix's end**, n166 **coverage past a non-empty attestation**, n167 **coverage with no attested length**, and the attested length wherever present (v0.5.9): n153 **one past the prefix** (#9), n155 **99**, n159 **past a two-entry prefix**, n154 **−1**, n156 **the token `0.0`**, n157 **`false`**, n158 **`null`**, n170 **the string `"0"`**, and n171 **`covered_through: null`** | `boundary_reject` |
-| defined members (every kind's `input`, and the closed objects inside it, define exact names) | for n107–n132 and n146–n149, the vector each input was taken from (n133–n145 and n150–n152 are taken from rejecting vectors and have no accepting twin); p57 (`witness` and `attestations` in **chain_commitment**), p58 / p61 (an undefined member **inside** `witness` and the attestation beside a chain set, not read, in chain_set and in chain_commitment), p59 / p60 (a member the suite does not name in a **settlement result** and in a **receipt**, which are open), p62 (a **string attestation** in a record that claims no independence) | n107–n117 **an undefined member at the top level**, one per kind (the member from #17), n118–n122 **inside each closed object**, n123–n125 **null, empty string, empty object**, n126 **letter case**, n127 **Cyrillic homoglyph**, n128 **fullwidth form**, n149 **trailing space**, n129 / n130 **a member another kind defines** (`payload_text` in digest_recompute; `acc` in a chain_set head), n131 **`constructor`**, n132 **`__proto__`**, n133 / n134–n143 **decided before the criterion**, in every kind, n144 / n150 / n151 / n152 / n145 **inside each closed object, before the criterion**, n146 **a party's attestation**, n147 **an attestation under no claim**, n148 **after an entry that is not an object** | `unknown_member_reject` |
+| defined members (every kind's `input`, and the closed objects inside it, define exact names) | for n107–n132 and n146–n149, the vector each input was taken from (p68 for n176–n178 and n197, p73 for n198) (n133–n145, n150–n152 and n179 are taken from rejecting vectors and have no accepting twin); p57 (`witness` and `attestations` in **chain_commitment**), p58 / p61 (an undefined member **inside** `witness` and the attestation beside a chain set, not read, in chain_set and in chain_commitment), p59 / p60 (a member the suite does not name in a **settlement result** and in a **receipt**, which are open), p62 (a **string attestation** in a record that claims no independence) | n107–n117 **an undefined member at the top level**, one per kind (the member from #17), n118–n122 **inside each closed object**, n123–n125 **null, empty string, empty object**, n126 **letter case**, n127 **Cyrillic homoglyph**, n128 **fullwidth form**, n149 **trailing space**, n129 / n130 **a member another kind defines** (`payload_text` in digest_recompute; `acc` in a chain_set head), n131 **`constructor`**, n132 **`__proto__`**, n133 / n134–n143 **decided before the criterion**, in each kind but composition_independence, n144 / n150 / n151 / n152 / n145 **inside each closed object of chain_set, chain_commitment and independence_claim, before the criterion**, n146 **a party's attestation**, n147 **an attestation under no claim**, n148 **after an entry that is not an object**, in composition_independence n176 **at the top level**, n177 **in the findings' attestation by the outside attestor**, n197 **in the one by the counterparty, before it**, n178 **in the decision's only attestation**, n198 **in the first of its two**, and n179 **before the criterion** on n173's input | `unknown_member_reject` |
 | independence criterion | p8, p9 (no claim), p10 (claim **set**), p11 (set, silence only), p16 (scope ⊆ **derived** commitments), p17 (**derived** commitments, resolvable settlement), p21 (**URN identities** — the criterion decides under a second identity syntax), p31 (**case and trailing punctuation** on an outside party), p32 / p34 (**percent-encoded unreserved** characters on an outside party), p33 (**whitespace set** — White_Space padding JavaScript's `trim()` misses), p36 (near-miss: **dots within segments**, not dot-segments), p37 (**CAIP-10 / did:pkh** form of a non-party address), p38 (**did:ethr / `ethereum:` / `acct:`** form of a non-party address), p22 (**delivery commitment**, recomputed digest, claim silent), p23 (**delivery independence within commitment** — the vector that drives the delivery derivation; no settlement present), p54 (**settlement result naming a transaction**, n104's twin), p55 (**delivery scope over a record with no settlement result**, n105's twin), p56 (**an outside attestor written `0X` with upper-case digits**, n106's twin) | n7 issuer-only attestation, n8 **unrecognized claim**, n9 **unread member in a set**, n13 **party alias** (whitespace), n14 unparseable attestor, n15 claim w/o attestations, n16 non-object attestation, n172 **non-object attestation beside an outside attestor**, n20 **scope past commitment**, n21 **empty settlement** (derived commitments), n22 **declared override** (list beside derivable result), n23 **explicit-null declaration** (the engine-fork input), n24 **declared with no scope asserted** (the presence rule's second half), n30 **URN self-attested** (rejects for the independence reason, not the identifier), n31 **URN alias** (trailing slash — n13 one syntax over), n45 **alias by case**, n46 / n47 **alias by trailing `.` / `#`**, n48 **alias by percent-encoding** (#8), n49 **alias on the party side**, decoded before the trailing strip, n50 **residual percent-encoding** (not evaluable), n51 **empty after normalization**, n52 / n53 **format / control character** at the edge (not White_Space; not evaluable), n54 **alias by the rest of the unreserved set**, n55 / n56 **decoded once** (`%25`, an assembled triplet), n58 **alias by scheme case alone**, n59 / n60 / n67 / n70 **dot-segments** (not evaluable; n67 and n70 at the path's first segment), n61 **query component**, n62 **fragment with content**, n63–n66, n69 **a party's address in another namespace** (CAIP-10, did:pkh, did:ethr, `ethereum:`, `acct:`), n32 **delivery self-attested** (same record as p22, independence claimed over it — the deliverer's own signature is the only attestation), n33 **delivery substitution** (p23's bytes tampered, digest as issued — commits to no delivery, the claim overreaches; rejects on the scope branch, not the unevaluable one), n104 **settlement result with no `transaction` member** (n21 pins the empty string), n105 **settlement claimed over a delivery-only record**, n106 **a party's address in another letter case** (an EIP-55 checksum form against lowercase, and `0X` with upper-case digits) | `independence_reject` |
+| composition: findings and the counterparty's decision, joined by digest (`composition_independence`) | p68 (**an attestor outside the parties on the findings**), p69 (**the same attestor written as a did:pkh**), p70 (**a decision with no attestation**), p71 (**an attestor that names no address**), p72 (**the outside attestor labelled**), p73 (**the outside attestor on both records**), p74 (**no label anywhere**, n185's twin), p75 (**the decision attested first by the outside attestor, labelled `counterparty`**, n187's twin), p76 (**a decision that does not accept the work**), p77 (**the outside attestor as the findings' only one**), p78 (**`parties` and `counterparty` written as CAIP-10 accounts**), p79 (**the two addresses exchanged**), p80 (**the outside attestor first in both lists and labelled `counterparty` in both**), p81 (**the outside attestor as the findings' only one, with no label**), p82 (**an outside attestor on the findings and another on the decision alone**), p83 / p84 (**a decision that accepts, and one that rejects, findings that say the work does not meet the terms**), p85 (**the hex digits of `findings_digest` in upper case**), p86 (**two identifiers in `parties`**, n196's twin) | n173 **findings attested only by the counterparty**, whom `parties` does not list, n180 **findings attested by the counterparty and the party whose work they are about**, n181 **the counterparty's attestation written as a CAIP-10 account**, n184 **`counterparty` written so**, n186 **`parties` written so**, n191 **the party's attestation written so**, n185 **no label anywhere**, n187 **the decision attested first by an outside attestor labelled `counterparty`**, n189 **the findings' attestations in the other order**, n190 **the decision attested only by an outside attestor**, n193 **the party `parties` lists first in both lists, labelled `counterparty` on the decision**, n192 **n174 with the two addresses exchanged**, n195 **the party `parties` lists at another address**, n196 **three identifiers in `parties`, the second attesting**, n174 **an outside attestation on the decision only**, n183 **no attestation on the findings, an outside one on the decision**, n175 / n182 / n188 / n194 **a decision beside findings it does not commit to** (`binding_reject`, decided before the claim; n182's findings carry an outside attestation, n188's differ only in `work_digest`, and n194's decision records `rejected`) | `independence_reject`, `binding_reject` |
 
-Two design rules, both enforced by the run itself:
+Two design rules. The run itself checks only part of them: that it exercises every reject reason and
+every kind, and that each kind returns both verdicts. It does not check that each known failure
+class has an adversarial vector, or that each class has an accepting twin.
 
-1. **At least one adversarial vector per known failure class** — an all-happy-path suite
-   proves nothing about the class it never exercises. n2 encodes a failure observed in a real
+1. **At least one adversarial vector per known failure class**, except an engine that rejects
+   every input of a shape no accepting vector carries (rule 2), and the readings the
+   composition_independence section lists as known to pass every vector of that kind — an
+   all-happy-path suite proves nothing about the class it never exercises. n2 encodes a failure observed in a real
    implementation (JS engines hoist integer-like keys into numeric order on object rebuild,
    silently defeating sort-then-stringify; RFC 8785 orders `"1" < "10" < "2"` by UTF-16 code
    units); n12 is the same rule where it bites hardest — a supplementary-plane key sorts FIRST
@@ -97,7 +104,13 @@ Two design rules, both enforced by the run itself:
 2. **Every criterion is two-sided** — each criterion has accepting vectors beside its rejecting
    ones, and each class that admits an accepting input has an accepting twin (a form that is
    never evaluable, such as n50's, has none), so an implementation that unconditionally rejects
-   a class fails the suite just as one that unconditionally accepts it does (p7/p8 exist for exactly this). **Enforced per kind since 2026-08-19**,
+   a class fails the suite just as one that unconditionally accepts it does (p7/p8 exist for exactly this).
+   A twin pins its class, not every narrower shape a rejecting vector carries, so an engine that
+   rejects every input of such a shape can pass the suite; composition_independence's section lists
+   known examples for that kind (the shapes of n183, n189, n190 and n193, three or more identifiers
+   in `parties` as in n196, and a findings attestor written as a CAIP-10 account as in n181 and n191),
+   and the list is not complete.
+   **Enforced per kind since 2026-08-19**,
    not per run: until then the gate checked `{valid, reject}` over the whole run, so a
    criterion whose accepting vectors all disappeared stayed green as long as some other
    criterion contributed a `valid` somewhere — the rule was real in this paragraph and absent
@@ -180,8 +193,10 @@ canonicalization, or field location for any protocol.
 
 ## Wrong readings and the vectors that reject them
 
-Each row names a wrong reading and the vectors an engine that reads that way fails, by accepting
-them or by rejecting them for another reason.
+Each row names a wrong reading and the vectors an engine that reads that way fails: a rejecting
+vector by accepting it or by rejecting it for another reason, and an accepting vector (in the
+tables the last row points to) by rejecting it. The reason column gives the rejecting vectors'
+reasons.
 
 | wrong reading | vectors | reason |
 |---|---|---|
@@ -191,10 +206,338 @@ them or by rejecting them for another reason.
 | a number outside the vector domain (I-JSON integers) read as a number | n10, n11, n35, n103 | `number_domain_reject` |
 | duplicate member names read as one object | n41, n42, n57, n68, n93 | `canonicalization_reject` |
 | a member the suite does not define read as absent | n107–n152 | `unknown_member_reject` |
-| the kind's criterion decided before the member check, so an input that fails both keeps the criterion's reason | n133–n145, n150–n152 | `unknown_member_reject` |
+| the kind's criterion decided before the member check, so an input that fails both keeps the criterion's reason: at the top level in every kind, and inside the closed objects of chain_set, chain_commitment and independence_claim | n133–n143 and n179 at the top level; n144, n145 and n150–n152 inside those objects | `unknown_member_reject` |
 | an attested prefix length read only beside claimed coverage | n154, n156–n159, n170 | `boundary_reject` |
 | a boundary member read by value, so a present `null` reads as absent | n158, n171 | `boundary_reject` |
 | chain continuity read through the links alone | n161, n162 | `continuity_reject` |
+| a reading of `composition_independence` (each one named under *Composition: findings and the counterparty's decision*, **Measured at this commit**) | the vectors named there for it | `independence_reject`, `binding_reject`, `unknown_member_reject` |
+
+## Composition: findings and the counterparty's decision (unreleased)
+
+A new kind, `composition_independence`, with forty-five vectors: p68–p86 and n173–n198. A verifier
+that runs this suite has to implement it: `verify.py` fails a run that leaves any of its kinds
+unexercised, both engines pin the kind's member lists, and `tools/compare_run.py` counts a vector a
+runner leaves out as a disagreement.
+
+This section is the one place that says what these vectors pin and what they leave open. The
+kind's rule in `MANIFEST.json`, the vector descriptions, and the comments and docstrings in
+`verify.py`, `tools/gen_vectors.py` and `tools/mutate_rules.py` state the criterion's mechanics and
+each vector's input and verdict, and point here.
+
+**The criterion.** The kind evaluates two records joined by digest: `findings`, a record of findings
+about the work of a party to a transaction, and `decision`, the counterparty's decision on that
+work, which commits to the findings by `findings_digest` = keccak256(utf8(canonical(findings))).
+Within this suite that is how the decision commits to the findings; it does not prescribe a digest,
+canonicalization or field location for any protocol. The reference, `verify.py`, applies in order:
+
+1. **The join.** `findings` and `decision` must be JSON objects, and `findings_digest`, after the
+   whitespace strip of `identifier_normalization` and lowercased, must be 0x and 64 hex digits equal
+   to the digest of the presented findings; otherwise the record rejects with `binding_reject`. Of
+   the decision it reads only `findings_digest`.
+2. **The claim.** `claimed` is read as in `independence_claim`, so a joined composition that claims
+   nothing is valid.
+3. **The parties.** Under a claim, the findings are read as an `independence_claim` record whose
+   attestations are `findings_attestations` and whose parties are `parties` followed by
+   `counterparty`. Every identifier, in `parties`, in `counterparty` and in each findings
+   attestation, compares under `identifier_normalization`. As in `independence_claim`, the claim
+   holds only when `parties` is a non-empty array, `findings_attestations` is a non-empty array
+   whose every entry is a JSON object carrying `by`, every identifier in `parties`, `counterparty`
+   and every `by` parse, and at least one findings attestor names no party; otherwise the record
+   rejects with `independence_reject`.
+4. **The counterparty** is the identifier `counterparty` declares. An attestation's `role` and
+   `decision_attestations` are read by no criterion.
+
+**What it does not decide.** The criterion compares the identifiers declared beside the two records
+(`parties`, `counterparty`, each findings attestor); no digest binds them to either record, and an
+identifier declared only as the decision's attestor is not compared, so whether `counterparty` names
+the decision's attestor is not checked. It does not recover signatures or judge whether the
+findings are right.
+
+**What each vector pins.** Each vector pins one input, its verdict and its reason, and nothing
+beyond them. Unless a row says otherwise, `claimed` is `independent`, `parties` lists only
+0x3333…3333, the party whose work the findings are about, `counterparty` is 0x2222…2222, the
+findings carry `work_digest`, `result` "meets the stated terms" and `note`, and the decision carries
+`findings_digest` (the digest of the presented findings, in lowercase), `decision` `accepted` and
+`note`. Attestations are listed in their order. 0x4444…4444 is p37's address; 0x5555…5555 and
+0x7777…7777 are further synthetic addresses.
+
+| vector | input | verdict |
+|---|---|---|
+| p68 | the findings attested by the counterparty (`role: auditor`) and then by 0x4444…4444 (no `role`); the decision attested by the counterparty (`role: counterparty`) | valid |
+| n173 | p68's without the findings' attestation by 0x4444…4444 | `independence_reject` |
+| n174 | p68's with the attestation by 0x4444…4444 moved from the findings to the decision, after the counterparty's | `independence_reject` |
+| n175 | n173's with the findings' `result` changed to "does not meet the stated terms" and `findings_digest` unchanged | `binding_reject` |
+| n176 | p68's with `x_unknown_2026: 1` at the top level, the probe in [#17](https://github.com/tersignhq/evidence-record-conformance/issues/17) | `unknown_member_reject` |
+| n177 | p68's with `x_undefined: 1` in the findings' attestation by 0x4444…4444 | `unknown_member_reject` |
+| n178 | p68's with `x_undefined: 1` in the decision's attestation | `unknown_member_reject` |
+| n179 | n173's with `x_undefined: 1` at the top level | `unknown_member_reject` |
+| n180 | p68's with the findings' attestation by 0x4444…4444 replaced by one by 0x3333…3333 | `independence_reject` |
+| p69 | p68's with the attestor 0x4444…4444 written as did:pkh:eip155:1:0x4444…4444 | valid |
+| n181 | n173's with the counterparty's attestation of the findings written as eip155:8453:0x2222…2222 | `independence_reject` |
+| n182 | p68's with the findings' `result` changed and `findings_digest` unchanged | `binding_reject` |
+| n183 | n174's without `findings_attestations` | `independence_reject` |
+| p70 | p68's without `decision_attestations` | valid |
+| n184 | n173's with `counterparty` written as eip155:8453:0x2222…2222 | `independence_reject` |
+| p71 | p68's with the attestation by 0x4444…4444 replaced by one by `org:example-outside` | valid |
+| n185 | n173's without its two `role` members | `independence_reject` |
+| p72 | p68's with the attestation by 0x4444…4444 labelled `role: auditor` | valid |
+| p73 | p68's with 0x4444…4444 also attesting the decision, after the counterparty | valid |
+| n186 | n180's with `parties` written as [eip155:8453:0x3333…3333] | `independence_reject` |
+| p74 | p68's without its two `role` members | valid |
+| n187 | n174's with the decision attested first by 0x4444…4444 and then by the counterparty, both labelled `role: counterparty` | `independence_reject` |
+| p75 | n187's with 0x4444…4444 also attesting the findings, after the counterparty | valid |
+| p76 | p68's with the decision's `decision` set to `rejected` | valid |
+| n188 | p68's with the findings' `work_digest` replaced and `findings_digest` unchanged | `binding_reject` |
+| p77 | n174's with the counterparty's attestation of the findings replaced by one by 0x4444…4444, which keeps `role: auditor` | valid |
+| n189 | n180's with the findings' two attestations in the other order | `independence_reject` |
+| n190 | n173's with the decision attested only by 0x4444…4444, labelled `role: counterparty` | `independence_reject` |
+| n191 | n180's with the attestation by 0x3333…3333 written as eip155:8453:0x3333…3333 | `independence_reject` |
+| p78 | p68's with `parties` written as [eip155:8453:0x3333…3333] and `counterparty` as eip155:8453:0x2222…2222 | valid |
+| p79 | p68's with 0x2222…2222 and 0x4444…4444 exchanged throughout, `counterparty` included | valid |
+| n192 | n174's with 0x2222…2222 and 0x4444…4444 exchanged throughout, `counterparty` included | `independence_reject` |
+| p80 | n187's with the findings attested only by 0x4444…4444, labelled `role: counterparty` | valid |
+| p81 | the findings attested only by 0x4444…4444, with no label, and the decision only by the counterparty (`role: counterparty`) | valid |
+| n193 | n189's with the decision attested first by 0x3333…3333 and then by the counterparty, both labelled `role: counterparty` | `independence_reject` |
+| p82 | n174's with a second attestation of the findings, by 0x5555…5555 | valid |
+| p83 | p68's with the findings' `result` changed to "does not meet the stated terms" and `findings_digest` recomputed over them | valid |
+| p84 | p83's with the decision's `decision` set to `rejected` | valid |
+| n194 | p76's with the findings' `work_digest` replaced and `findings_digest` unchanged | `binding_reject` |
+| p85 | p68's with the hex digits of `findings_digest` in upper case, its 0x prefix unchanged | valid |
+| n195 | n180's with 0x5555…5555 in place of 0x3333…3333, in `parties` and in its attestation | `independence_reject` |
+| n196 | n180's with `parties` listing 0x5555…5555, 0x3333…3333 and 0x7777…7777, in that order | `independence_reject` |
+| p86 | p68's with `parties` listing 0x3333…3333 and then 0x5555…5555 | valid |
+| n197 | p68's with `x_undefined: 1` in the findings' attestation by the counterparty, the first of the two | `unknown_member_reject` |
+| n198 | p73's with `x_undefined: 1` in the decision's attestation by the counterparty, the first of the two | `unknown_member_reject` |
+
+p68 is the accepting twin of n173, n174, n176–n178, n180, n182, n188 and n197; p81 is a further
+accepting twin of n173, p73, p77 and p82 of n174, p74 of n185, p75 of n187, p76 of n194, p83 of n182,
+p73 of n198 and p86 of n196. n175 names p68 as the accepting twin of the join; n181, n184, n186 and
+n191 name p69 as their accepting side, n189 names p77, n192 names p79, n193 names p80 and n195 names
+p82; n179 (like the order vectors of the other kinds), n183, n189, n190 and n193 have no accepting
+twin, and n183 and n190 name p68 as the nearest accepting vector. Two shapes that other rejecting
+vectors carry have no accepting twin either: three or more identifiers in `parties` (n196; p86 lists
+two) and a findings attestor written as a CAIP-10 account (n181 and n191; p69 writes the outside
+attestor as a did:pkh). An engine that rejects every input of a shape named here can pass every
+vector (design rule 2); *Not pinned* lists three, for n190's shape and these two. These are known
+examples, and the list is not complete. The generator fails if a rejecting vector's description
+contains neither "accepting twin" nor "accepting side".
+
+**Measured at this commit.** Both engines return the pinned verdict and reason on all 284 vectors,
+and the 239 vector files of v0.6.1 are byte-identical and read as before. Each engine below is
+shown to fail a vector of this kind.
+
+- *Named engines: `tools/mutate_rules.py`.* Ninety-eight one-site mutants for this kind, forty-nine
+  per engine: each row is a change to `verify.py` that fails the vectors the row names, and its
+  `ts-` twin, the same reading written in `tools/cross_check_ts.mjs`, fails them in the TypeScript
+  engine. The twins of `comp-findings-fallback-to-decision` and `comp-decision-attestation-required`
+  test for a non-empty array where the Python forms test whether the value is truthy, so each pair
+  differs on a truthy value that is not an array. The twin of `comp-attestations-pooled` spreads each
+  list unless it is null or absent, where the Python form adds the two lists and reads a value that
+  is not truthy as empty, so that pair differs when a list is a numeric zero, `false` or `{}`, which
+  the Python form reads as empty and on which the TypeScript form throws, or a non-empty string, on
+  which the Python form raises and which the TypeScript form reads as its characters.
+
+| mutant (the `ts-` twin is the TypeScript form) | the engine | fails |
+|---|---|---|
+| `comp-counterparty-not-a-party` | leaves the counterparty out of the parties | n173, n174 |
+| `comp-declared-parties-dropped` | leaves out the parties `parties` declares (the counterparty alone) | n180 |
+| `comp-parties-fixed-address` | reads the parties as 0x3333…3333 whatever `parties` declares | n195 |
+| `comp-parties-first-only` | reads only the first identifier `parties` lists | n196 |
+| `comp-parties-last-only` | reads only the last identifier `parties` lists | n196 |
+| `comp-parties-multi-rejected` | rejects a claim whose `parties` lists more than one identifier | p86 |
+| `comp-attestations-pooled` | pools the two records' attestations | n174 |
+| `comp-decision-attestations-read` | reads the decision's attestations in place of the findings' | p68, n174 |
+| `comp-findings-fallback-to-decision` | reads the decision's attestations when `findings_attestations` is absent or empty | n183 |
+| `comp-decision-attestation-required` | requires an attestation of the decision | p70 |
+| `comp-decision-only-attestor-fails-closed` | fails the claim when an identifier attests only the decision and is not `counterparty` | p82 |
+| `comp-counterparty-as-written` | compares the counterparty with the attestors as written | n181 |
+| `comp-counterparty-unnormalized` | compares `counterparty` as written beside normalized attestors | n184 |
+| `comp-parties-unnormalized` | compares `parties` as written beside normalized attestors | n186 |
+| `comp-party-attestor-as-written` | compares `parties` with the attestors as written | n186, n191 |
+| `comp-address-identifiers-only` | rejects a findings attestor that names no 0x-address | p71 |
+| `comp-scheme-qualified-party-refused` | rejects a scheme-qualified `parties` entry or `counterparty` | p78 |
+| `comp-counterparty-from-role` | does not read `counterparty` and takes a labelled findings attestation for the counterparty's | n185, p72 |
+| `comp-role-labelled-is-party` | reads a labelled findings attestation as a party's | p72 |
+| `comp-counterparty-first-labelled-findings-attestor` | takes the counterparty from the first labelled findings attestation, failing closed when none is labelled | p74, p77 |
+| `comp-counterparty-from-decision-label` | takes the counterparty from the first decision attestation labelled `counterparty` | n187, n190 |
+| `comp-decision-label-is-party` | counts a decision attestor labelled `counterparty` as a party | p75 |
+| `comp-findings-label-counterparty-is-party` | counts a findings attestor labelled `counterparty` as a party | p80 |
+| `comp-counterparty-first-decision-attestor` | takes the counterparty from the decision's first attestor | n187, n190 |
+| `comp-counterparty-only-decision-attestor` | takes the counterparty from the decision's only attestor | n190 |
+| `comp-counterparty-first-findings-attestor` | takes the counterparty from the findings' first attestor, failing closed when there is none | p77, n189 |
+| `comp-first-findings-attestation-is-counterparty` | takes the findings' first attestation for the counterparty's | p77, n189 |
+| `comp-counterparty-attests-both-records` | takes the counterparty from an attestor of both records | p77 |
+| `comp-counterparty-first-in-both-lists` | takes the counterparty from an identifier first in both lists | p80, n193 |
+| `comp-first-in-both-lists-is-party` | counts an identifier first in both lists as a party | p80 |
+| `comp-counterparty-labelled-in-both-lists` | takes the counterparty from an identifier labelled in both lists | p80 |
+| `comp-labelled-in-both-lists-is-party` | counts an identifier labelled in both lists as a party | p80 |
+| `comp-counterparty-labelled-decision-attestor-of-both-records` | takes the counterparty from the first decision attestor labelled `counterparty` that also attests the findings | p80, n193 |
+| `comp-counterparty-first-decision-attestor-of-both-records` | takes the counterparty from the decision's first attestor when it also attests the findings | p80, n193 |
+| `comp-counterparty-only-unlabelled-findings-attestor` | takes the counterparty from the findings' only attestor when it carries no label | p81 |
+| `comp-counterparty-only-findings-attestor-not-on-decision` | takes the counterparty from the findings' only attestor when it does not attest the decision | p81 |
+| `comp-counterparty-first-scheme-qualified-attestor` | takes the counterparty from the first findings attestor written scheme-qualified | n191 |
+| `comp-counterparty-fixed-address` | takes the counterparty as 0x2222…2222 | n192 |
+| `comp-fixed-address-is-party` | counts 0x2222…2222 as a party | p79 |
+| `comp-decision-attestors-as-counterparty` | reads the decision's attestors as the counterparty | p73 |
+| `comp-decision-attestors-as-parties` | reads the decision's attestors as parties beside the counterparty | p73 |
+| `comp-join-skipped` | skips the join | n175, n182 |
+| `comp-claim-before-join` | reads the claim before the join | n175 |
+| `comp-join-requires-accepted-decision` | refuses the join to a decision that does not accept the work | p76 |
+| `comp-join-only-for-accepted-decision` | enforces the join only for a decision that accepts the work | n194 |
+| `comp-join-by-decision-and-result` | replaces the join by checking what the decision decides against the findings' `result` | p76, n188 |
+| `comp-join-rejects-accepted-unmet-findings` | keeps the join and rejects a decision that records `accepted` beside findings whose `result` is not "meets the stated terms" | p83 |
+| `comp-join-reads-findings-result` | keeps the join and rejects findings whose `result` is not "meets the stated terms" | p83, p84 |
+| `comp-findings-digest-compared-as-written` | compares `findings_digest` as written, not lowercased | p85 |
+
+- *Member check: `tools/mutate_members.py`.* Seventeen mutants for this kind, each a change to the
+  member check of the engine named (its lists, which entries of an attestation list it reads, or
+  whether it runs before the criterion), and each failing the vectors named for it there; several
+  of that tool's mutants for every kind also name n177–n179, n197 or n198.
+
+| mutant | engine changed | the engine | fails |
+|---|---|---|---|
+| `kind-open:composition_independence` | Python | skips the member check for this kind, attestation entries included | n176 |
+| `comp-findings-attestations-open` | Python | leaves each findings attestation open | n177 |
+| `comp-decision-attestations-open` | Python | leaves each decision attestation open | n178 |
+| `comp-findings-attestations-last-only`, `ts-comp-findings-attestations-last-only` | both | checks members only in the findings' last attestation | n197 |
+| `comp-decision-attestations-last-only`, `ts-comp-decision-attestations-last-only` | both | checks members only in the decision's last attestation | n198 |
+| `comp-findings-attestations-outside-only`, `ts-comp-findings-attestations-outside-only` | both | checks members only in the findings attestations whose `by`, as written, is neither listed in `parties` nor `counterparty` | n197 |
+| `comp-findings-role-undefined`, `ts-comp-findings-role-undefined` | both | leaves `role` out of the findings attestations' list | p68, n173 |
+| `comp-decision-role-undefined`, `ts-comp-decision-role-undefined` | both | leaves `role` out of the decision attestations' list | p68 |
+| `comp-omits-decision-attestations` | Python | leaves `decision_attestations` out of the input's list | p68 |
+| `comp-closes-findings` | Python | closes `findings` to `work_digest` alone | p68 |
+| `comp-closes-decision` | Python | closes `decision` to `findings_digest` alone | p68 |
+| `criterion-first:composition_independence` | Python | runs this kind's criterion before the member check | n179 |
+
+Each pair in this table fails the same vectors in both engines. The two forms differ only on
+inputs no vector carries: the TypeScript forms of the two `-last-only` mutants check the last
+entry that is a JSON object, and the Python forms the last entry, and none when it is not an
+object; the two forms of `comp-findings-attestations-outside-only` differ when `parties` is not an
+array, or an attestation's `by` is absent or not a string.
+
+- *Single features: generation gate 6 in `tools/gen_vectors.py`.* The gate lists single features of
+  the attestations: a label, each label value a list carries and no label, on each list; the
+  first, last and only place in each list; attesting both records, attesting the decision,
+  attesting more than once and attesting most often; an identifier written as a 0x-address or
+  scheme-qualified; and each address a vector declares as `counterparty`. It fails if one of them
+  marks the counterparty, and only it, in every accepting or every rejecting vector whose verdict
+  depends on the parties, or if any one of four engines that read it in place of `counterparty`
+  passes every vector of the kind: the first identifier it marks taken as the counterparty, with
+  `counterparty` read, or the claim failing closed, when it marks none; every identifier it marks
+  taken as the counterparty; and every identifier it marks counted as a party beside
+  `counterparty`. These engines are the Python reference reading a rewritten input; the gate does
+  not run the TypeScript engine. One engine is exempt: the decision's only attestor counted as a
+  party is separated from the reference only by an accepting input whose decision is attested only
+  by an identifier other than `counterparty`, and the generator fails if a vector ever separates
+  it.
+
+`tools/differential.py` compares the two engines on 24,215 cases (23,931 off the corpus; 4,746
+built from this kind's vectors, the corpus included), with 0 divergences. The kinds grow from 11 to
+12; the reject-reason closure stays at 11.
+
+**Not pinned.** Engines other than those named above may pass every vector of the kind. That
+includes engines that infer the counterparty from any member other than `counterparty`, that skip
+or reorder the independence or join checks, that read a member of the decision other than
+`findings_digest` or a member of the findings other than through their digest (`decision`, `result`,
+`work_digest`, `note` or any other), that compare `findings_digest` in another way, that read
+`parties` in another way than as the whole list, that reject every input of a shape some rejecting
+vector carries and no accepting vector does, or that check the members of the two attestation
+lists in another way than in every entry, before the criterion. The readings below are known to
+pass every vector, each measured with an engine built on the Python reference against an input on
+which it departs from the reference; the list is not complete.
+
+- The independence check skipped, after the join, when the decision's `decision` is not
+  `accepted`, when the findings' `result` is not "meets the stated terms", or when
+  `decision_attestations` is absent or empty. Each accepts an input the reference rejects with
+  `independence_reject`: n173's input with `decision` set to `rejected`; n173's input with the
+  findings' `result` changed and `findings_digest` recomputed over them; n173's input without
+  `decision_attestations`.
+- The join enforced only for a decision that carries an attestation. It accepts n182's input
+  without `decision_attestations`, which the reference rejects with `binding_reject`.
+- The decision or the findings read more strictly: rejecting a decision whose `decision` is absent
+  or is neither `accepted` nor `rejected`; findings with no `result` or another one; findings
+  without a `work_digest` that parses as a digest, or without `note`; a decision without `note`;
+  or a `findings` or `decision` that carries a member beyond the three the vectors carry (closing
+  `findings` to `work_digest`, `result` and `note`, or `decision` to `findings_digest`, `decision`
+  and `note`). Each rejects an input the reference accepts: p68's input with that member changed,
+  removed or added, and `findings_digest` recomputed wherever the findings change.
+- `findings_digest` compared in another way: refusing one written with `0X`; lowercasing it
+  without the whitespace strip, which rejects p68's input with a space before its digest; or
+  comparing only its first ten characters, which accepts p68's input with a `findings_digest`
+  whose first ten characters are the findings' digest's and whose other 56 are zeros.
+- `parties` read in another way than as the whole list: reading only its first two, or only its
+  last two, identifiers (they accept n196's input with 0x3333…3333 moved to the end, and to the
+  front, of `parties` respectively, which the reference rejects); and rejecting an input whose
+  `parties` lists the counterparty (it rejects p68's input with `parties` [0x3333…3333,
+  0x2222…2222], which the reference accepts).
+- The claim decided on the findings' last attestation alone. It rejects p68's input with the
+  findings' two attestations in the other order, which the reference accepts.
+- The counterparty inferred from other features of the attestations. Some engines that read a
+  combination of the features generation gate 6 lists, or a feature it does not list, in place of
+  `counterparty` pass every vector. Three measured ones take for the counterparty a findings
+  attestor after the first that names 0x4444…4444, a labelled findings attestor after the first,
+  or an identifier that is unlabelled on both lists, and each rejects an input the reference
+  accepts (the findings attested by 0x3333…3333 and then by 0x4444…4444, unlabelled or with
+  0x4444…4444 labelled `auditor`, and the decision by the counterparty, alone or followed by
+  0x4444…4444). One takes the counterparty from a decision attestation labelled `auditor`, a label
+  value no vector carries on that list, and accepts n173's input with the decision attested only by
+  0x4444…4444 so labelled.
+- The gate's exempt engine, which counts the decision's only attestor as a party. It rejects an
+  input whose findings and decision are each attested only by 0x4444…4444, which the reference
+  accepts.
+- Every claim rejected when only identifiers other than `counterparty` attest the decision (n190's
+  shape). It rejects p68's input with the decision attested only by 0x4444…4444, which the
+  reference accepts.
+- Every claim rejected when `parties` lists three or more identifiers (n196's shape). It rejects
+  p68's input with `parties` listing 0x5555…5555, 0x3333…3333 and 0x7777…7777, which is n196's
+  input with its second findings attestation by 0x4444…4444, and which the reference accepts.
+- Every claim rejected when a findings attestor is written as a CAIP-10 account (the shape of n181
+  and n191). It rejects p68's input with the attestation by 0x4444…4444 written as
+  eip155:1:0x4444…4444, which the reference accepts.
+- An identifier that starts or ends with U+0020 read as unparseable, before the whitespace strip of
+  `identifier_normalization`. It rejects p68's input with the attestation by 0x4444…4444 written
+  with a U+0020 after it, which the reference accepts; in `independence_claim` it likewise rejects
+  p8's input with its outside attestor written so, which the reference accepts.
+- The members of the two attestation lists checked in another way. Each of these reads differently
+  from the reference on the input named, which the reference rejects with `unknown_member_reject`:
+  checking members only in the decision's first attestation, or only in the decision's attestations
+  by parties (each accepts p73's input with `x_undefined: 1` in the decision's attestation by
+  0x4444…4444); checking the attestations' members only under a claim (it accepts p68's input
+  without `claimed` and with `x_undefined: 1` in the findings' attestation by 0x4444…4444); checking
+  each list only up to its first entry that is not an object (it accepts p68's input whose
+  `decision_attestations` holds a string and then the counterparty's attestation with
+  `x_undefined: 1`); and, in this kind, checking the attestations' members after the criterion and
+  the input's own members before it (it rejects n173's input with `x_undefined: 1` in the findings'
+  attestation with `independence_reject`).
+
+No vector pins these input shapes (this list is not complete either): an input that rejects with
+`independence_reject` beside a decision that does not record `accepted`, beside findings whose
+`result` is not "meets the stated terms", or beside a decision with no attestation; a decision with
+no attestation beside findings it does not commit to; a decision whose `decision` is absent or is
+neither `accepted` nor `rejected`; findings whose `result` is absent or is neither "meets the stated
+terms" nor "does not meet the stated terms"; findings without a `work_digest` that parses as a
+digest; findings or a decision without `note`, or carrying a member no vector carries; an absent or
+unparseable `counterparty`; a `parties` that is absent, not an array or empty, that lists the
+counterparty, or that lists more than one identifier, other than n196's and p86's; a party or
+counterparty named by a scheme-qualified identifier that names no 0x-address, or written in another letter case,
+padded or percent-encoded (every identifier of the kind is lowercase and unpadded); an accepting
+input with a findings attestor written as a CAIP-10 account; an accepting input whose decision is
+attested only by identifiers other than `counterparty`; an accepting input
+whose findings' last attestation is a party's; an empty `findings_attestations` array, an entry of
+it that is not an object or names no attestor (`by`), or a findings attestor that does not parse; a
+decision with no `findings_digest`, one that does not parse, one written with `0X` or one padded
+with whitespace; a `findings` or `decision` that is not an object; a claim other than the string
+`independent` (a claim set included); an entry of `decision_attestations` that is not an object; a
+composition that claims nothing; or a member no list defines in an attestation of a composition
+that claims nothing, in a decision attestation after the first or by an attestor that is not a
+party, in an attestation after an entry that is not an object, or in an attestation of an input
+that also fails the criterion. The differential battery has cases of each of these shapes
+except a decision whose `decision` is absent or is neither `accepted` nor `rejected`; findings whose
+`result` is absent or is neither of those two; findings without a `work_digest` that parses as a
+digest; findings or a decision without `note`; a party or counterparty that names no 0x-address; a
+`parties` entry written in another letter case, padded or percent-encoded; a percent-encoded
+`counterparty`; a findings attestation with no `by`; a `findings_digest` written with `0X`; and a
+member in an attestation after an entry that is not an object.
 
 ## Chain statements: the issuer-numbering report's definition (v0.6.1)
 
@@ -421,9 +764,9 @@ with a field it does not define, and v0.5.9 closes both (`crypto/README.md`).
   bytes without the member.
 - **Every attestation.** n122 and n128 put the member in the attestation by the attestor outside
   the parties, n146 in the one by a party, and n147 in an attestation of a record that claims no
-  independence, whose attestations the criterion does not read. An engine that checks only the
-  last attestation, skips the first, checks only outside attestors or checks only under a claim
-  accepts one of them.
+  independence, whose attestations the criterion does not read. In independence_claim, an engine
+  that checks only the last attestation, skips the first, checks only outside attestors or checks
+  only under a claim accepts one of them.
 - **By name, whatever the value.** n123 (`null`), n124 (`""`) and n125 (`{}`) reject like any other
   value. An engine that tests the value instead of the name's presence, or skips falsy values,
   accepts them.
@@ -724,23 +1067,23 @@ or live record.
 
 | `origin.class` | vectors | material |
 |---|---|---|
-| `synthetic` | 191 | inputs constructed in `tools/gen_vectors.py` |
+| `synthetic` | 235 | inputs constructed in `tools/gen_vectors.py` |
 | `live-ledger` | 3 (p1, p5, p27) | a record from the live ledger, unaltered, with a `provenance` block in the vector |
 | `live-ledger-derived` | 12 (p4, n1, n3, n5, n75, n77, n87, n88, n89, n97, n112, n138) | a value from those records, reused or altered |
-| `contributed` | 33 | an outside contributor's PR, commit, fixture or published reproduction |
+| `contributed` | 34 | an outside contributor's PR, commit, fixture or published reproduction |
 
-Of the 239 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
+Of the 284 vectors, nine were authored by four outside contributors (@Rul1an p11/n9,
 @mohammedmessaoudene-cmd p19/n27/n28, @navigatorbuilds p20/n29, @0rkz p22/n32). Ten more, also
 `contributed`, were written here on outside material, and their origin names its author: p23/n33 on
 @0rkz's PayPerByte fixture, n95 on p19's decision-evidence object from PR #5, n22/n23/n24 from
 @Rul1an's published reproductions in issue #4, n41 from @Rul1an's input in issue #10, p39 and n78
 from his inputs in issue #1, and n48 from @stillmarcus24's probe in issue #8. n75, his third input
 in issue #1, carries p4's live-ledger digest, so it is classed `live-ledger-derived` and its source
-names him. Ten more, v0.5.8's top-level vectors, carry the member and value of
-@robertolocatelli81-dev's probe in issue #17 and are `contributed` (n107–n111, n113–n117; n116 is
-also built on p19's object from PR #5); n112 carries the same member on p5's live anchor, so it
-is `live-ledger-derived` and its source names the probe. Three of v0.5.9's vectors are the inputs of
-@robertolocatelli81-dev's differential in issue #9 on which his verifier and `verify.py` returned
+names him. Eleven more carry the member and value of @robertolocatelli81-dev's probe in issue #17
+and are `contributed`: v0.5.8's top-level vectors (n107–n111, n113–n117; n116 is also built on
+p19's object from PR #5) and n176, the probe on composition_independence's p68; n112 carries the
+same member on p5's live anchor, so it is `live-ledger-derived` and its source names the probe.
+Three of v0.5.9's vectors are the inputs of @robertolocatelli81-dev's differential in issue #9 on which his verifier and `verify.py` returned
 different results, and are `contributed`: p63, n153 (also built on p20's suite-transition fixture
 from PR #6) and n165. Two of v0.5.8's order vectors take
 their class from the rejecting vector each was taken from: n142 carries n27's decision-evidence
@@ -795,8 +1138,8 @@ by seq it goes red where the previous battery stayed green.
 
 `JSON.parse` collapses the wire token `3.0` to the integer `3`; Python's `json` keeps a float, and
 every integer predicate in `verify.py` rejects it. Until v0.5.1 the two engines therefore diverged on
-the same bytes for a fractional or exponent `seq` token — a real parity fork, found by an adversarial
-review of v0.5.0. The suite's number-domain boundary has always been the TOKEN class (p25/n35 pin it
+the same bytes for a fractional or exponent `seq` token — a real parity fork, present in
+v0.5.0. The suite's number-domain boundary has always been the TOKEN class (p25/n35 pin it
 for canonical bytes); n38 pins the same boundary for sequence numbers, and the TypeScript engine now
 loads every vector and differential case through a reviver that reads integer fields at the token
 level (Node ≥ 21 source access), so both engines reject `3.0` / `3e0` wherever an integer is
@@ -958,8 +1301,10 @@ vector carries, and states that no rule derives from it), and he is credited in 
 an earlier counter-signature runner of his own (this suite's counter-signature engine is
 `crypto/verify_crypto.py`); the sessions that write the v0.5.9 runner open nothing in this
 repository but `MANIFEST.json`, `LICENSE` and `vectors/`, and its author lists what else they saw,
-file names and the tag's commit message included. Fourteen of the 77 vectors added since v0.5.7
-(n107–n117, p63, n153, n165) were written here from inputs that author reported in #17 and #9. No
+file names and the tag's commit message included. Fourteen of the 77 vectors added after v0.5.7, up
+to v0.5.9 (n107–n117, p63, n153, n165), were written here from inputs that author reported in #17
+and #9, and n176, added with composition_independence, carries the member and value of that
+author's #17 probe. No
 outside run of either crypto profile at v0.5.9 has been reported here.
 
 No outside run of the chain-statement profile (`statement/`, v0.6.0 or v0.6.1) has been reported. A run of it is

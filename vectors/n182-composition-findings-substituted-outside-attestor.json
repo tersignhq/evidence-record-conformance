@@ -1,0 +1,39 @@
+{
+  "id": "n182-composition-findings-substituted-outside-attestor",
+  "kind": "composition_independence",
+  "expect": "reject",
+  "reason": "binding_reject",
+  "description": "p68's input with the findings substituted, their `result` changed to \"does not meet the stated terms\", while `findings_digest` is still the digest of the findings p68 presents; the findings still carry the attestation by 0x4444...4444. The decision does not commit to the presented findings, and the record rejects with binding_reject. p68 is the accepting twin: the same decision beside the findings it commits to. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "does not meet the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      },
+      {
+        "by": "0x4444444444444444444444444444444444444444"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}

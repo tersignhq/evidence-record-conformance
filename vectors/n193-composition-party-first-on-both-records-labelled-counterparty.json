@@ -1,0 +1,43 @@
+{
+  "id": "n193-composition-party-first-on-both-records-labelled-counterparty",
+  "kind": "composition_independence",
+  "expect": "reject",
+  "reason": "independence_reject",
+  "description": "n189's input with the decision attested first by 0x3333...3333 and then by the counterparty, both labelled `role: counterparty`: 0x3333...3333 is first in both lists, unlabelled on the findings and labelled `counterparty` on the decision. The findings are attested only by parties, and the record rejects with independence_reject. It has no accepting twin; p80, where the identifier first in both lists and labelled `counterparty` on the decision is 0x4444...4444, is the accepting side. README.md states what this vector pins (Composition: findings and the counterparty's decision).",
+  "input": {
+    "claimed": "independent",
+    "parties": [
+      "0x3333333333333333333333333333333333333333"
+    ],
+    "counterparty": "0x2222222222222222222222222222222222222222",
+    "findings": {
+      "work_digest": "0x47eeb2f690ac99a0506606e561be64ca7a40b63d9a534010770466d0290d8f72",
+      "result": "meets the stated terms",
+      "note": "synthetic findings record"
+    },
+    "findings_attestations": [
+      {
+        "by": "0x3333333333333333333333333333333333333333"
+      },
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "auditor"
+      }
+    ],
+    "decision": {
+      "findings_digest": "0x405baf8eb624d17cb0fc8d6c1059392e21498af94c9ce023fbf148b4c1593326",
+      "decision": "accepted",
+      "note": "synthetic decision record"
+    },
+    "decision_attestations": [
+      {
+        "by": "0x3333333333333333333333333333333333333333",
+        "role": "counterparty"
+      },
+      {
+        "by": "0x2222222222222222222222222222222222222222",
+        "role": "counterparty"
+      }
+    ]
+  }
+}
