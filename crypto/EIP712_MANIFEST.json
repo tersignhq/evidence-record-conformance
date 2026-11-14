@@ -11,7 +11,7 @@
  "primary_type": "Receipt",
  "type": "Receipt(uint256 version,string network,string resourceUrl,string payer,uint256 issuedAt,string transaction)",
  "integer_domain": "version and issuedAt (uint256, x402 Sec 5.3) are JSON integer tokens, and the token 1.0 is not one (en26); every integer in [0, 2**256 - 1] passes the field check, with no freshness or other policy bound on issuedAt (ep7, ep8, ep9); x402 Sec 5.5 step 6 leaves issuedAt to verifier policy",
- "signer_shape": "signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared case-insensitively with the recovered address (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects as malformed_input); surrounding whitespace, a 0X prefix and whether a mixed-case signer must be its EIP-55 checksum are not pinned",
+ "signer_shape": "signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared case-insensitively with the recovered address, after stripping surrounding whitespace and normalizing the 0x/0X prefix to lowercase (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects as malformed_input; ep10 pins whitespace-padding as accepted; ep11 pins an uppercase 0X prefix as accepted). Whether a mixed-case signer must be its EIP-55 checksum is not pinned. Pinned 2026-11-14, following @robertolocatelli81-dev's cleanroom run on issue #16 reading this field as not yet pinned",
  "defined_fields": "the input is a JSON object whose keys are exactly format, payload, signature and signer, and the payload has exactly the six Receipt fields; a key beyond them, in the envelope or in the payload, rejects as malformed_input whatever its value, before the signature is read (en35 adds x_unknown_2026: 1 to ep1's envelope, en34 to ep1's payload; ep1 accepts; en38 and en39 add a key whose value is null to the payload and to the envelope; en36 and en37 add one to the payload and to the envelope of en14's input, whose recovery byte is 29, and reject as malformed_input, not malformed_signature). The signature covers only the Receipt type's fields, so a payload field outside them is unsigned; rejecting it is how this suite meets x402 Sec 2's SHOULD to treat unknown extension-specific fields as unsupported (v0.5.9)",
  "reject_reasons": [
   "unsupported_format",
@@ -404,6 +404,26 @@
    "origin": {
     "class": "live-ledger-derived",
     "source": "ep9 with issuedAt written as true, on ep9's signature. x402 extension-offer-and-receipt.md types issuedAt in (among other places) Sec 5.2 (Receipt Payload Fields), row `issuedAt` | number | Yes; Sec 5.3 (Normative Schema), { \"name\": \"issuedAt\", \"type\": \"uint256\" }; Sec 6.5's receipt schema, \"issuedAt\": { \"type\": \"integer\" }. A JSON boolean is none of these. ep9 is its accepting twin; a runner that reads true as 1 accepts it"
+   }
+  },
+  {
+   "file": "ep10-signer-whitespace-padded.json",
+   "kind": "payload_signature",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep2's payload and signature with signer surrounding-whitespace-padded. Pins this suite's rule signer_shape (this manifest): surrounding whitespace is stripped before the case-insensitive comparison with the recovered address, never malformed_input. Written following @robertolocatelli81-dev's cleanroom run on issue #16 reading this as not yet pinned"
+   }
+  },
+  {
+   "file": "ep11-signer-0x-uppercase-prefix.json",
+   "kind": "payload_signature",
+   "expect": "valid",
+   "author": "Tersign (@wowlegend)",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep2's payload and signature with signer's 0x prefix written 0X. Pins this suite's rule signer_shape (this manifest): the prefix is part of the case-insensitive comparison with the recovered address, never malformed_input. Written following @robertolocatelli81-dev's cleanroom run on issue #16 reading this as not yet pinned"
    }
   },
   {
