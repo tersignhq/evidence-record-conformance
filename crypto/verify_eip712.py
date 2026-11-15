@@ -24,7 +24,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); sys.path.insert(0, os.path.dirname(HERE))
 from keccak import keccak256  # noqa: E402
 import secp256k1_recover as S  # noqa: E402
-from verify_crypto import norm_hex, _SIG_RE  # noqa: E402
+from verify_crypto import norm_hex, _SIG_RE, _HEX_RE  # noqa: E402
+
+_ASCII_WS = " \t\n\r\x0b\x0c"
+
+
+def _signer_norm(x, mut=None):
+    """signer_shape's normalization, with the one-site breakages the strip set is bounded against.
+    ascii_only_strip and nonhex_strip are the counter-signature profile's ascii_only_strip and
+    no_whitespace_strip classes, carried over so ep12 and en40 fail a runner mechanically rather
+    than being argued in prose: ASCII-space-only misses U+0085 and U+3000 (ep12), and stripping any
+    non-hex character removes U+FEFF, which is not Unicode White_Space (en40)."""
+    if mut == "signer_shape_unchecked":
+        return str(x).strip().lower()
+    if not isinstance(x, str):
+        return None
+    if mut == "ascii_only_strip":
+        y = x.strip(_ASCII_WS).lower()
+    elif mut == "nonhex_strip":
+        y = x.strip("".join(c for c in x if c not in "0123456789abcdefABCDEFxX")).lower()
+    else:
+        return norm_hex(x, 20)
+    return y if _HEX_RE[20].match(y) else None
 
 DOMAIN = {"name": "x402 receipt", "version": "1", "chainId": 1}
 DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId)"
@@ -122,7 +143,7 @@ def check(inp, mut=None):
                 return "reject", "malformed_input"
     if m["version"] != SUPPORTED_VERSION and mut != "no_version_check":
         return "reject", "unsupported_version"
-    signer = norm_hex(inp.get("signer"), 20) if mut != "signer_shape_unchecked" else str(inp.get("signer")).strip().lower()
+    signer = _signer_norm(inp.get("signer"), mut)
     if signer is None:
         return "reject", "malformed_input"
     b = _sig_shape(inp, mut)
@@ -155,6 +176,8 @@ MUTANTS = {   # each is a plausible one-site broken verifier; the suite must fai
     "integral_float_as_int": "en26-version-integral-float-token",
     "signature_before_payload": "en27-malformed-payload-and-signature",
     "signer_shape_unchecked": "en28-signer-not-an-address",
+    "ascii_only_strip": "ep12-signer-unicode-whitespace-padded",
+    "nonhex_strip": "en40-signer-zero-width-nobreak-space-padded",
     "uint_zero_rejected": "ep8-issuedat-zero",
     "bool_as_int": "en30-version-bool-true",
     "null_string_as_empty": "en32-transaction-null",

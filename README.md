@@ -742,7 +742,7 @@ differential battery adds the attested length under twenty values beside four co
 and position shapes, a position of 5001 digits, the head digest's shapes, a named first predecessor,
 links removed, a receipt without its digest, and a string appended to the attestations: 0 divergences
 over 19,469 cases, and 744 against v0.5.8's TypeScript engine. `verify_crypto.py --mutants` runs 27
-mutants and `verify_eip712.py --mutants` 21. The kinds stay at 11 and the reject-reason closure at 11.
+mutants and `verify_eip712.py --mutants` 23. The kinds stay at 11 and the reject-reason closure at 11.
 
 ## Defined members (v0.5.8)
 
