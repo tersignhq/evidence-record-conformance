@@ -11,7 +11,7 @@
  "primary_type": "Receipt",
  "type": "Receipt(uint256 version,string network,string resourceUrl,string payer,uint256 issuedAt,string transaction)",
  "integer_domain": "version and issuedAt (uint256, x402 Sec 5.3) are JSON integer tokens, and the token 1.0 is not one (en26); every integer in [0, 2**256 - 1] passes the field check, with no freshness or other policy bound on issuedAt (ep7, ep8, ep9); x402 Sec 5.5 step 6 leaves issuedAt to verifier policy",
- "signer_shape": "signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared case-insensitively with the recovered address, after stripping surrounding whitespace and normalizing the 0x/0X prefix to lowercase (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects as malformed_input; ep10 pins whitespace-padding as accepted; ep11 pins an uppercase 0X prefix as accepted). Whether a mixed-case signer must be its EIP-55 checksum is not pinned. Pinned 2026-11-14, following @robertolocatelli81-dev's cleanroom run on issue #16 reading this field as not yet pinned",
+ "signer_shape": "signer, the envelope key this suite adds beside x402's format, payload and signature, is 0x + 40 hex digits, compared case-insensitively with the recovered address, after stripping surrounding whitespace and normalizing the 0x/0X prefix to lowercase (ep1 declares a mixed-case signer and accepts; en28, 0x + 39 hex, rejects as malformed_input; ep10 pins whitespace-padding as accepted; ep11 pins an uppercase 0X prefix as accepted). The stripped set is Unicode White_Space, bounded from both sides: ep12 pads with U+3000 and U+0085, both White_Space and neither an ASCII space, and accepts, so a verifier that strips only U+0020 fails it; en40 pads with U+FEFF, which is not White_Space, and rejects as malformed_input, so a verifier that strips any non-hex character fails it. Whether a mixed-case signer must be its EIP-55 checksum is not pinned. Pinned 2026-11-14, following @robertolocatelli81-dev's cleanroom run on issue #16 reading this field as not yet pinned; the strip set added 2026-11-15, following the same reviewer's reading of PR #18 that ep10's U+0020-only pad left it undecided",
  "defined_fields": "the input is a JSON object whose keys are exactly format, payload, signature and signer, and the payload has exactly the six Receipt fields; a key beyond them, in the envelope or in the payload, rejects as malformed_input whatever its value, before the signature is read (en35 adds x_unknown_2026: 1 to ep1's envelope, en34 to ep1's payload; ep1 accepts; en38 and en39 add a key whose value is null to the payload and to the envelope; en36 and en37 add one to the payload and to the envelope of en14's input, whose recovery byte is 29, and reject as malformed_input, not malformed_signature). The signature covers only the Receipt type's fields, so a payload field outside them is unsigned; rejecting it is how this suite meets x402 Sec 2's SHOULD to treat unknown extension-specific fields as unsupported (v0.5.9)",
  "reject_reasons": [
   "unsupported_format",
@@ -410,7 +410,7 @@
    "file": "ep10-signer-whitespace-padded.json",
    "kind": "payload_signature",
    "expect": "valid",
-   "author": "Tersign (@wowlegend)",
+   "author": "@stillmarcus24",
    "origin": {
     "class": "live-ledger-derived",
     "source": "ep2's payload and signature with signer surrounding-whitespace-padded. Pins this suite's rule signer_shape (this manifest): surrounding whitespace is stripped before the case-insensitive comparison with the recovered address, never malformed_input. Written following @robertolocatelli81-dev's cleanroom run on issue #16 reading this as not yet pinned"
@@ -420,10 +420,30 @@
    "file": "ep11-signer-0x-uppercase-prefix.json",
    "kind": "payload_signature",
    "expect": "valid",
-   "author": "Tersign (@wowlegend)",
+   "author": "@stillmarcus24",
    "origin": {
     "class": "live-ledger-derived",
     "source": "ep2's payload and signature with signer's 0x prefix written 0X. Pins this suite's rule signer_shape (this manifest): the prefix is part of the case-insensitive comparison with the recovered address, never malformed_input. Written following @robertolocatelli81-dev's cleanroom run on issue #16 reading this as not yet pinned"
+   }
+  },
+  {
+   "file": "ep12-signer-unicode-whitespace-padded.json",
+   "kind": "payload_signature",
+   "expect": "valid",
+   "author": "@stillmarcus24",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep2's payload and signature with signer padded by U+3000 (ideographic space) and U+0085 (next line), both Unicode White_Space and neither an ASCII space. Pins which characters this suite's rule signer_shape (this manifest) strips: the set is Unicode White_Space, not ASCII space alone, so a verifier that strips only U+0020 rejects this vector as malformed_input while ep10 passes it. Written following @robertolocatelli81-dev's review of PR #18, which named ep10's U+0020-only pad as leaving the set unpinned; the counter-signature profile pins its own set the same way (cp10, cn17)"
+   }
+  },
+  {
+   "file": "en40-signer-zero-width-nobreak-space-padded.json",
+   "kind": "payload_signature",
+   "expect": "reject",
+   "author": "@stillmarcus24",
+   "origin": {
+    "class": "live-ledger-derived",
+    "source": "ep2's payload and signature with signer padded by U+FEFF (zero-width no-break space), which is NOT Unicode White_Space. It is the rejecting twin of ep12 and bounds the strip set from above: a verifier that strips any non-hex character around the address accepts this vector, and one that strips Unicode White_Space leaves U+FEFF in place, fails the 0x + 40 hex shape and rejects as malformed_input. Rests on this suite's rule signer_shape (this manifest); cn17 is the counter-signature profile's same case"
    }
   },
   {
